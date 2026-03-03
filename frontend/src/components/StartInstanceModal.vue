@@ -85,6 +85,10 @@ const props = defineProps({
   enableUserSelect: {
     type: Boolean,
     default: false
+  },
+  template: {
+    type: Object,
+    default: null
   }
 })
 

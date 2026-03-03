@@ -119,6 +119,14 @@
         </aside>
       </div>
 
+      <StartInstanceByTemplateModal
+        v-model:show="showStartModal"
+        :template="selectedTemplate"
+        :enable-user-select="false"
+        :readonly-config="true"
+        @success="onInstanceStarted"
+      />
+
       <n-empty v-if="!loading && !content && viewType !== 'category'" description="内容不存在" style="padding: 60px 0;">
         <template #extra>
           <n-button @click="$router.push('/app/contents')">返回列表</n-button>
@@ -132,7 +140,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { contentApi, instanceApi } from '@/api'
+import { contentApi, templateApi } from '@/api'
+import StartInstanceByTemplateModal from '@/components/StartInstanceByTemplateModal.vue'
 import { ArrowBackOutline, LinkOutline, PlayOutline } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -141,6 +150,8 @@ const message = useMessage()
 
 const loading = ref(true)
 const startingInstance = ref(false)
+const showStartModal = ref(false)
+const selectedTemplate = ref(null)
 const content = ref(null)
 const categoryTree = ref(null)
 const currentCategory = ref(null)
@@ -220,18 +231,20 @@ async function handleStartInstance() {
   
   startingInstance.value = true
   try {
-    const res = await instanceApi.startByTemplate({
-      name: content.value.title,
-      template_id: content.value.template_id
-    })
-    message.success(res.message || '实例已加入创建队列，请通过右上角队列按钮查看进度')
-    router.push('/app/my-instances')
+    const template = await templateApi.getDetail(content.value.template_id)
+    selectedTemplate.value = template
+    showStartModal.value = true
   } catch (err) {
     console.error('启动实例失败:', err)
     message.error('启动实例失败')
   } finally {
     startingInstance.value = false
   }
+}
+
+function onInstanceStarted() {
+  message.success('实例已加入创建队列，请通过右上角队列按钮查看进度')
+  router.push('/app/my-instances')
 }
 
 async function viewContent(item) {

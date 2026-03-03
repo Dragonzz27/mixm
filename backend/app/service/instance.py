@@ -249,10 +249,10 @@ class InstanceService:
 
             # Step 12: 生成本次实例资源名称
             pvc_name = f"edu-pvc-cs-{str(instance.user_id)}"  # 限制每个用户拥有自己的pvc，避免重复创建和资源浪费
-            deploy_name = f"edu-deploy-cs-{instance_id}"
-            svc_name = f"edu-svc-cs-{instance_id}"
-            middleware_name = f"edu-mid-cs-{instance_id}"
-            ingress_name = f"edu-ing-cs-{instance_id}"
+            deploy_name = f"deploy-cs-{instance_id}"
+            svc_name = f"svc-cs-{instance_id}"
+            middleware_name = f"mid-cs-{instance_id}"
+            ingress_name = f"ing-cs-{instance_id}"
             access_path = f"/instance/{instance_id}"
 
             # Step 13: 定义容器端口与 Service 端口

@@ -27,85 +27,71 @@
           </n-form-item>
 
           <n-divider>容器配置</n-divider>
-          <n-form-item label="镜像" path="config.image">
-            <n-input v-model:value="formData.config.image" placeholder="例如：codercom/code-server:latest" />
+          <n-form-item label="镜像仓库" path="config.repo_id">
+            <n-select 
+              v-model:value="formData.config.repo_id" 
+              :options="repoOptions" 
+              placeholder="选择镜像仓库"
+              @update:value="handleRepoChange"
+            />
           </n-form-item>
-          <n-form-item label="命名空间" path="config.namespace">
-            <n-input v-model:value="formData.config.namespace" placeholder="例如：default" />
+          <n-form-item label="镜像标签" path="config.repo_tag">
+            <n-select 
+              v-model:value="formData.config.repo_tag" 
+              :options="tagOptions" 
+              placeholder="选择镜像标签"
+              :loading="tagsLoading"
+              :disabled="!formData.config.repo_id"
+            />
           </n-form-item>
-          <n-form-item label="副本数" path="config.replicas">
-            <n-input-number v-model:value="formData.config.replicas" :min="1" :max="10" />
-          </n-form-item>
-
-          <n-row :gutter="24">
-            <n-col :span="24">
-              <n-form-item label="容器端口" path="config.container_port">
-                <n-input-number v-model:value="formData.config.container_port" :min="1" :max="65535" />
-              </n-form-item>
-            </n-col>
-          </n-row>
 
           <n-divider>资源限制</n-divider>
           <n-row :gutter="24">
             <n-col :span="12">
-              <n-form-item label="CPU限制" path="config.cpu_limit">
-                <n-input v-model:value="formData.config.cpu_limit" placeholder="例如：1 或 500m" />
+              <n-form-item label="CPU" path="config.cpu_limit">
+                <n-select 
+                  v-model:value="formData.config.cpu_limit" 
+                  :options="cpuOptions" 
+                  placeholder="选择CPU核数"
+                />
               </n-form-item>
             </n-col>
             <n-col :span="12">
-              <n-form-item label="内存限制" path="config.memory_limit_str">
-                <n-input v-model:value="formData.config.memory_limit_str" placeholder="例如：1Gi 或 512Mi" />
+              <n-form-item label="内存" path="config.memory_limit_str">
+                <n-select 
+                  v-model:value="formData.config.memory_limit_str" 
+                  :options="memoryOptions" 
+                  placeholder="选择内存大小"
+                />
               </n-form-item>
             </n-col>
           </n-row>
           <n-row :gutter="24">
             <n-col :span="12">
-              <n-form-item label="CPU请求" path="config.cpu_request">
-                <n-input v-model:value="formData.config.cpu_request" placeholder="例如：0.5 或 250m" />
+              <n-form-item label="临时存储" path="config.storage">
+                <n-select 
+                  v-model:value="formData.config.storage" 
+                  :options="storageOptions" 
+                  placeholder="选择存储大小"
+                />
               </n-form-item>
             </n-col>
             <n-col :span="12">
-              <n-form-item label="内存请求" path="config.memory_request">
-                <n-input v-model:value="formData.config.memory_request" placeholder="例如：512Mi 或 256Mi" />
+              <n-form-item label="GPU数量" path="config.gpu_limit">
+                <n-select
+                  v-model:value="formData.config.gpu_limit"
+                  :options="gpuOptions"
+                  placeholder="选择GPU数量"
+                />
               </n-form-item>
             </n-col>
           </n-row>
-
-          <n-form-item label="存储大小" path="config.storage">
-            <n-input v-model:value="formData.config.storage" placeholder="例如：1Gi 或 10Gi" />
-          </n-form-item>
-
-          <n-divider>环境变量</n-divider>
-          <n-form-item label="环境变量">
-            <n-space vertical style="width: 100%;">
-              <n-row v-for="(env, index) in formData.config.env" :key="index" :gutter="12" align="center">
-                <n-col :span="10">
-                  <n-input v-model:value="env.name" placeholder="变量名" />
-                </n-col>
-                <n-col :span="10">
-                  <n-input v-model:value="env.value" placeholder="变量值" />
-                </n-col>
-                <n-col :span="4">
-                  <n-button type="error" size="small" @click="removeEnv(index)">删除</n-button>
-                </n-col>
-              </n-row>
-              <n-button type="primary" size="small" @click="addEnv" style="width: 100%;">
-                <template #icon>
-                  <n-icon><add-outline /></n-icon>
-                </template>
-                添加环境变量
-              </n-button>
-            </n-space>
-          </n-form-item>
-
-          <n-divider>配置预览</n-divider>
-          <n-form-item label="JSON配置">
-            <n-input
-              v-model:value="configPreview"
-              type="textarea"
-              :rows="8"
-              readonly
-              placeholder="配置JSON预览"
+          <n-form-item label="单卡显存" path="config.gpu_memory_limit">
+            <n-select
+              v-model:value="formData.config.gpu_memory_limit"
+              :options="gpuMemoryOptions"
+              placeholder="选择每张GPU显存"
+              :disabled="formData.config.gpu_limit === 0"
             />
           </n-form-item>
         </n-form>
@@ -115,9 +101,10 @@
         <n-button type="primary" :loading="loading" @click="handleSubmit">确定</n-button>
       </template>
     </n-modal>
-    <StartInstanceModal
+    <StartInstanceByTemplateModal
       v-model:show="showStartModal"
       :template="selectedTemplate"
+      :enable-user-select="true"
       @success="onInstanceStarted"
     />
   </div>
@@ -125,10 +112,9 @@
 
 <script setup>
 import { ref, computed, onMounted, h, watch } from 'vue'
-import { NCard, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NInput, NInputNumber, NDivider, NRow, NCol, NIcon, NScrollbar, useMessage } from 'naive-ui'
-import { AddOutline } from '@vicons/ionicons5'
-import { templateApi } from '@/api'
-import StartInstanceModal from '@/components/StartInstanceModal.vue'
+import { NCard, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NInput, NInputNumber, NDivider, NRow, NCol, NScrollbar, NSelect, useMessage } from 'naive-ui'
+import { templateApi, imageApi } from '@/api'
+import StartInstanceByTemplateModal from '@/components/StartInstanceByTemplateModal.vue'
 
 const message = useMessage()
 const templates = ref([])
@@ -141,20 +127,76 @@ const searchKeyword = ref('')
 const pagination = ref({ pageSize: 10 })
 const formRef = ref(null)
 
+const repos = ref([])
+const tags = ref([])
+const tagsLoading = ref(false)
+
 // 默认配置
 const defaultConfig = {
-  image: 'codercom/code-server:latest',
+  repo_id: null,
+  repo_tag: null,
   namespace: 'default',
   replicas: 1,
-  container_port: 8080,
-  cpu_limit: '1',
-  memory_limit_str: '1Gi',
-  cpu_request: '0.5',
-  memory_request: '512Mi',
-  storage: '1Gi',
-  memory_limit: 1024,
-  env: []
+  cpu_limit: 1,
+  memory_limit_str: '2Gi',
+  storage: 1,
+  gpu_limit: 1,
+  gpu_memory_limit: 2048
 }
+
+const cpuOptions = [
+  { label: '0.5核', value: 0.5 },
+  { label: '1核', value: 1 },
+  { label: '2核', value: 2 },
+  { label: '4核', value: 4 },
+  { label: '8核', value: 8 },
+  { label: '16核', value: 16 },
+]
+
+const memoryOptions = [
+  { label: '512Mi', value: '512Mi' },
+  { label: '1Gi', value: '1Gi' },
+  { label: '2Gi', value: '2Gi' },
+  { label: '4Gi', value: '4Gi' },
+  { label: '8Gi', value: '8Gi' },
+  { label: '16Gi', value: '16Gi' },
+  { label: '32Gi', value: '32Gi' },
+]
+
+const storageOptions = [
+  { label: '1Gi', value: 1 },
+  { label: '5Gi', value: 5 },
+  { label: '10Gi', value: 10 },
+  { label: '20Gi', value: 20 },
+  { label: '40Gi', value: 40 },
+  { label: '200Gi', value: 200 },
+]
+
+const gpuOptions = [
+  { label: '0张', value: 0 },
+  { label: '1张', value: 1 },
+  { label: '2张', value: 2 },
+  { label: '4张', value: 4 },
+  { label: '8张', value: 8 },
+]
+
+const gpuMemoryOptions = [
+  { label: '2Gi', value: 2048 },
+  { label: '4Gi', value: 4096 },
+  { label: '8Gi', value: 8192 },
+  { label: '12Gi', value: 12288 },
+  { label: '16Gi', value: 16384 },
+  { label: '24Gi', value: 24576 },
+  { label: '32Gi', value: 32600 },
+]
+
+const repoOptions = computed(() => {
+  return repos.value.map(r => ({ label: r.name, value: r.id }))
+})
+
+const tagOptions = computed(() => {
+  return tags.value.map(t => ({ label: t.name, value: t.name }))
+})
 
 const formData = ref({
   name: '',
@@ -164,19 +206,16 @@ const formData = ref({
 
 const rules = {
   name: [{ required: true, message: '请输入模板名称' }],
-  'config.image': [{ required: true, message: '请输入镜像地址' }],
+  'config.repo_id': [{ required: true, message: '请选择镜像仓库' }],
+  'config.repo_tag': [{ required: true, message: '请选择镜像标签' }],
   'config.namespace': [{ required: true, message: '请输入命名空间' }],
-  'config.replicas': [{ required: true, message: '请输入副本数', type: 'number' }],
   'config.container_port': [{ required: true, message: '请输入容器端口', type: 'number' }],
-  'config.cpu_limit': [{ required: true, message: '请输入CPU限制' }],
-  'config.memory_limit_str': [{ required: true, message: '请输入内存限制' }],
-  'config.storage': [{ required: true, message: '请输入存储大小' }]
+  'config.cpu_limit': [{ required: true, message: '请选择CPU' }],
+  'config.memory_limit_str': [{ required: true, message: '请选择内存' }],
+  'config.storage': [{ required: true, message: '请选择存储大小' }],
+  'config.gpu_limit': [{ required: true, message: '请选择GPU数量' }],
+  'config.gpu_memory_limit': [{ required: true, message: '请选择单卡显存' }]
 }
-
-// 配置预览
-const configPreview = computed(() => {
-  return JSON.stringify(formData.value.config, null, 2)
-})
 
 const columns = [
   { title: 'ID', key: 'id', width: 60 },
@@ -212,9 +251,10 @@ async function loadTemplates() {
       } catch (e) {
         config = {}
       }
+      console.log('Parsed config for template', t.id, config)
       return {
         ...t,
-        image: config.image || '-',
+        image: buildImageString(config) || '-',
         replicas: config.replicas || 1
       }
     })
@@ -230,11 +270,88 @@ function parseConfig(configStr) {
     const parsed = JSON.parse(configStr)
     return {
       ...defaultConfig,
-      ...parsed,
-      env: parsed.env || []
+      ...parsed
     }
   } catch (e) {
     return { ...defaultConfig }
+  }
+}
+
+function getRepoNameById(repoId) {
+  if (repoId === null || repoId === undefined) return ''
+  const repo = repos.value.find(r => r.id === repoId)
+  return repo?.name || ''
+}
+
+function buildImageString(config) {
+  if (!config) return ''
+  if (typeof config.image === 'string' && config.image.trim()) {
+    return config.image.trim()
+  }
+
+  const repoTag = typeof config.repo_tag === 'string' ? config.repo_tag.trim() : ''
+  if (!repoTag) return ''
+
+  if (repoTag.includes(':')) {
+    return repoTag
+  }
+
+  const repoName = config.repo_name || getRepoNameById(config.repo_id)
+  return repoName ? `${repoName}:${repoTag}` : ''
+}
+
+async function loadRepos() {
+  try {
+    const [myRes, publicRes] = await Promise.all([
+      imageApi.getList({ type: 'my' }),
+      imageApi.getList({ type: 'public' })
+    ])
+    const myRepos = myRes.repositories || []
+    const publicRepos = publicRes.repositories || []
+    const mergedRepos = [...myRepos, ...publicRepos]
+    const repoMap = new Map()
+
+    mergedRepos.forEach((repo) => {
+      const repoKey = repo.id ?? repo.name
+      if (repoKey === undefined || repoKey === null) {
+        return
+      }
+      if (!repoMap.has(repoKey)) {
+        repoMap.set(repoKey, repo)
+      }
+    })
+
+    repos.value = Array.from(repoMap.values())
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function loadTags(repoId) {
+  if (!repoId) {
+    tags.value = []
+    return
+  }
+  tagsLoading.value = true
+  try {
+    const res = await imageApi.getTags(repoId)
+    tags.value = res || []
+  } catch (err) {
+    console.error(err)
+  } finally {
+    tagsLoading.value = false
+  }
+}
+
+function handleRepoChange(repoId) {
+  formData.value.config.repo_tag = null
+  loadTags(repoId)
+}
+
+async function openModal() {
+  await loadRepos()
+  if (formData.value.config.repo_id) {
+    await loadTags(formData.value.config.repo_id)
   }
 }
 
@@ -243,8 +360,9 @@ function handleAddClick() {
   formData.value = {
     name: '',
     description: '',
-    config: { ...defaultConfig, env: [] }
+    config: { ...defaultConfig }
   }
+  openModal()
   showModal.value = true
 }
 
@@ -254,6 +372,7 @@ function handleEdit(row) {
     ...row,
     config: parseConfig(row.config)
   }
+  openModal()
   showModal.value = true
 }
 
@@ -262,24 +381,24 @@ function handleStartClick(row) {
   showStartModal.value = true
 }
 
-function addEnv() {
-  formData.value.config.env.push({ name: '', value: '' })
-}
-
-function removeEnv(index) {
-  formData.value.config.env.splice(index, 1)
-}
+watch(() => formData.value.config.gpu_limit, (val) => {
+  if (val === 0) {
+    formData.value.config.gpu_memory_limit = 0
+  }
+})
 
 async function handleSubmit() {
-  // 过滤掉空的环境变量
-  const validEnv = formData.value.config.env.filter(e => e.name.trim() !== '')
-  formData.value.config.env = validEnv
+  const configToSubmit = {
+    ...formData.value.config,
+    repo_name: getRepoNameById(formData.value.config.repo_id)
+  }
+  configToSubmit.image = buildImageString(configToSubmit)
 
   // 构建提交数据
   const submitData = {
     name: formData.value.name,
     description: formData.value.description,
-    config: JSON.stringify(formData.value.config)
+    config: JSON.stringify(configToSubmit)
   }
 
   if (isEdit.value) {
