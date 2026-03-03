@@ -164,7 +164,7 @@ function formatTime(timestamp) {
 }
 
 function goBack() {
-  router.push('/app/images')
+  router.push('/admin/images')
 }
 
 async function deleteTag(tagName) {
