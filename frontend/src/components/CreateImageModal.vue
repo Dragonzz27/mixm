@@ -12,7 +12,7 @@
         <n-input v-model:value="form.name" placeholder="请输入仓库名称" />
       </n-form-item>
       <n-form-item label="访问权限" path="is_public">
-        <n-radio-group v-model:value="form.is_public">
+        <n-radio-group v-model:value="form.is_public" disabled>
           <n-space>
             <n-radio :value="false">私有</n-radio>
             <n-radio :value="true">公开</n-radio>
@@ -46,7 +46,7 @@ const formRef = ref(null)
 const submitting = ref(false)
 const form = ref({
   name: '',
-  is_public: false
+  is_public: true
 })
 
 const rules = {

@@ -10,7 +10,7 @@
           class="image-tabs"
           @update:value="handleTabChange"
         >
-          <n-tab name="my">我的</n-tab>
+          <!-- <n-tab name="my">我的</n-tab>   EDU版本不开放 -->
           <n-tab name="public">公开</n-tab>
         </n-tabs>
       </div>
@@ -122,7 +122,7 @@ const userStore = useUserStore()
 const loading = ref(false)
 const repositories = ref([])
 const showCreateModal = ref(false)
-const activeTab = ref('my')
+const activeTab = ref('public')
 const searchText = ref('')
 const page = ref(1)
 const pageSize = ref(20)
@@ -137,10 +137,10 @@ const currentUserId = computed(() => userStore.userInfo?.id)
 
 function getMoreOptions(repo) {
   return [
-    { 
-      label: repo.is_public ? '设为私有' : '设为公开', 
-      key: 'toggle_public' 
-    },
+    // { 
+    //   label: repo.is_public ? '设为私有' : '设为公开', 
+    //   key: 'toggle_public' 
+    // },
     { label: '删除', key: 'delete' }
   ]
 }
@@ -208,7 +208,7 @@ function formatTime(timestamp) {
 }
 
 function goToDetail(id) {
-  router.push(`/app/images/${id}`)
+  router.push(`/admin/images/${id}`)
 }
 
 async function deleteRepo(id) {

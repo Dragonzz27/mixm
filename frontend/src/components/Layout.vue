@@ -113,7 +113,6 @@ const menuItems = [
   { key: 'ClientHome', label: '首页', path: '/app', icon: HomeOutline },
   { key: 'ClientContents', label: '内容浏览', path: '/app/contents', icon: BookOutline },
   { key: 'ClientMyInstances', label: '我的实例', path: '/app/my-instances', icon: CubeOutline },
-  { key: 'ClientImageRepositories', label: '镜像仓库', path: '/app/images', icon: ImageOutline },
   { type: 'divider', key: 'd1' },
   { key: 'Dashboard', label: '仪表盘', path: '/admin', icon: SpeedometerOutline },
   { key: 'Users', label: '用户管理', path: '/admin/users', icon: PeopleOutline },
@@ -121,6 +120,7 @@ const menuItems = [
   { key: 'Contents', label: '内容管理', path: '/admin/contents', icon: DocumentTextOutline },
   { key: 'Templates', label: '模板管理', path: '/admin/templates', icon: FileTrayFullOutline },
   { key: 'Instances', label: '实例管理', path: '/admin/instances', icon: ServerOutline },
+  { key: 'AdminImageRepositories', label: '镜像仓库', path: '/admin/images', icon: ImageOutline },
   { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: LayersOutline }
 ]
 
@@ -141,9 +141,6 @@ const activeMenu = computed(() => {
   }
   if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) {
     return 'ClientMyInstances'
-  }
-  if (['ClientImageRepositories', 'ClientImageDetail'].includes(currentRouteName)) {
-    return 'ClientImageRepositories'
   }
   
   // 管理端路由匹配
