@@ -21,19 +21,29 @@ class QueueTask:
         self,
         task_id: str,
         instance_name: str,
-        template_id: int,
         user_id: int,
         namespace: str,
-        template_name: str = "",
         username: str = "",
+        repo_id: Optional[int] = None,
+        repo_tag: Optional[str] = None,
+        cpu_limit: float = 1.0,
+        memory_limit: str = "1Gi",
+        storage_limit: int = 1,
+        gpu_limit: int = 0,
+        gpu_memory_limit: int = 0,
     ):
         self.task_id = task_id
         self.instance_name = instance_name
-        self.template_id = template_id
         self.user_id = user_id
         self.namespace = namespace
-        self.template_name = template_name
         self.username = username
+        self.repo_id = repo_id
+        self.repo_tag = repo_tag
+        self.cpu_limit = cpu_limit
+        self.memory_limit = memory_limit
+        self.storage_limit = storage_limit
+        self.gpu_limit = gpu_limit
+        self.gpu_memory_limit = gpu_memory_limit
         self.status = TaskStatus.PENDING
         self.instance_id: Optional[int] = None
         self.error: Optional[str] = None
@@ -45,11 +55,16 @@ class QueueTask:
         return {
             "task_id": self.task_id,
             "instance_name": self.instance_name,
-            "template_id": self.template_id,
             "user_id": self.user_id,
             "namespace": self.namespace,
-            "template_name": self.template_name,
             "username": self.username,
+            "repo_id": self.repo_id,
+            "repo_tag": self.repo_tag,
+            "cpu_limit": self.cpu_limit,
+            "memory_limit": self.memory_limit,
+            "storage_limit": self.storage_limit,
+            "gpu_limit": self.gpu_limit,
+            "gpu_memory_limit": self.gpu_memory_limit,
             "status": self.status.value,
             "instance_id": self.instance_id,
             "error": self.error,
@@ -118,7 +133,6 @@ class InstanceQueueService:
         try:
             instance_data = InstanceCreate(
                 name=task.instance_name,
-                template_id=task.template_id,
                 user_id=task.user_id,
                 namespace=task.namespace,
             )
@@ -126,7 +140,17 @@ class InstanceQueueService:
             from app.service.instance import InstanceService
 
             instance_service = InstanceService()
-            result = instance_service.create(db, instance_data)
+            result = instance_service.create(
+                db,
+                instance_data,
+                repo_id=task.repo_id,
+                repo_tag=task.repo_tag,
+                cpu_limit=task.cpu_limit,
+                memory_limit=task.memory_limit,
+                storage_limit=task.storage_limit,
+                gpu_limit=task.gpu_limit,
+                gpu_memory_limit=task.gpu_memory_limit,
+            )
 
             task.instance_id = result.id
             task.status = TaskStatus.COMPLETED
@@ -146,21 +170,31 @@ class InstanceQueueService:
     def add_task(
         self,
         instance_name: str,
-        template_id: int,
         user_id: int,
         namespace: str,
-        template_name: str = "",
         username: str = "",
+        repo_id: Optional[int] = None,
+        repo_tag: Optional[str] = None,
+        cpu_limit: float = 1.0,
+        memory_limit: str = "1Gi",
+        storage_limit: int = 1,
+        gpu_limit: int = 0,
+        gpu_memory_limit: int = 0,
     ) -> QueueTask:
         task_id = str(uuid.uuid4())[:8]
         task = QueueTask(
             task_id=task_id,
             instance_name=instance_name,
-            template_id=template_id,
             user_id=user_id,
             namespace=namespace,
-            template_name=template_name,
             username=username,
+            repo_id=repo_id,
+            repo_tag=repo_tag,
+            cpu_limit=cpu_limit,
+            memory_limit=memory_limit,
+            storage_limit=storage_limit,
+            gpu_limit=gpu_limit,
+            gpu_memory_limit=gpu_memory_limit,
         )
         with self._lock:
             self._queue.append(task)

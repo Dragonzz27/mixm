@@ -82,7 +82,8 @@ import {
   FileTrayFullOutline,
   ServerOutline,
   LayersOutline,
-  ListOutline
+  ListOutline,
+  ImageOutline
 } from '@vicons/ionicons5'
 import QueueStatusModal from './QueueStatusModal.vue'
 import { instanceApi } from '@/api'
@@ -112,6 +113,7 @@ const menuItems = [
   { key: 'ClientHome', label: '首页', path: '/app', icon: HomeOutline },
   { key: 'ClientContents', label: '内容浏览', path: '/app/contents', icon: BookOutline },
   { key: 'ClientMyInstances', label: '我的实例', path: '/app/my-instances', icon: CubeOutline },
+  { key: 'ClientImageRepositories', label: '镜像仓库', path: '/app/images', icon: ImageOutline },
   { type: 'divider', key: 'd1' },
   { key: 'Dashboard', label: '仪表盘', path: '/admin', icon: SpeedometerOutline },
   { key: 'Users', label: '用户管理', path: '/admin/users', icon: PeopleOutline },
@@ -139,6 +141,9 @@ const activeMenu = computed(() => {
   }
   if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) {
     return 'ClientMyInstances'
+  }
+  if (['ClientImageRepositories', 'ClientImageDetail'].includes(currentRouteName)) {
+    return 'ClientImageRepositories'
   }
   
   // 管理端路由匹配

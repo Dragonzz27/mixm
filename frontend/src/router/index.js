@@ -58,6 +58,18 @@ const routes = [
         name: 'ClientContent',
         meta: { title: '内容详情' },
         component: () => import('@/views/client/ContentDetail.vue')
+      },
+      {
+        path: 'images',
+        name: 'ClientImageRepositories',
+        meta: { title: '镜像仓库' },
+        component: () => import('@/views/client/ImageRepositories.vue')
+      },
+      {
+        path: 'images/:id',
+        name: 'ClientImageDetail',
+        meta: { title: '镜像详情' },
+        component: () => import('@/views/client/ImageDetail.vue')
       }
     ]
   },

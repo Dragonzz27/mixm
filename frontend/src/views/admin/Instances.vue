@@ -3,28 +3,20 @@
     <n-card title="实例管理">
       <template #header-extra>
         <n-space>
-          <n-select
-            v-model:value="filterTemplateId"
-            :options="templateOptions"
-            clearable
-            placeholder="按模板筛选"
-            style="width: 180px;"
-            @update:value="filterInstances"
-          />
           <n-button type="primary" @click="showStartModal = true">启动新实例</n-button>
           <n-button @click="loadData">刷新</n-button>
         </n-space>
       </template>
       <n-data-table
         :columns="columns"
-        :data="filteredInstances"
+        :data="instances"
         :pagination="pagination"
         :bordered="false"
       />
     </n-card>
     <StartInstanceModal
       v-model:show="showStartModal"
-      :template="null"
+      :enable-user-select="true"
       @success="loadData"
     />
     <InstanceConfigModal
@@ -35,21 +27,55 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NSpace, NSelect, NTag, useMessage } from 'naive-ui'
-import { instanceApi, templateApi } from '@/api'
+import { ref, onMounted, h } from 'vue'
+import { NCard, NButton, NDataTable, NSpace, NTag, useMessage } from 'naive-ui'
+import { instanceApi } from '@/api'
 import StartInstanceModal from '@/components/StartInstanceModal.vue'
 import InstanceConfigModal from '@/components/InstanceConfigModal.vue'
 
 const message = useMessage()
 const instances = ref([])
-const templates = ref([])
-const filteredInstances = ref([])
 const showStartModal = ref(false)
 const showConfigModal = ref(false)
 const currentConfig = ref(null)
-const filterTemplateId = ref(null)
 const pagination = ref({ pageSize: 10 })
+
+function parseConfig(config) {
+  if (!config) return {}
+  if (typeof config === 'string') {
+    try {
+      return JSON.parse(config)
+    } catch (err) {
+      return {}
+    }
+  }
+  return config
+}
+
+function resolveGpuLimit(row) {
+  if (row.gpu_limit !== undefined && row.gpu_limit !== null) {
+    return Number(row.gpu_limit) || 0
+  }
+  const config = parseConfig(row.config)
+  return Number(config.gpu_limit) || 0
+}
+
+function resolveGpuMemoryLimit(row) {
+  if (row.gpu_memory_limit !== undefined && row.gpu_memory_limit !== null) {
+    return Number(row.gpu_memory_limit) || 0
+  }
+  const config = parseConfig(row.config)
+  return Number(config.gpu_memory_limit) || 0
+}
+
+function formatGpuMemory(mb) {
+  const memoryMb = Number(mb) || 0
+  if (memoryMb <= 0) return '-'
+  if (memoryMb % 1024 === 0) {
+    return `${memoryMb / 1024}Gi`
+  }
+  return `${memoryMb}Mi`
+}
 
 function getStatusType(status) {
   switch (status) {
@@ -61,30 +87,10 @@ function getStatusType(status) {
   }
 }
 
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
-
-function formatMB(mb) {
-  if (!mb || mb === 0) return '0 MB'
-  if (mb >= 1024) {
-    return parseFloat((mb / 1024).toFixed(1)) + ' GB'
-  }
-  return mb + ' MB'
-}
-
-const templateOptions = computed(() => {
-  return templates.value.map(t => ({ label: t.name, value: t.id }))
-})
-
 const columns = [
-  { title: 'ID', key: 'id', width: 60 },
+  { title: 'ID', key: 'id', width: 160 },
   { title: '实例名称', key: 'name', width: 160 },
-  { title: '模板', key: 'template_name', width: 120 },
+  { title: '镜像', key: 'image', width: 200, render: (row) => h('span', row.image || '-') },
   {
     title: '状态',
     key: 'status',
@@ -95,18 +101,30 @@ const columns = [
   { title: '副本数', key: 'replicas', width: 80 },
   {
     title: 'CPU',
-    key: 'cpu_usage',
+    key: 'cpu_limit',
     width: 100,
-    render: (row) => h('span', `${row.cpu_usage}%`)
+    render: (row) => h('span', `${row.cpu_limit || 1}核`)
   },
   {
     title: '内存',
-    key: 'memory_usage',
+    key: 'memory_limit',
     width: 140,
-    render: (row) => h('span', `${formatMB(row.memory_usage)} / ${formatMB(row.memory_limit)}`)
+    render: (row) => h('span', row.memory_limit || '-')
+  },
+  {
+    title: 'GPU数量',
+    key: 'gpu_limit',
+    width: 100,
+    render: (row) => h('span', `${resolveGpuLimit(row)}张`)
+  },
+  {
+    title: '单卡显存',
+    key: 'gpu_memory_limit',
+    width: 120,
+    render: (row) => h('span', formatGpuMemory(resolveGpuMemoryLimit(row)))
   },
   { title: '绑定用户', key: 'username', width: 100 },
-  { title: '启动时间', key: 'started_at', width: 180 },
+  { title: '启动时间', key: 'started_at', width: 150 },
   {
     title: '操作',
     key: 'actions',
@@ -125,23 +143,17 @@ const columns = [
 
 async function loadData() {
   try {
-    const [instancesRes, templatesRes] = await Promise.all([
-      instanceApi.getList({}),
-      templateApi.getList({})
-    ])
+    const instancesRes = await instanceApi.getList({})
     instances.value = instancesRes.instances || []
-    templates.value = templatesRes.templates || []
-    filterInstances()
+    for (const instance of instances.value) {
+      if (instance.started_at) {
+        instance.name = instance.name.split('-').slice(0, -1).join('-')
+        instance.image = instance.image.split('/').pop()
+        instance.started_at = new Date(instance.started_at).toLocaleString()
+      }
+    }
   } catch (err) {
     console.error(err)
-  }
-}
-
-function filterInstances() {
-  if (filterTemplateId.value) {
-    filteredInstances.value = instances.value.filter(i => i.template_id === filterTemplateId.value)
-  } else {
-    filteredInstances.value = instances.value
   }
 }
 
@@ -176,18 +188,33 @@ async function handleDelete(id) {
 }
 
 function handleViewConfig(row) {
-  const config = row.config ? JSON.parse(row.config) : {}
-  const hostIp = window.location.hostname
+  const config = parseConfig(row.config)
+  const sshHost = row.hostIp || ''
+  const sshPort = row.ssh_port || ''
+  const sshUsername = row.ssh_username || ''
+  const sshConnection = sshUsername && sshPort ? `ssh ${sshUsername}@${sshHost} -p ${sshPort}` : ''
+  const endpoint = row.endpoint || `/${row.id}`
+  const accessPort = row.port || 80
+  const codeServerPassword = config.password || ''
+  
   currentConfig.value = {
     id: row.id,
     name: row.name,
-    image: 'codercom/code-server:latest',
-    accessUrl: `http://${hostIp}:18800/${row.id}/`,
-    password: config.password || '无',
-    cpuLimit: '1',
-    memoryLimit: formatMB(row.memory_limit),
+    image: row.image || '-',
+    cpuLimit: row.cpu_limit || 1,
+    memoryLimit: row.memory_limit || '1Gi',
+    storageLimit: row.storage_limit || 1,
+    gpuLimit: resolveGpuLimit(row),
+    gpuMemoryLimit: resolveGpuMemoryLimit(row),
     namespace: row.namespace,
-    portMapping: '18800 -> 80'
+    sshHost: sshHost,
+    sshPort: sshPort,
+    sshUsername: sshUsername,
+    sshPassword: row.ssh_password || '',
+    sshConnection: sshConnection,
+    endpoint: endpoint,
+    accessPort: accessPort,
+    codeServerPassword: codeServerPassword
   }
   showConfigModal.value = true
 }
