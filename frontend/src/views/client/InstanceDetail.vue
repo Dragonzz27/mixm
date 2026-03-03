@@ -9,7 +9,12 @@
       </router-link>
       <h1>{{ instance.name }}</h1>
       <div class="header-actions">
-        <!-- 新增：侧边栏折叠/展开按钮 -->
+        <n-button secondary @click="showConfigModal = true">
+          <template #icon>
+            <n-icon><SettingsOutline /></n-icon>
+          </template>
+          配置
+        </n-button>
         <n-button secondary @click="toggleSidebar">
           <template #icon>
             <n-icon>
@@ -20,7 +25,6 @@
           {{ isSidebarOpen ? '隐藏信息' : '显示信息' }}
         </n-button>
         
-        <!-- <n-tag :type="statusType" size="medium">{{ instance.status }}</n-tag> -->
         <n-button type="primary" @click="handleStart" v-if="instance.status !== 'running'">
           启动
         </n-button>
@@ -32,9 +36,7 @@
     </div>
 
     <div class="detail-content">
-      <!-- 修改：动态绑定 class，添加 is-collapsed 状态 -->
       <aside class="info-panel" :class="{ 'is-collapsed': !isSidebarOpen }">
-        <!-- 新增：内部包裹层，防止动画过程中的文字换行挤压 -->
         <div class="info-panel-inner">
           <n-card title="实例信息" :bordered="false">
             <n-descriptions :column="1" label-placement="left">
@@ -43,7 +45,7 @@
               <n-descriptions-item label="状态">
                 <n-tag :type="statusType" size="small">{{ instance.status }}</n-tag>
               </n-descriptions-item>
-              <n-descriptions-item label="模板">{{ instance.template_id || 'N/A' }}</n-descriptions-item>
+              <n-descriptions-item label="镜像">{{ instance.image || 'N/A' }}</n-descriptions-item>
               <n-descriptions-item label="创建时间">{{ formatTime(instance.created_at) }}</n-descriptions-item>
               <n-descriptions-item label="更新时间">{{ formatTime(instance.updated_at) }}</n-descriptions-item>
             </n-descriptions>
@@ -53,10 +55,11 @@
 
           <n-card title="资源" :bordered="false">
             <n-descriptions :column="1" label-placement="left">
-              <n-descriptions-item label="CPU">{{ instance.config?.cpu_limit }}</n-descriptions-item>
-              <n-descriptions-item label="内存">{{ instance.config?.memory_limit  }}</n-descriptions-item>
-              <!-- <n-descriptions-item label="副本数">{{ instance.replicas || 1 }}</n-descriptions-item> -->
-              <!-- <n-descriptions-item label="端口">{{ instance.port || 18800 }}</n-descriptions-item> -->
+              <n-descriptions-item label="CPU">{{ instance.config?.cpu_limit || instance.config?.cpuLimit }}</n-descriptions-item>
+              <n-descriptions-item label="内存">{{ instance.config?.memory_limit || instance.config?.memoryLimit }}</n-descriptions-item>
+              <n-descriptions-item label="存储">{{ instance.config?.storage_limit || instance.config?.storageLimit }} Gi</n-descriptions-item>
+              <n-descriptions-item label="GPU">{{ instance.config?.gpu_limit || instance.config?.gpuLimit || 0 }} 张</n-descriptions-item>
+              <n-descriptions-item label="单卡显存">{{ formatGpuMemory(instance.config?.gpu_memory_limit || instance.config?.gpuMemoryLimit) }}</n-descriptions-item>
             </n-descriptions>
           </n-card>
 
@@ -117,6 +120,11 @@
         </div>
       </main>
     </div>
+
+    <InstanceConfigModal
+      v-model:show="showConfigModal"
+      :config="instanceConfig"
+    />
   </div>
 </template>
 
@@ -125,16 +133,16 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
 import { instanceApi } from '@/api'
-// 导入新的图标
 import { 
   ArrowBackOutline, 
   ExpandOutline, 
   ContractOutline,
   EyeOutline,
-  EyeOffOutline
+  EyeOffOutline,
+  SettingsOutline
 } from '@vicons/ionicons5'
+import InstanceConfigModal from '@/components/InstanceConfigModal.vue'
 
-// ... (保留原有的路由和 naive-ui 钩子) ...
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
@@ -143,9 +151,8 @@ const dialog = useDialog()
 const previewPanel = ref(null)
 const isFullscreen = ref(false)
 const isIframeLoading = ref(true)
-
-// 新增：控制侧边栏折叠状态的变量
 const isSidebarOpen = ref(true)
+const showConfigModal = ref(false)
 
 const instance = ref({
   id: route.params.id,
@@ -159,15 +166,37 @@ const instance = ref({
   replicas: null,
   port: null,
   ip: null,
-  endpoint: null
+  endpoint: null,
+  image: null
 })
 
-// 新增：切换侧边栏状态的方法
+const instanceConfig = computed(() => {
+  const config = instance.value.config || {}
+  return {
+    id: instance.value.id,
+    name: instance.value.name,
+    image: instance.value.image || '-',
+    cpuLimit: config.cpu_limit || config.cpuLimit || '-',
+    memoryLimit: config.memory_limit || config.memoryLimit || '-',
+    storageLimit: config.storage_limit || config.storageLimit || '-',
+    gpuLimit: config.gpu_limit || config.gpuLimit || 0,
+    gpuMemoryLimit: config.gpu_memory_limit || config.gpuMemoryLimit || 0,
+    namespace: instance.value.namespace || 'default',
+    sshConnection: `ssh ${config.sshUsername || 'root'}@${instance.value.ip || 'localhost'} -p ${config.sshPort || 22}`,
+    sshUsername: config.sshUsername || 'root',
+    sshPort: config.sshPort || 22,
+    sshPassword: config.sshPassword || '-',
+    sshHost: instance.value.ip || '',
+    endpoint: instance.value.endpoint || '',
+    accessPort: instance.value.port || 80,
+    codeServerPassword: config.password || ''
+  }
+})
+
 function toggleSidebar() {
   isSidebarOpen.value = !isSidebarOpen.value
 }
 
-// ... (完全保留原有的 computed 和方法: statusType, codeServerUrl, toggleFullscreen 等) ...
 const statusType = computed(() => {
   switch (instance.value.status) {
     case 'running': return 'success'
@@ -181,12 +210,12 @@ const show_code_server_password = ref("")
 
 const codeServerUrl = computed(() => {
   if (instance.value.status !== 'running') return ''
-  const hostIp = instance.value.hostIp
+  const hostIp = instance.value.ip
   const endpoint = instance.value.endpoint || `/${instance.value.id}`
   const port = instance.value.port || 80
   let config = {}
   try {
-    config = instance.value.config
+    config = instance.value.config || {}
   } catch (e) {
     console.error('Failed to parse config:', e)
   }
@@ -195,6 +224,16 @@ const codeServerUrl = computed(() => {
   show_code_server_password.value = password
   return `http://${hostIp}:${port}${endpoint}/?password=${encodeURIComponent(password)}`
 })
+
+function formatGpuMemory(mb) {
+  if (!mb) return '-'
+  const memoryMb = Number(mb) || 0
+  if (memoryMb <= 0) return '-'
+  if (memoryMb % 1024 === 0) {
+    return `${memoryMb / 1024}Gi`
+  }
+  return `${memoryMb}Mi`
+}
 
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
@@ -271,6 +310,7 @@ async function handleDelete() {
     }
   })
 }
+
 onMounted(() => {
   fetchInstance()
   document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -282,7 +322,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 原有的基础布局保持不变 */
 .instance-detail {
   display: flex;
   flex-direction: column;
@@ -323,41 +362,34 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-/* ================= 核心修改区域 ================= */
 .detail-content {
   display: flex;
   flex: 1;
-  /* 移除原本的 gap: 12px; 改用 info-panel 的 margin-right 实现间距，方便折叠动画 */
   overflow: hidden; 
 }
 
 .info-panel {
   width: 300px;
-  margin-right: 12px; /* 替代原本的 gap */
+  margin-right: 12px;
   flex-shrink: 0;
-  overflow-x: hidden; /* 折叠时隐藏溢出内容 */
+  overflow-x: hidden;
   overflow-y: auto;
-  /* 添加平滑动画效果 */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 1;
 }
 
-/* 折叠状态的样式 */
 .info-panel.is-collapsed {
   width: 0;
-  margin-right: 0; /* 折叠后让出间距空间 */
-  opacity: 0; /* 淡出效果 */
+  margin-right: 0;
+  opacity: 0;
 }
 
-/* 内部固定宽度的容器：确保动画收缩时，内部文字不会因为父级变窄而疯狂换行抖动 */
 .info-panel-inner {
   width: 300px; 
   display: flex;
   flex-direction: column;
 }
-/* ============================================== */
 
-/* 右侧面板原有样式保持不变 */
 .preview-panel {
   flex: 1;
   display: flex;

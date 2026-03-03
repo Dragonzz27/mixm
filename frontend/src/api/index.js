@@ -196,6 +196,9 @@ export const instanceApi = {
   startByTemplate(data) {
     return request.post('/instances/start', data)
   },
+  startQueued(data) {
+    return request.post('/instances/start', data)
+  },
   update(id, data) {
     return request.put(`/instances/${id}`, data)
   },
@@ -222,5 +225,32 @@ export const instanceApi = {
   },
   getTaskStatus(taskId) {
     return request.get(`/instances/queue/task/${taskId}`)
+  }
+}
+
+export const imageApi = {
+  getList(params) {
+    return request.get('/images/', { params })
+  },
+  getMyList() {
+    return request.get('/images/me')
+  },
+  getDetail(id) {
+    return request.get(`/images/${id}`)
+  },
+  create(data) {
+    return request.post('/images/', data)
+  },
+  update(id, data) {
+    return request.put(`/images/${id}`, data)
+  },
+  delete(id) {
+    return request.delete(`/images/${id}`)
+  },
+  getTags(id) {
+    return request.get(`/images/${id}/tags`)
+  },
+  deleteTag(repoId, tagName) {
+    return request.delete(`/images/${repoId}/tags/${tagName}`)
   }
 }

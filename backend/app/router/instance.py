@@ -1,16 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
 import logging
 from pydantic import BaseModel
 from app.database import get_db
-from app.models.instance import Instance
 from app.models.user import User
-from app.models.template import Template
 from app.schema.instance import (
     InstanceCreate,
+    InstanceCreateWithConfig,
     InstanceUpdate,
     InstanceResponse,
     InstanceListResponse,
@@ -28,11 +27,6 @@ auth_service = AuthService()
 
 def get_current_user(token: str = Depends(auth_service.get_current_user)):
     return token
-
-
-class InstanceStartRequest(BaseModel):
-    template_id: int
-    name: str = ""
 
 
 @router.post("/", response_model=InstanceResponse, status_code=status.HTTP_201_CREATED)
@@ -56,18 +50,22 @@ def create_instance(instance: InstanceCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/start", status_code=status.HTTP_202_ACCEPTED)
-def start_instance_by_template(
-    request: InstanceStartRequest,
+def start_instance_direct(
+    request: InstanceCreateWithConfig,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """通过模板ID启动实例，当前登录用户自动关联（异步队列模式）"""
+    """直接启动实例（异步队列模式）：可指定 user_id，否则使用当前登录用户"""
     try:
-        template = db.query(Template).filter(Template.id == request.template_id).first()
-        if not template:
-            raise HTTPException(status_code=404, detail="Template not found")
+        target_user = current_user
+        if request.user_id is not None:
 
-        now_timestamp = int(datetime.utcnow().timestamp())
+            db_user = db.query(User).filter(User.id == request.user_id).first()
+            if not db_user:
+                raise HTTPException(status_code=404, detail="指定用户不存在")
+            target_user = db_user
+
+        now_timestamp = int(datetime.now(timezone.utc).timestamp())
         instance_name = (
             f"{request.name}-{now_timestamp}"
             if request.name
@@ -76,22 +74,37 @@ def start_instance_by_template(
 
         task = queue_service.add_task(
             instance_name=instance_name,
-            template_id=request.template_id,
-            user_id=current_user.id,
+            user_id=target_user.id,
             namespace="default",
-            template_name=template.name,
-            username=current_user.username,
+            username=target_user.username,
+            repo_id=request.repo_id,
+            repo_tag=request.repo_tag,
+            cpu_limit=request.cpu_limit,
+            memory_limit=request.memory_limit,
+            storage_limit=request.storage_limit,
+            gpu_limit=request.gpu_limit,
+            gpu_memory_limit=request.gpu_memory_limit,
         )
 
         logger.info(
-            f"[Queue] Task {task.task_id} added for instance '{instance_name}' by user {current_user.username}"
+            f"[Queue] Task {task.task_id} added for instance '{instance_name}' by user {target_user.username}"
         )
 
         return {
             "task_id": task.task_id,
             "instance_name": instance_name,
+            "user_id": target_user.id,
             "status": task.status.value,
             "message": "实例已加入创建队列，请稍后刷新查看进度",
+            "config": {
+                "repo_id": request.repo_id,
+                "repo_tag": request.repo_tag,
+                "cpu_limit": request.cpu_limit,
+                "memory_limit": request.memory_limit,
+                "storage_limit": request.storage_limit,
+                "gpu_limit": request.gpu_limit,
+                "gpu_memory_limit": request.gpu_memory_limit,
+            },
         }
     except ValueError as e:
         logger.error(f"[Instance] Failed to create instance '{request.name}': {str(e)}")
@@ -124,7 +137,7 @@ def get_my_instances(
 
 
 @router.get("/{instance_id}", response_model=InstanceResponse)
-def get_instance(instance_id: int, db: Session = Depends(get_db)):
+def get_instance(instance_id: str, db: Session = Depends(get_db)):
     db_instance = instance_service.get_by_id(db, instance_id)
     if not db_instance:
         raise HTTPException(status_code=404, detail="Instance not found")
@@ -133,12 +146,8 @@ def get_instance(instance_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{instance_id}", response_model=InstanceResponse)
 def update_instance(
-    instance_id: int, instance: InstanceUpdate, db: Session = Depends(get_db)
+    instance_id: str, instance: InstanceUpdate, db: Session = Depends(get_db)
 ):
-    # TODO: 调用 K8s API 更新资源 (如滚动更新)
-    # logger.info(f"[K8s] Updating instance {instance_id}")
-    # 从 K8s 获取最新状态并同步...
-
     db_instance = instance_service.update(db, instance_id, instance)
     if not db_instance:
         raise HTTPException(status_code=404, detail="Instance not found")
@@ -146,15 +155,7 @@ def update_instance(
 
 
 @router.post("/{instance_id}/start", response_model=InstanceResponse)
-def start_instance(instance_id: int, db: Session = Depends(get_db)):
-    # TODO: 调用 K8s API 启动资源
-    # logger.info(f"[K8s] Starting instance {instance_id}")
-    # from kubernetes import client, config
-    # config.load_kube_config()
-    # apps_v1 = client.AppsV1Api()
-    # deployment = apps_v1.read_namespaced_deployment(name=..., namespace=...)
-    # apps_v1.patch_namespaced_deployment_scale(...) 或 rollout restart...
-
+def start_instance(instance_id: str, db: Session = Depends(get_db)):
     db_instance = instance_service.update_status(db, instance_id, "running")
     if not db_instance:
         raise HTTPException(status_code=404, detail="Instance not found")
@@ -163,14 +164,7 @@ def start_instance(instance_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{instance_id}/stop", response_model=InstanceResponse)
-def stop_instance(instance_id: int, db: Session = Depends(get_db)):
-    # TODO: 调用 K8s API 停止资源
-    # logger.info(f"[K8s] Stopping instance {instance_id}")
-    # from kubernetes import client, config
-    # config.load_kube_config()
-    # apps_v1 = client.AppsV1Api()
-    # scale=0 缩容或删除 Deployment...
-
+def stop_instance(instance_id: str, db: Session = Depends(get_db)):
     db_instance = instance_service.update_status(db, instance_id, "stopped")
     if not db_instance:
         raise HTTPException(status_code=404, detail="Instance not found")
@@ -179,14 +173,7 @@ def stop_instance(instance_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_instance(instance_id: int, db: Session = Depends(get_db)):
-    # TODO: 调用 K8s API 删除资源
-    # logger.info(f"[K8s] Deleting instance {instance_id}")
-    # from kubernetes import client, config
-    # config.load_kube_config()
-    # apps_v1 = client.AppsV1Api()
-    # apps_v1.delete_namespaced_deployment(name=..., namespace=...)...
-
+def delete_instance(instance_id: str, db: Session = Depends(get_db)):
     success = instance_service.delete(db, instance_id)
     if not success:
         raise HTTPException(status_code=404, detail="Instance not found")
@@ -196,15 +183,6 @@ def delete_instance(instance_id: int, db: Session = Depends(get_db)):
 @router.get("/user/{user_id}", response_model=InstanceListResponse)
 def get_user_instances(user_id: int, db: Session = Depends(get_db)):
     instances = instance_service.get_by_user(db, user_id)
-    return {
-        "total": len(instances),
-        "instances": [instance_service.to_response(db, i) for i in instances],
-    }
-
-
-@router.get("/template/{template_id}", response_model=InstanceListResponse)
-def get_template_instances(template_id: int, db: Session = Depends(get_db)):
-    instances = instance_service.get_by_template(db, template_id)
     return {
         "total": len(instances),
         "instances": [instance_service.to_response(db, i) for i in instances],
@@ -235,10 +213,3 @@ def get_task_status(task_id: str, current_user: User = Depends(get_current_user)
         raise HTTPException(status_code=403, detail="Access denied")
 
     return task.to_dict()
-
-
-# TODO: 后续可添加以下 K8s 监控接口
-# @router.get("/{instance_id}/logs") - 获取容器日志
-# @router.get("/{instance_id}/events") - 获取事件列表
-# @router.post("/{instance_id}/restart") - 重启实例
-# @router.get("/{instance_id}/status") - 获取 K8s 中的实时状态

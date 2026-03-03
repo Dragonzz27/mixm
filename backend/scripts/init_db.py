@@ -530,66 +530,7 @@ def init_contents(db: Session) -> None:
 def init_instances(db: Session) -> None:
     """初始化实例数据"""
     instances = [
-        Instance(
-            name="backend-api-prod",
-            template_id=1,
-            user_id=1,
-            status="running",
-            namespace="production",
-            replicas=3,
-            cpu_usage=35,
-            memory_usage=512,
-            memory_limit=1024,
-            started_at=datetime.now(),
-        ),
-        Instance(
-            name="frontend-web-prod",
-            template_id=2,
-            user_id=1,
-            status="running",
-            namespace="production",
-            replicas=2,
-            cpu_usage=12,
-            memory_usage=128,
-            memory_limit=512,
-            started_at=datetime.now(),
-        ),
-        Instance(
-            name="redis-cache-prod",
-            template_id=4,
-            user_id=2,
-            status="running",
-            namespace="production",
-            replicas=1,
-            cpu_usage=8,
-            memory_usage=256,
-            memory_limit=512,
-            started_at=datetime.now(),
-        ),
-        Instance(
-            name="postgres-db-prod",
-            template_id=3,
-            user_id=2,
-            status="running",
-            namespace="database",
-            replicas=1,
-            cpu_usage=25,
-            memory_usage=2048,
-            memory_limit=4096,
-            started_at=datetime.now(),
-        ),
-        Instance(
-            name="monitoring-prod",
-            template_id=8,
-            user_id=3,
-            status="running",
-            namespace="monitoring",
-            replicas=1,
-            cpu_usage=15,
-            memory_usage=1024,
-            memory_limit=2048,
-            started_at=datetime.now(),
-        ),
+
     ]
 
     for instance in instances:

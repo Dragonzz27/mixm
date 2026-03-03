@@ -1,8 +1,11 @@
 <template>
   <div class="my-instances">
     <div class="page-header">
-      <h1>我启动的实例</h1>
-      <p>Manage and monitor your instances</p>
+      <div>
+        <h1>我启动的实例</h1>
+        <p>Manage and monitor your instances</p>
+      </div>
+      <n-button type="primary" @click="showStartModal = true">创建实例</n-button>
     </div>
 
     <n-spin :show="loading">
@@ -16,7 +19,7 @@
               <span class="instance-time">{{ formatTime(instance.created_at) }}</span>
             </div>
             <h3>{{ instance.name }}</h3>
-            <p class="instance-desc">模板: {{ instance.template_name || 'N/A' }}</p>
+            <p class="instance-desc">镜像: {{ instance.image || '-' }}</p>
             <div class="instance-actions">
               <n-button size="small" type="primary" @click.stop="startInstance(instance.id)" v-if="instance.status !== 'running'">
                 Start
@@ -33,10 +36,15 @@
       </n-grid>
       <n-empty v-else description="No instances started yet" style="padding: 80px 0;">
         <template #extra>
-          <n-button type="primary" @click="$router.push('/app')">Back to Home</n-button>
+          <n-button type="primary" @click="showStartModal = true">创建第一个实例</n-button>
         </template>
       </n-empty>
     </n-spin>
+
+    <StartInstanceModal
+      v-model:show="showStartModal"
+      @success="fetchMyInstances"
+    />
   </div>
 </template>
 
@@ -45,12 +53,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { instanceApi } from '@/api'
+import StartInstanceModal from '@/components/StartInstanceModal.vue'
 
 const router = useRouter()
 const message = useMessage()
 
 const loading = ref(false)
 const instances = ref([])
+const showStartModal = ref(false)
 
 async function fetchMyInstances() {
   try {
@@ -115,6 +125,9 @@ onMounted(() => {
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 24px;
 }
 
