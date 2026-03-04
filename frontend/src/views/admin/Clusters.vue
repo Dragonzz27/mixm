@@ -130,16 +130,30 @@ const nodeColumns = [
     render: (row) => h(NTag, { type: row.status === 'Ready' ? 'success' : 'error', size: 'small' }, () => row.status)
   },
   {
-    title: 'CPU使用',
-    key: 'cpu_usage',
-    width: 200,
-    render: (row) => h(NProgress, { type: 'line', percentage: (row.cpu_usage / row.cpu_capacity * 100).toFixed(0), showInfo: false })
+    title: 'CPU',
+    key: 'cpu',
+    width: 180,
+    render: (row) => {
+      const used = (row.cpu_usage / 1000).toFixed(1)
+      const total = (row.cpu_capacity / 1000).toFixed(1)
+      return h('div', [
+        h(NProgress, { type: 'line', percentage: row.cpu_capacity ? (row.cpu_usage / row.cpu_capacity * 100).toFixed(0) : 0, showInfo: false, style: { marginBottom: '4px' } }),
+        h('span', { style: 'font-size: 12px;' }, `${used} / ${total} 核`)
+      ])
+    }
   },
   {
-    title: '内存使用',
-    key: 'memory_usage',
+    title: '内存',
+    key: 'memory',
     width: 200,
-    render: (row) => h(NProgress, { type: 'line', percentage: (row.memory_usage / row.memory_capacity * 100).toFixed(0), showInfo: false })
+    render: (row) => {
+      const used = (row.memory_usage / 1024 / 1024 / 1024).toFixed(1)
+      const total = (row.memory_capacity / 1024 / 1024 / 1024).toFixed(1)
+      return h('div', [
+        h(NProgress, { type: 'line', percentage: row.memory_capacity ? (row.memory_usage / row.memory_capacity * 100).toFixed(0) : 0, showInfo: false, style: { marginBottom: '4px' } }),
+        h('span', { style: 'font-size: 12px;' }, `${used} / ${total} GB`)
+      ])
+    }
   },
   { title: 'Pod数量', key: 'pods_count', width: 90 }
 ]
