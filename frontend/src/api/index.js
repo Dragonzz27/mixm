@@ -180,6 +180,28 @@ export const clusterApi = {
   },
   deleteDeployment(namespace, deploymentName) {
     return request.delete(`/clusters/deployments/${namespace}/${deploymentName}`)
+  },
+  getPodLogs(namespace, podName, container, tailLines) {
+    const params = {}
+    if (container) params.container = container
+    if (tailLines) params.tail_lines = tailLines
+    return request.get(`/clusters/pods/${namespace}/${podName}/logs`, { params })
+  },
+  describePod(namespace, podName) {
+    return request.get(`/clusters/pods/${namespace}/${podName}/describe`)
+  },
+  getPV() {
+    return request.get('/clusters/pv')
+  },
+  deletePV(pvName) {
+    return request.delete(`/clusters/pv/${pvName}`)
+  },
+  getPVC(namespace) {
+    const params = namespace ? { namespace } : {}
+    return request.get('/clusters/pvc', { params })
+  },
+  deletePVC(namespace, pvcName) {
+    return request.delete(`/clusters/pvc/${namespace}/${pvcName}`)
   }
 }
 
