@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from kubernetes import client, config as k8s_config
-from sqlalchemy.orm import Session
+from requests import Session
 
 from app.database import get_db
 from app.service.instance import InstanceService
@@ -36,15 +36,15 @@ def _parse_memory(memory_str: str) -> int:
     memory_str = memory_str.upper().strip()
     if memory_str.endswith("GI"):
         return int(memory_str[:-2]) * 1024 * 1024 * 1024
-    elif memory_str.endswith("G"):
+    if memory_str.endswith("G"):
         return int(memory_str[:-1]) * 1024 * 1024 * 1024
-    elif memory_str.endswith("MI"):
+    if memory_str.endswith("MI"):
         return int(memory_str[:-2]) * 1024 * 1024
-    elif memory_str.endswith("M"):
+    if memory_str.endswith("M"):
         return int(memory_str[:-1]) * 1024 * 1024
-    elif memory_str.endswith("KI"):
+    if memory_str.endswith("KI"):
         return int(memory_str[:-2]) * 1024
-    elif memory_str.endswith("K"):
+    if memory_str.endswith("K"):
         return int(memory_str[:-1]) * 1024
     return int(memory_str)
 
@@ -174,11 +174,7 @@ def list_nodes():
                     node.status.allocatable.get("memory", "0")
                 )
 
-                cpu_capacity = (
-                    allocatable_cpu * 1000
-                    if allocatable_cpu < 100
-                    else allocatable_cpu * 1000
-                )
+                cpu_capacity = allocatable_cpu * 1000
                 memory_capacity = allocatable_memory
 
             if node_name in node_metrics:
@@ -245,9 +241,7 @@ def list_deployments():
 
 
 @router.delete("/deployments/{namespace}/{deployment_name}")
-def delete_deployment(
-    namespace: str, deployment_name: str, db: Session = Depends(get_db)
-):
+def delete_deployment(namespace: str, deployment_name: str):
     """删除指定部署"""
     if namespace == "kube-system":
         return {"success": False, "message": "不能删除 kube-system 命名空间的部署"}
@@ -307,4 +301,267 @@ def delete_pod(namespace: str, pod_name: str, db: Session = Depends(get_db)):
         return {"success": True, "message": f"Pod {pod_name} 已删除"}
     except Exception as e:
         logger.error(f"Failed to delete pod {pod_name}: {e}")
+        return {"success": False, "message": f"删除失败: {str(e)}"}
+
+
+@router.get("/pods/{namespace}/{pod_name}/logs")
+def get_pod_logs(
+    namespace: str,
+    pod_name: str,
+    container: Optional[str] = None,
+    tail_lines: int = 50,
+):
+    """获取Pod日志"""
+    k8s = _get_k8s_client()
+    core_v1 = k8s.CoreV1Api()
+
+    try:
+        pod = core_v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+
+        container_name = container
+        if not container_name:
+            if pod.spec.containers:
+                container_name = pod.spec.containers[0].name
+            else:
+                return {"success": False, "message": "Pod没有容器"}
+
+        logs = core_v1.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=namespace,
+            container=container_name,
+            tail_lines=tail_lines,
+        )
+
+        return {
+            "success": True,
+            "logs": logs,
+            "container": container_name,
+            "pod_name": pod_name,
+            "namespace": namespace,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get pod logs for {pod_name}: {e}")
+        return {"success": False, "message": f"获取日志失败: {str(e)}"}
+
+
+@router.get("/pods/{namespace}/{pod_name}/describe")
+def describe_pod(namespace: str, pod_name: str):
+    """获取Pod详细信息"""
+    k8s = _get_k8s_client()
+    core_v1 = k8s.CoreV1Api()
+
+    try:
+        pod = core_v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+
+        info = {
+            "name": pod.metadata.name,
+            "namespace": pod.metadata.namespace,
+            "node": pod.spec.node_name or "N/A",
+            "status": pod.status.phase,
+            "ip": pod.status.pod_ip or "N/A",
+            "host_ip": pod.status.host_ip or "N/A",
+            "start_time": pod.status.start_time.isoformat()
+            if pod.status.start_time
+            else None,
+            "labels": pod.metadata.labels or {},
+            "annotations": pod.metadata.annotations or {},
+            "containers": [],
+            "conditions": [],
+            "events": [],
+        }
+
+        for container in pod.spec.containers:
+            container_info = {
+                "name": container.name,
+                "image": container.image,
+                "image_pull_policy": container.image_pull_policy,
+                "command": " ".join(container.command) if container.command else None,
+                "args": " ".join(container.args) if container.args else None,
+                "ports": [
+                    {"container_port": c.container_port, "protocol": c.protocol}
+                    for c in container.ports
+                ]
+                if container.ports
+                else [],
+                "resources": {
+                    "requests": container.resources.requests
+                    if container.resources and container.resources.requests
+                    else {},
+                    "limits": container.resources.limits
+                    if container.resources and container.resources.limits
+                    else {},
+                }
+                if container.resources
+                else {},
+            }
+            info["containers"].append(container_info)
+
+        for condition in pod.status.conditions or []:
+            info["conditions"].append(
+                {
+                    "type": condition.type,
+                    "status": condition.status,
+                    "reason": condition.reason,
+                    "message": condition.message,
+                    "last_transition_time": condition.last_transition_time.isoformat()
+                    if condition.last_transition_time
+                    else None,
+                }
+            )
+
+        try:
+            events = core_v1.list_namespaced_event(
+                namespace=namespace,
+                field_selector=f"involvedObject.name={pod_name},involvedObject.kind=Pod",
+            )
+            for event in events.items:
+                info["events"].append(
+                    {
+                        "type": event.type,
+                        "reason": event.reason,
+                        "message": event.message,
+                        "source": event.source.component if event.source else None,
+                        "count": event.count,
+                        "first_timestamp": event.first_timestamp.isoformat()
+                        if event.first_timestamp
+                        else None,
+                        "last_timestamp": event.last_timestamp.isoformat()
+                        if event.last_timestamp
+                        else None,
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Failed to get events for pod {pod_name}: {e}")
+
+        return {"success": True, "pod": info}
+    except Exception as e:
+        logger.error(f"Failed to describe pod {pod_name}: {e}")
+        return {"success": False, "message": f"获取Pod详情失败: {str(e)}"}
+
+
+@router.get("/pv")
+def list_pv():
+    """获取所有PV列表"""
+    k8s = _get_k8s_client()
+    core_v1 = k8s.CoreV1Api()
+
+    pvs = []
+    try:
+        pv_list = core_v1.list_persistent_volume()
+        for pv in pv_list.items:
+            pvs.append(
+                {
+                    "name": pv.metadata.name,
+                    "capacity": pv.spec.capacity,
+                    "access_modes": pv.spec.access_modes,
+                    "reclaim_policy": pv.spec.persistent_volume_reclaim_policy,
+                    "status": pv.status.phase,
+                    "claim": f"{pv.spec.claim_ref.namespace}/{pv.spec.claim_ref.name}"
+                    if pv.spec.claim_ref
+                    else None,
+                    "storage_class": pv.spec.storage_class_name,
+                    "age": _format_age(pv.metadata.creation_timestamp),
+                }
+            )
+    except Exception as e:
+        logger.error(f"Failed to list pv: {e}")
+        return {"success": False, "message": f"获取PV列表失败: {str(e)}"}
+
+    return {"total": len(pvs), "pvs": pvs}
+
+
+@router.delete("/pv/{pv_name}")
+def delete_pv(pv_name: str):
+    """删除PV"""
+    k8s = _get_k8s_client()
+    core_v1 = k8s.CoreV1Api()
+
+    try:
+        pv = core_v1.read_persistent_volume(name=pv_name)
+        if pv.spec.persistent_volume_reclaim_policy == "Retain":
+            return {
+                "success": False,
+                "message": "PV的回收策略为Retain，请先手动处理数据",
+            }
+
+        if pv.spec.claim_ref:
+            return {
+                "success": False,
+                "message": f"PV已绑定到PVC {pv.spec.claim_ref.namespace}/{pv.spec.claim_ref.name}，请先删除该PVC",
+            }
+
+        core_v1.delete_persistent_volume(
+            name=pv_name, body=client.V1DeleteOptions(propagation_policy="Foreground")
+        )
+        logger.info(f"[K8s] Deleted pv {pv_name}")
+        return {
+            "success": True,
+            "message": f"PV {pv_name} 已删除（可能需要几秒钟完全消失）",
+        }
+    except Exception as e:
+        logger.error(f"Failed to delete pv {pv_name}: {e}")
+        return {"success": False, "message": f"删除失败: {str(e)}"}
+
+
+@router.get("/pvc")
+def list_pvc(namespace: Optional[str] = None):
+    """获取所有PVC列表"""
+    k8s = _get_k8s_client()
+    core_v1 = k8s.CoreV1Api()
+
+    pvcs = []
+    namespaces = [namespace] if namespace else []
+
+    if not namespace:
+        try:
+            ns_list = core_v1.list_namespace()
+            namespaces = [ns.metadata.name for ns in ns_list.items]
+        except Exception:
+            namespaces = ["default"]
+
+    for ns in namespaces:
+        try:
+            pvc_list = core_v1.list_namespaced_persistent_volume_claim(namespace=ns)
+            for pvc in pvc_list.items:
+                pvcs.append(
+                    {
+                        "name": pvc.metadata.name,
+                        "namespace": ns,
+                        "storage_class": pvc.spec.storage_class_name,
+                        "capacity": pvc.status.capacity
+                        if pvc.status and pvc.status.capacity
+                        else {},
+                        "access_modes": pvc.spec.access_modes,
+                        "volume_mode": pvc.spec.volume_mode,
+                        "status": pvc.status.phase if pvc.status else "Unknown",
+                        "volume": pvc.spec.volume_name,
+                        "age": _format_age(pvc.metadata.creation_timestamp),
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Failed to list pvc in namespace {ns}: {e}")
+            continue
+
+    return {"total": len(pvcs), "pvcs": pvcs}
+
+
+@router.delete("/pvc/{namespace}/{pvc_name}")
+def delete_pvc(namespace: str, pvc_name: str):
+    """删除PVC"""
+    if namespace == "kube-system":
+        return {"success": False, "message": "不能删除 kube-system 命名空间的 PVC"}
+
+    k8s = _get_k8s_client()
+    core_v1 = k8s.CoreV1Api()
+
+    try:
+        core_v1.delete_namespaced_persistent_volume_claim(
+            name=pvc_name,
+            namespace=namespace,
+            body=client.V1DeleteOptions(propagation_policy="Foreground"),
+        )
+        logger.info(f"[K8s] Deleted pvc {pvc_name} in namespace {namespace}")
+        return {"success": True, "message": f"PVC {pvc_name} 已删除"}
+    except Exception as e:
+        logger.error(f"Failed to delete pvc {pvc_name}: {e}")
         return {"success": False, "message": f"删除失败: {str(e)}"}
