@@ -78,6 +78,11 @@ export const contentApi = {
   },
   delete(id) {
     return request.delete(`/contents/${id}`)
+  },
+  uploadFile(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request.post('/contents/upload', formData)
   }
 }
 

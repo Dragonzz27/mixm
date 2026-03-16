@@ -45,7 +45,7 @@
                 </div>
                 <div class="content-info">
                   <h4>{{ item.title }}</h4>
-                  <p>{{ item.content ? truncate(item.content, 60) : '' }}</p>
+                  <p>{{ getPreviewText(item.content) }}</p>
                   <div class="content-meta">
                     <span class="time">{{ formatTime(item.created_at) }}</span>
                   </div>
@@ -67,11 +67,7 @@
                 </div>
               </header>
               <!-- {{ content }} -->
-              <div class="article-body" v-if="content.content">
-                <p v-for="(paragraph, index) in content.content.split('\n\n')" :key="index">
-                  {{ paragraph }}
-                </p>
-              </div>
+              <div class="article-body" v-if="content.content" v-html="renderedContent"></div>
 
               <div class="article-actions">
                 <n-button type="primary" @click="openUrl(content.url)" v-if="content.url">
@@ -140,6 +136,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
+import { marked } from 'marked'
 import { contentApi, templateApi } from '@/api'
 import StartInstanceByTemplateModal from '@/components/StartInstanceByTemplateModal.vue'
 import { ArrowBackOutline, LinkOutline, PlayOutline } from '@vicons/ionicons5'
@@ -191,6 +188,25 @@ const typeMap = {
   video: { name: '视频', color: '#f0a020', tag: 'warning' },
   exercise: { name: '练习', color: '#18a058', tag: 'success' },
   resource: { name: '资源', color: '#d03050', tag: 'error' }
+}
+
+const renderedContent = computed(() => {
+  if (!content.value?.content) return ''
+  const raw = content.value.content
+  if (raw.startsWith('[md]')) {
+    return marked(raw.substring(3))
+  }
+  return raw
+})
+
+function getPreviewText(text) {
+  if (!text) return ''
+  if (text.startsWith('[md]')) {
+    const mdText = text.substring(3)
+    return mdText.length > 60 ? mdText.substring(0, 60) + '...' : mdText
+  }
+  const stripped = text.replace(/<[^>]+>/g, '')
+  return stripped.length > 60 ? stripped.substring(0, 60) + '...' : stripped
 }
 
 function getTypeName(type) {
@@ -568,8 +584,54 @@ onMounted(() => {
   color: #333;
 }
 
-.article-body p {
+.article-body :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 16px 0;
+}
+
+.article-body :deep(video) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 16px 0;
+}
+
+.article-body :deep(p) {
   margin-bottom: 16px;
+}
+
+.article-body :deep(a) {
+  color: #18a058;
+  text-decoration: none;
+}
+
+.article-body :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.article-body :deep(blockquote) {
+  border-left: 4px solid #18a058;
+  padding-left: 16px;
+  margin: 16px 0;
+  color: #666;
+  background: #f9f9f9;
+  padding: 12px 16px;
+}
+
+.article-body :deep(pre) {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.article-body :deep(code) {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
 }
 
 .article-actions {

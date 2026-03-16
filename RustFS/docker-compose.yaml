@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  rustfs:
+    image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/rustfs:v1
+    container_name: rustfs-server
+    ports:
+      - "19000:9000"  # S3 API 端口
+      - "19001:9001"  # Console 管理端口
+    volumes:
+      - ./data:/data  # 数据持久化目录，请确保宿主机的 ./data 目录存在且权限正确
+    environment:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_CONSOLE_ENABLE=true
+    command:
+      - --console-enable
+      - /data
+    restart: unless-stopped

@@ -20,27 +20,32 @@
         :bordered="false"
       />
     </n-card>
-    <n-modal v-model:show="showAddModal" preset="dialog" :title="isEdit ? '编辑内容' : '添加内容'" style="width: 600px;">
-      <n-form :model="formData" :rules="rules" ref="formRef">
-        <n-form-item label="标题" path="title">
-          <n-input v-model:value="formData.title" />
-        </n-form-item>
-        <n-form-item label="内容" path="content">
-          <n-input v-model:value="formData.content" type="textarea" :rows="4" />
-        </n-form-item>
-        <n-form-item label="类型" path="content_type">
-          <n-select v-model:value="formData.content_type" :options="typeOptions" placeholder="选择类型" />
-        </n-form-item>
-        <n-form-item label="模板" path="template_id">
-          <n-select v-model:value="formData.template_id" :options="templateOptions" clearable placeholder="选择模板" />
-        </n-form-item>
-        <n-form-item label="链接" path="url">
-          <n-input v-model:value="formData.url" placeholder="资源链接" />
-        </n-form-item>
-        <n-form-item label="状态" path="status">
-          <n-select v-model:value="formData.status" :options="statusOptions" />
-        </n-form-item>
-      </n-form>
+    <n-modal v-model:show="showAddModal" preset="dialog" :title="isEdit ? '编辑内容' : '添加内容'" style="width: 80%;">
+      <div class="modal-content">
+        <div class="left-panel">
+          <n-form :model="formData" :rules="rules" ref="formRef" label-placement="left" label-width="80">
+            <n-form-item label="标题" path="title">
+              <n-input v-model:value="formData.title" />
+            </n-form-item>
+            <n-form-item label="类型" path="content_type">
+              <n-select v-model:value="formData.content_type" :options="typeOptions" placeholder="选择类型" />
+            </n-form-item>
+            <n-form-item label="模板" path="template_id">
+              <n-select v-model:value="formData.template_id" :options="templateOptions" clearable placeholder="选择模板" />
+            </n-form-item>
+            <n-form-item label="链接" path="url">
+              <n-input v-model:value="formData.url" placeholder="资源链接" />
+            </n-form-item>
+            <n-form-item label="状态" path="status">
+              <n-select v-model:value="formData.status" :options="statusOptions" />
+            </n-form-item>
+          </n-form>
+        </div>
+        <div class="right-panel">
+          <div class="editor-label">内容 (超文本/Markdown)</div>
+          <RichEditor v-model="formData.content" />
+        </div>
+      </div>
       <template #action>
         <n-button @click="showAddModal = false">取消</n-button>
         <n-button type="primary" :loading="loading" @click="handleSubmit">确定</n-button>
@@ -52,7 +57,8 @@
 <script setup>
 import { ref, computed, onMounted, h } from 'vue'
 import { NCard, NButton, NInput, NDataTable, NSpace, NModal, NForm, NFormItem, NSelect, useMessage } from 'naive-ui'
-import { contentApi, contentTypeApi, templateApi } from '@/api'
+import RichEditor from '@/components/RichEditor.vue'
+import { contentApi, templateApi } from '@/api'
 import { useContentTypeStore } from '@/stores/contentType'
 
 const message = useMessage()
@@ -67,6 +73,7 @@ const loading = ref(false)
 const pagination = ref({ pageSize: 10 })
 
 const formData = ref({ title: '', content: '', content_type: null, template_id: null, url: '', status: 'draft' })
+
 const rules = {
   title: [{ required: true, message: '请输入标题' }],
   content_type: [{ required: true, message: '请选择类型' }],
@@ -104,8 +111,6 @@ const columns = [
   }
 ]
 
-let searchTimer = null
-
 async function loadContents() {
   try {
     const res = await contentApi.getList({
@@ -117,9 +122,6 @@ async function loadContents() {
   } catch (err) {
     console.error(err)
   }
-}
-
-async function loadContentTypes() {
 }
 
 async function loadTemplates() {
@@ -137,13 +139,33 @@ function handleAddClick() {
   showAddModal.value = true
 }
 
-function handleEdit(row) {
+async function handleEdit(row) {
   isEdit.value = true
-  formData.value = { 
+  formData.value = {
     ...row,
+    content: row.content || '',
     content_type: row.content_type || null,
-    template_id: row.template_id || null
+    template_id: row.template_id || null,
+    status: row.status || 'draft'
   }
+  loading.value = true
+  try {
+    const detail = await contentApi.getDetail(row.id)
+    formData.value = {
+      ...row,
+      ...detail,
+      content: detail?.content || formData.value.content || '',
+      content_type: detail?.content_type || formData.value.content_type || null,
+      template_id: detail?.template_id || formData.value.template_id || null,
+      status: detail?.status || formData.value.status || 'draft'
+    }
+  } catch (err) {
+    console.error(err)
+    message.warning('未能加载完整内容，将使用当前列表数据进行编辑')
+  } finally {
+    loading.value = false
+  }
+
   showAddModal.value = true
 }
 
@@ -158,6 +180,7 @@ async function handleSubmit() {
   try {
     const data = {
       ...formData.value,
+      content: formData.value.content || '',
       content_type: formData.value.content_type || 'article',
       template_id: formData.value.template_id || null
     }
@@ -192,3 +215,28 @@ onMounted(() => {
   loadTemplates()
 })
 </script>
+
+<style scoped>
+.modal-content {
+  display: flex;
+  gap: 24px;
+  min-height: 70vh;
+}
+
+.left-panel {
+  width: 320px;
+  flex-shrink: 0;
+}
+
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+</style>
