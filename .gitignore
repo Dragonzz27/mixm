@@ -7,6 +7,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+RustFS/data
+
 pnpm-lock.yaml
 # C extensions
 *.so

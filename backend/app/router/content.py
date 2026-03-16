@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 from app.database import get_db
@@ -13,6 +13,7 @@ from app.schema.content import (
     ContentBriefResponse,
 )
 from app.service.content import ContentService
+from app.service.storage import storage_service
 
 router = APIRouter()
 content_service = ContentService()
@@ -183,3 +184,22 @@ def delete_content(content_id: int, db: Session = Depends(get_db)):
     success = content_service.delete_content(db, content_id)
     if not success:
         raise HTTPException(status_code=404, detail="Content not found")
+
+
+import base64
+from fastapi.responses import Response
+from urllib.parse import quote
+
+
+@router.post("/upload")
+def upload_file(file: UploadFile, request: Request):
+    result = storage_service.upload_file(file.file, file.filename, file.content_type)
+    safe_key = quote(result["key"], safe="/")
+    file_url = str(request.base_url).rstrip("/") + f"/api/contents/file/{safe_key}"
+    return {"key": result["key"], "url": file_url}
+
+
+@router.get("/file/{key:path}")
+def get_file(key: str):
+    content, content_type = storage_service.get_file(key)
+    return Response(content=content, media_type=content_type)
