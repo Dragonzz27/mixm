@@ -27,11 +27,6 @@ class Settings(BaseSettings):
     RUSTFS_ACCESS_KEY: str = "rustfsadmin"
     RUSTFS_SECRET_KEY: str = "rustfsadmin"
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if self.K8S_CONFIG_PATH:
-            base_dir = Path(__file__).parent
-            self.K8S_CONFIG_PATH = str((base_dir / self.K8S_CONFIG_PATH).resolve())
 
     class Config:
         env_file = ".env"

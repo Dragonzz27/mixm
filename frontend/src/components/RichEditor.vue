@@ -2,9 +2,19 @@
   <div class="dual-editor">
     <div class="editor-tabs">
       <n-radio-group :value="editorMode" size="small" @update:value="handleModeChange">
-        <n-radio-button value="web">超文本</n-radio-button>
+       
         <n-radio-button value="md">Markdown</n-radio-button>
+         <n-radio-button value="web">超文本</n-radio-button>
       </n-radio-group>
+    </div>
+    
+    <div class="editor-content markdown-content" v-show="editorMode === 'md'">
+      <n-input
+        v-model:value="markdownContent"
+        type="textarea"
+        placeholder="请输入 Markdown 内容..."
+        :autosize="{ minHeight: '250px' }"
+      />
     </div>
     <div class="editor-content" v-show="editorMode === 'web'">
       <QuillEditor 
@@ -12,14 +22,6 @@
         contentType="html"
         :options="editorOptions"
         @ready="onEditorReady"
-      />
-    </div>
-    <div class="editor-content markdown-content" v-show="editorMode === 'md'">
-      <n-input
-        v-model:value="markdownContent"
-        type="textarea"
-        placeholder="请输入 Markdown 内容..."
-        :autosize="{ minHeight: '250px' }"
       />
     </div>
     <n-modal v-model:show="showConfirmModal" preset="dialog" title="确认切换" style="width: 400px;">
@@ -51,7 +53,7 @@ const emit = defineEmits(['update:modelValue'])
 const message = useMessage()
 const quillEditorRef = ref(null)
 const uploading = ref(false)
-const editorMode = ref('web')
+const editorMode = ref('md')
 const markdownContent = ref('')
 const showConfirmModal = ref(false)
 const pendingMode = ref(null)
@@ -82,17 +84,17 @@ function initFromProps() {
   const content = props.modelValue || ''
   if (content.startsWith('[md]')) {
     editorMode.value = 'md'
-    markdownContent.value = content.substring(3)
+    markdownContent.value = content.split('[md]')[1] || ''
   } else if (content.startsWith('[web]')) {
     editorMode.value = 'web'
     nextTick(() => {
       const quill = quillEditorRef.value?.getQuill()
       if (quill) {
-        quill.root.innerHTML = content.substring(4)
+        quill.root.innerHTML = content.split('[web]')[1] || ''
       }
     })
   } else {
-    editorMode.value = 'web'
+    editorMode.value = 'md'  // 默认使用Markdown模式
     nextTick(() => {
       const quill = quillEditorRef.value?.getQuill()
       if (quill) {
