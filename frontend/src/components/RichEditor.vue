@@ -9,12 +9,7 @@
     </div>
     
     <div class="editor-content markdown-content" v-show="editorMode === 'md'">
-      <n-input
-        v-model:value="markdownContent"
-        type="textarea"
-        placeholder="请输入 Markdown 内容..."
-        :autosize="{ minHeight: '250px' }"
-      />
+      <div ref="vditorRef" class="vditor-container"></div>
     </div>
     <div class="editor-content" v-show="editorMode === 'web'">
       <QuillEditor 
@@ -35,9 +30,11 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import Vditor from 'vditor'
+import 'vditor/dist/index.css'
 import { contentApi } from '@/api'
 import { useMessage, NRadioGroup, NRadioButton, NInput, NModal, NButton } from 'naive-ui'
 
@@ -52,12 +49,14 @@ const emit = defineEmits(['update:modelValue'])
 
 const message = useMessage()
 const quillEditorRef = ref(null)
+const vditorRef = ref(null)
 const uploading = ref(false)
 const editorMode = ref('md')
 const markdownContent = ref('')
 const showConfirmModal = ref(false)
 const pendingMode = ref(null)
 const hasContent = ref(false)
+let vditorInstance = null
 
 const editorOptions = {
   theme: 'snow',
@@ -85,8 +84,10 @@ function initFromProps() {
   if (content.startsWith('[md]')) {
     editorMode.value = 'md'
     markdownContent.value = content.split('[md]')[1] || ''
+    nextTick(() => initVditor())
   } else if (content.startsWith('[web]')) {
     editorMode.value = 'web'
+    markdownContent.value = ''
     nextTick(() => {
       const quill = quillEditorRef.value?.getQuill()
       if (quill) {
@@ -94,13 +95,48 @@ function initFromProps() {
       }
     })
   } else {
-    editorMode.value = 'md'  // 默认使用Markdown模式
-    nextTick(() => {
-      const quill = quillEditorRef.value?.getQuill()
-      if (quill) {
-        quill.root.innerHTML = content
+    editorMode.value = 'md'
+    markdownContent.value = content
+    nextTick(() => initVditor())
+  }
+}
+
+function initVditor() {
+  if (vditorInstance) {
+    vditorInstance.setValue(markdownContent.value)
+    return
+  }
+  
+  vditorInstance = new Vditor(vditorRef.value, {
+    id: 'vditor-editor',
+    cache: {
+      enable: false
+    },
+    value: markdownContent.value,
+    height: 700,
+    mode: 'wysiwyg',
+    placeholder: '请输入 Markdown 内容...',
+    upload: {
+      url: '/api/contents/upload',
+      linkToImgUrl: '/api/contents/upload',
+      handler: (files) => {
+        handleVditorUpload(files[0])
       }
-    })
+    },
+    resize: {
+      enable: true,
+      position: 'bottom'
+    },
+    input: (value) => {
+      markdownContent.value = value
+    }
+  })
+}
+
+function destroyVditor() {
+  if (vditorInstance) {
+    vditorInstance.destroy()
+    vditorInstance = null
   }
 }
 
@@ -108,8 +144,13 @@ onMounted(() => {
   initFromProps()
 })
 
+onBeforeUnmount(() => {
+  destroyVditor()
+})
+
 watch(editorMode, (newMode) => {
   if (newMode === 'web') {
+    destroyVditor()
     nextTick(() => {
       const quill = quillEditorRef.value?.getQuill()
       if (quill) {
@@ -118,6 +159,7 @@ watch(editorMode, (newMode) => {
     })
   } else {
     markdownContent.value = ''
+    nextTick(() => initVditor())
   }
 })
 
@@ -164,7 +206,6 @@ watch(markdownContent, (val) => {
 
 function onEditorReady() {
   initQuillHandlers()
-  initFromProps()
 }
 
 function initQuillHandlers() {
@@ -218,12 +259,18 @@ async function uploadFile(file, type) {
   try {
     const res = await contentApi.uploadFile(file)
     const { url } = res
-    const quill = quillEditorRef.value?.getQuill()
-    if (!quill) return
     
-    const range = quill.getSelection(true)
-    quill.insertEmbed(range.index, type, url)
-    quill.setSelection(range.index + 1)
+    if (editorMode.value === 'web') {
+      const quill = quillEditorRef.value?.getQuill()
+      if (!quill) return
+      
+      const range = quill.getSelection(true)
+      quill.insertEmbed(range.index, type, url)
+      quill.setSelection(range.index + 1)
+    } else if (vditorInstance) {
+      vditorInstance.insertValue(`![${file.name}](${url})`)
+    }
+    
     message.success(`${type === 'image' ? '图片' : '视频'}上传成功`)
   } catch (err) {
     console.error(err)
@@ -233,16 +280,29 @@ async function uploadFile(file, type) {
   }
 }
 
-function setContent(html) {
-  const quill = quillEditorRef.value?.getQuill()
-  if (quill) {
-    quill.root.innerHTML = html || ''
+async function handleVditorUpload(file) {
+  await uploadFile(file, 'image')
+}
+
+function setContent(content) {
+  if (editorMode.value === 'web') {
+    const quill = quillEditorRef.value?.getQuill()
+    if (quill) {
+      quill.root.innerHTML = content || ''
+    }
+  } else {
+    if (vditorInstance) {
+      vditorInstance.setValue(content || '')
+    } else {
+      markdownContent.value = content || ''
+    }
   }
 }
 
 defineExpose({
   setContent,
-  getQuill: () => quillEditorRef.value?.getQuill()
+  getQuill: () => quillEditorRef.value?.getQuill(),
+  getVditor: () => vditorInstance
 })
 </script>
 
@@ -258,6 +318,14 @@ defineExpose({
 
 .editor-content {
   flex: 1;
+}
+
+.markdown-content {
+  min-height: 300px;
+}
+
+.vditor-container {
+  min-height: 300px;
 }
 
 .markdown-content :deep(.n-input__textarea-el) {

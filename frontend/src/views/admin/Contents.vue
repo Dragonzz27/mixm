@@ -42,7 +42,7 @@
           </n-form>
         </div>
         <div class="right-panel">
-          <div class="editor-label">内容 (超文本/Markdown)</div>
+          <div class="editor-label">内容 (推荐Markdown)</div>
           <RichEditor v-model="formData.content" />
         </div>
       </div>
