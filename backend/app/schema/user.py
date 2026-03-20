@@ -74,3 +74,10 @@ class TokenData(BaseModel):
 
 class TokenRefresh(BaseModel):
     refresh_token: str
+
+
+class ImportResult(BaseModel):
+    total: int
+    success: int
+    failed: int
+    errors: List[str]

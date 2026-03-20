@@ -10,6 +10,7 @@
             style="width: 250px"
             @keyup.enter="loadUsers"
           />
+          <n-button type="info" @click="showImportModal = true">批量导入</n-button>
           <n-button type="primary" @click="showAddModal = true">添加用户</n-button>
         </n-space>
       </template>
@@ -20,6 +21,25 @@
         :bordered="false"
       />
     </n-card>
+    
+    <n-modal v-model:show="showImportModal" preset="dialog" title="批量导入学生">
+      <n-space vertical>
+        <n-alert type="info">
+          默认密码123456，导入后请及时修改密码。
+        </n-alert>
+        <n-upload
+          accept=".xlsx,.xls"
+          :max="1"
+          :custom-request="handleImportRequest"
+        >
+          <n-button>选择Excel文件</n-button>
+        </n-upload>
+        <n-button text type="primary" @click="downloadTemplate">下载模板</n-button>
+      </n-space>
+      <template #action>
+        <n-button @click="showImportModal = false">关闭</n-button>
+      </template>
+    </n-modal>
     
     <n-modal v-model:show="showAddModal" preset="dialog" title="添加用户">
       <n-form :model="addFormData" :rules="addRules" ref="formRef">
@@ -83,7 +103,7 @@
 
 <script setup>
 import { ref, h, watch } from 'vue'
-import { NCard, NInput, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NSwitch, useMessage } from 'naive-ui'
+import { NCard, NInput, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NSwitch, useMessage, NUpload, NAlert, NButtonGroup } from 'naive-ui'
 import { authApi } from '@/api'
 
 const message = useMessage()
@@ -91,9 +111,11 @@ const searchKey = ref('')
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const showPwdModal = ref(false)
+const showImportModal = ref(false)
 const addLoading = ref(false)
 const editLoading = ref(false)
 const pwdLoading = ref(false)
+const importLoading = ref(false)
 const users = ref([])
 const pagination = ref({ pageSize: 10 })
 
@@ -231,6 +253,37 @@ async function handleDelete(id) {
   } catch (err) {
     console.error(err)
   }
+}
+
+function downloadTemplate() {
+  import('xlsx').then(XLSX => {
+    const data = [
+      ['username', 'email', 'phone'],
+      ['test001', 'test001@example.com', '13800000001'],
+      ['test002', 'test002@example.com', '']
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Users')
+    XLSX.writeFile(wb, 'user_template.xlsx')
+  })
+}
+
+function handleImportRequest({ file }) {
+  importLoading.value = true
+  authApi.importUsers(file.file).then(res => {
+    message.success(`导入完成：成功${res.success}条，失败${res.failed}条`)
+    if (res.errors && res.errors.length > 0) {
+      console.error('导入错误:', res.errors)
+    }
+    showImportModal.value = false
+    loadUsers()
+  }).catch(err => {
+    message.error('导入失败')
+    console.error(err)
+  }).finally(() => {
+    importLoading.value = false
+  })
 }
 
 loadUsers()
