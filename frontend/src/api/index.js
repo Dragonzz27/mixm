@@ -24,6 +24,13 @@ export const authApi = {
   },
   deleteUser(id) {
     return request.delete(`/auth/users/${id}`)
+  },
+  importUsers(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request.post('/auth/users/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
   }
 }
 

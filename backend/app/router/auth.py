@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
@@ -11,8 +11,11 @@ from app.schema.user import (
     UserListResponse,
     Token,
     TokenRefresh,
+    ImportResult,
 )
 from app.service.auth import AuthService
+from openpyxl import load_workbook
+import io
 
 router = APIRouter()
 auth_service = AuthService()
@@ -175,3 +178,102 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(db_user)
     db.commit()
+
+
+DEFAULT_PASSWORD = "123456"
+
+
+@router.post("/users/import", response_model=ImportResult)
+async def import_users(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
+        raise HTTPException(
+            status_code=400, detail="Only Excel files (.xlsx, .xls) are supported"
+        )
+
+    content = await file.read()
+    wb = load_workbook(io.BytesIO(content), data_only=True)
+    ws = wb.active
+
+    if ws is None:
+        raise HTTPException(status_code=400, detail="Excel file has no data")
+
+    headers = [cell.value for cell in ws[1]]
+    username_idx = None
+    email_idx = None
+    phone_idx = None
+
+    for i, h in enumerate(headers):
+        if h == "username":
+            username_idx = i
+        elif h == "email":
+            email_idx = i
+        elif h == "phone":
+            phone_idx = i
+
+    if username_idx is None:
+        raise HTTPException(status_code=400, detail="Excel must have 'username' column")
+
+    total = 0
+    success = 0
+    failed = 0
+    errors = []
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not any(row):
+            continue
+
+        total += 1
+        username = (
+            str(row[username_idx]).strip() if row[username_idx] is not None else ""
+        )
+        email = (
+            str(row[email_idx]).strip()
+            if email_idx is not None and row[email_idx] is not None
+            else ""
+        )
+        phone = (
+            str(row[phone_idx]).strip()
+            if phone_idx is not None and row[phone_idx] is not None
+            else ""
+        )
+
+        email = email if email else None
+        phone = phone if phone else None
+
+        if not username:
+            failed += 1
+            errors.append(f"Row {total + 1}: Username is required")
+            continue
+
+        existing = db.query(User).filter(User.username == username).first()
+        if existing:
+            failed += 1
+            errors.append(f"Row {total + 1}: Username '{username}' already exists")
+            continue
+
+        if email:
+            existing = db.query(User).filter(User.email == email).first()
+            if existing:
+                failed += 1
+                errors.append(f"Row {total + 1}: Email '{email}' already exists")
+                continue
+
+        if phone:
+            existing = db.query(User).filter(User.phone == phone).first()
+            if existing:
+                failed += 1
+                errors.append(f"Row {total + 1}: Phone '{phone}' already exists")
+                continue
+
+        hashed_password = auth_service.get_password_hash(DEFAULT_PASSWORD)
+        new_user = User(
+            username=username,
+            email=email,
+            phone=phone,
+            hashed_password=hashed_password,
+        )
+        db.add(new_user)
+        success += 1
+
+    db.commit()
+    return ImportResult(total=total, success=success, failed=failed, errors=errors)
