@@ -62,7 +62,7 @@
 </template>
 
 <script setup>
-import { h, ref, computed, onMounted } from 'vue'
+import { h, ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { NIcon, NBadge } from 'naive-ui'
@@ -126,6 +126,7 @@ const userStore = useUserStore()
 const isSidebarCollapsed = ref(false)
 const showQueueModal = ref(false)
 const queueBadge = ref(0)
+let queueBadgeTimer = null
 
 async function updateQueueBadge() {
   try {
@@ -138,7 +139,16 @@ async function updateQueueBadge() {
 
 onMounted(() => {
   updateQueueBadge()
-  setInterval(updateQueueBadge, 30000)
+  queueBadgeTimer = setInterval(updateQueueBadge, 5000)
+  window.addEventListener('queue-updated', updateQueueBadge)
+})
+
+onUnmounted(() => {
+  if (queueBadgeTimer) {
+    clearInterval(queueBadgeTimer)
+    queueBadgeTimer = null
+  }
+  window.removeEventListener('queue-updated', updateQueueBadge)
 })
 
 const menuItems = computed(() => {

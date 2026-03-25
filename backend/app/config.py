@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     RUSTFS_BUCKET: str = "content"
     RUSTFS_ACCESS_KEY: str = "rustfsadmin"
     RUSTFS_SECRET_KEY: str = "rustfsadmin"
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
+    QUEUE_REDIS_URL: str = "redis://localhost:6379/2"
 
 
     class Config:

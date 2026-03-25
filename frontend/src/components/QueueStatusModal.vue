@@ -3,14 +3,14 @@
     <n-spin :show="loading">
       <n-space vertical :size="16">
         <n-space justify="space-between" align="center">
-          <n-tag type="info">待处理: {{ queueStatus.pending }}</n-tag>
-          <n-tag type="warning">处理中: {{ queueStatus.processing }}</n-tag>
-          <n-tag type="success">已完成: {{ queueStatus.completed }}</n-tag>
-          <n-tag type="error">失败: {{ queueStatus.failed }}</n-tag>
+          <n-tag type="info">我的待处理: {{ queueStatus.pending }}</n-tag>
+          <n-tag type="warning">我的处理中: {{ queueStatus.processing }}</n-tag>
+          <n-tag type="success">我的已完成: {{ queueStatus.completed }}</n-tag>
+          <n-tag type="error">我的失败: {{ queueStatus.failed }}</n-tag>
         </n-space>
         
         <n-alert v-if="tasks.length === 0" type="info">
-          当前没有创建任务
+          当前账号没有创建任务
         </n-alert>
         
         <n-list v-else bordered>
@@ -23,7 +23,7 @@
                 </n-tag>
               </n-space>
               <n-space :size="12">
-                <n-text depth="3">模板: {{ task.template_name || '-' }}</n-text>
+                <n-text depth="3">用户: {{ task.username || '-' }}</n-text>
                 <n-text depth="3">创建时间: {{ formatTime(task.created_at) }}</n-text>
               </n-space>
               <n-text v-if="task.error" depth="3" type="error">
@@ -45,7 +45,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { NModal, NSpace, NTag, NAlert, NList, NListItem, NText, NSpin, NButton } from 'naive-ui'
 import { instanceApi } from '@/api'
 
@@ -73,6 +73,7 @@ const queueStatus = ref({
 })
 
 const tasks = ref([])
+let pollTimer = null
 
 async function loadData() {
   loading.value = true
@@ -81,12 +82,33 @@ async function loadData() {
       instanceApi.getQueueStatus(),
       instanceApi.getQueueTasks()
     ])
-    queueStatus.value = statusRes
+    queueStatus.value = {
+      pending: statusRes.pending || 0,
+      processing: statusRes.processing || 0,
+      completed: statusRes.completed || 0,
+      failed: statusRes.failed || 0,
+      total: statusRes.total || 0
+    }
     tasks.value = tasksRes.tasks || []
   } catch (err) {
     console.error('Failed to load queue data:', err)
   } finally {
     loading.value = false
+  }
+}
+
+function startPolling() {
+  stopPolling()
+  loadData()
+  pollTimer = setInterval(() => {
+    loadData()
+  }, 3000)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
   }
 }
 
@@ -122,7 +144,22 @@ function handleRefresh() {
 
 watch(showModal, (val) => {
   if (val) {
+    startPolling()
+  } else {
+    stopPolling()
+  }
+})
+
+function handleQueueUpdated() {
+  if (showModal.value) {
     loadData()
   }
+}
+
+window.addEventListener('queue-updated', handleQueueUpdated)
+
+onUnmounted(() => {
+  stopPolling()
+  window.removeEventListener('queue-updated', handleQueueUpdated)
 })
 </script>

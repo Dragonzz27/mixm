@@ -202,7 +202,7 @@ onMounted(async () => {
   timer = setInterval(async () => {
     await loadSystemStats()
     await loadSystemLoad()
-  }, 5000)
+  }, 30000)
 })
 
 onUnmounted(() => {

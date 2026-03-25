@@ -14,3 +14,5 @@ kubernetes
 boto3
 botocore
 openpyxl
+celery[redis]
+redis

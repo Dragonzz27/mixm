@@ -190,9 +190,9 @@ def get_user_instances(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/queue/status", status_code=status.HTTP_200_OK)
-def get_queue_status():
-    """获取队列整体状态"""
-    return queue_service.get_queue_status()
+def get_queue_status(current_user: User = Depends(get_current_user)):
+    """获取当前用户的队列状态"""
+    return queue_service.get_queue_status(user_id=current_user.id)
 
 
 @router.get("/queue/tasks", status_code=status.HTTP_200_OK)
