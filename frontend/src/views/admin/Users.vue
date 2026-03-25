@@ -25,7 +25,7 @@
     <n-modal v-model:show="showImportModal" preset="dialog" title="批量导入学生">
       <n-space vertical>
         <n-alert type="info">
-          默认密码123456，导入后请及时修改密码。
+          默认密码123456。角色需先在角色管理中创建。
         </n-alert>
         <n-upload
           accept=".xlsx,.xls"
@@ -84,9 +84,17 @@
         </n-form-item>
       </n-form>
       <template #action>
-        <n-button @click="showEditModal = false">取消</n-button>
-        <n-button type="primary" :loading="editLoading" @click="handleEdit">保存</n-button>
-        <n-button type="info" @click="showPwdModal = true; initPwdForm()">修改密码</n-button>
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+          <div>
+            <n-button type="info" @click="showPwdModal = true; initPwdForm()">修改密码</n-button>
+          </div>
+          <div>
+            <n-space>
+              <n-button @click="showEditModal = false">取消</n-button>
+              <n-button type="primary" :loading="editLoading" @click="handleEdit">保存</n-button>
+            </n-space>
+          </div>
+        </div>
       </template>
     </n-modal>
     
@@ -285,9 +293,8 @@ async function handleDelete(id) {
 function downloadTemplate() {
   import('xlsx').then(XLSX => {
     const data = [
-      ['username', 'email', 'phone'],
-      ['test001', 'test001@example.com', '13800000001'],
-      ['test002', 'test002@example.com', '']
+      ['username', 'email', 'phone', 'role_name'],
+      ['test001', 'test001@example.com', '13800000001', '学生']
     ]
     const ws = XLSX.utils.aoa_to_sheet(data)
     const wb = XLSX.utils.book_new()

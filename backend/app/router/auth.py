@@ -308,10 +308,11 @@ async def import_users(file: UploadFile = File(...), db: Session = Depends(get_d
     if ws is None:
         raise HTTPException(status_code=400, detail="Excel file has no data")
 
-    headers = [cell.value for cell in ws[1]]
+    headers = [str(cell.value).strip() if cell.value is not None else "" for cell in ws[1]]
     username_idx = None
     email_idx = None
     phone_idx = None
+    role_name_idx = None
 
     for i, h in enumerate(headers):
         if h == "username":
@@ -320,16 +321,27 @@ async def import_users(file: UploadFile = File(...), db: Session = Depends(get_d
             email_idx = i
         elif h == "phone":
             phone_idx = i
+        elif h in ["role_name", "role", "角色名"]:
+            role_name_idx = i
 
     if username_idx is None:
         raise HTTPException(status_code=400, detail="Excel must have 'username' column")
+    if role_name_idx is None:
+        raise HTTPException(status_code=400, detail="Excel must have 'role_name' column")
+
+    role_rows = db.query(Role.id, Role.name).all()
+    role_name_map = {
+        str(name).strip(): role_id
+        for role_id, name in role_rows
+        if name is not None and str(name).strip()
+    }
 
     total = 0
     success = 0
     failed = 0
     errors = []
 
-    for row in ws.iter_rows(min_row=2, values_only=True):
+    for excel_row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         if not any(row):
             continue
 
@@ -347,33 +359,49 @@ async def import_users(file: UploadFile = File(...), db: Session = Depends(get_d
             if phone_idx is not None and row[phone_idx] is not None
             else ""
         )
+        role_name = (
+            str(row[role_name_idx]).strip()
+            if role_name_idx is not None and row[role_name_idx] is not None
+            else ""
+        )
 
         email = email if email else None
         phone = phone if phone else None
 
         if not username:
             failed += 1
-            errors.append(f"Row {total + 1}: Username is required")
+            errors.append(f"Row {excel_row_num}: Username is required")
+            continue
+
+        if not role_name:
+            failed += 1
+            errors.append(f"Row {excel_row_num}: role_name is required")
+            continue
+
+        role_id = role_name_map.get(role_name)
+        if not role_id:
+            failed += 1
+            errors.append(f"Row {excel_row_num}: Role '{role_name}' does not exist")
             continue
 
         existing = db.query(User).filter(User.username == username).first()
         if existing:
             failed += 1
-            errors.append(f"Row {total + 1}: Username '{username}' already exists")
+            errors.append(f"Row {excel_row_num}: Username '{username}' already exists")
             continue
 
         if email:
             existing = db.query(User).filter(User.email == email).first()
             if existing:
                 failed += 1
-                errors.append(f"Row {total + 1}: Email '{email}' already exists")
+                errors.append(f"Row {excel_row_num}: Email '{email}' already exists")
                 continue
 
         if phone:
             existing = db.query(User).filter(User.phone == phone).first()
             if existing:
                 failed += 1
-                errors.append(f"Row {total + 1}: Phone '{phone}' already exists")
+                errors.append(f"Row {excel_row_num}: Phone '{phone}' already exists")
                 continue
 
         hashed_password = auth_service.get_password_hash(DEFAULT_PASSWORD)
@@ -384,6 +412,8 @@ async def import_users(file: UploadFile = File(...), db: Session = Depends(get_d
             hashed_password=hashed_password,
         )
         db.add(new_user)
+        db.flush()
+        _replace_user_role(db, new_user.id, role_id)
         success += 1
 
     db.commit()
