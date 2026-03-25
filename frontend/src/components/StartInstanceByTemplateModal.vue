@@ -190,6 +190,7 @@ const tagOptions = computed(() => {
 
 function parseConfig(configStr) {
   if (!configStr) return {}
+  if (typeof configStr === 'object') return configStr
   try {
     return JSON.parse(configStr)
   } catch (e) {
@@ -197,20 +198,35 @@ function parseConfig(configStr) {
   }
 }
 
+function pickNumber(value, fallback) {
+  if (value === null || value === undefined || value === '') {
+    return fallback
+  }
+  const parsed = Number(value)
+  return Number.isNaN(parsed) ? fallback : parsed
+}
+
 function initFormData() {
   const templateConfig = props.template ? parseConfig(props.template.config) : null
   
   formData.value = {
-    name: templateConfig?.name || `MixM-${Date.now()}`,
+    name: templateConfig?.name ?? `MixM-${Date.now()}`,
     user_id: null,
-    repo_id: templateConfig?.repo_id || null,
-    repo_tag: templateConfig?.repo_tag || null,
-    cpu_limit: templateConfig?.cpu_limit || 1,
-    memory_limit: templateConfig?.memory_limit_str || '2Gi',
-    storage_limit: templateConfig?.storage ? parseInt(templateConfig.storage) : 1,
-    gpu_limit: templateConfig?.gpu_limit || 1,
-    gpu_memory_limit: templateConfig?.gpu_memory_limit || 2048
+    repo_id: templateConfig?.repo_id ?? null,
+    repo_tag: templateConfig?.repo_tag ?? null,
+    cpu_limit: pickNumber(templateConfig?.cpu_limit, 1),
+    memory_limit: templateConfig?.memory_limit_str ?? '2Gi',
+    storage_limit: pickNumber(templateConfig?.storage, 1),
+    gpu_limit: pickNumber(templateConfig?.gpu_limit, 0),
+    gpu_memory_limit: pickNumber(templateConfig?.gpu_memory_limit, 0)
   }
+
+  if (formData.value.gpu_limit === 0) {
+    formData.value.gpu_memory_limit = 0
+  } else if (formData.value.gpu_memory_limit <= 0) {
+    formData.value.gpu_memory_limit = 2048
+  }
+
   tags.value = []
   
   if (formData.value.repo_id) {
@@ -252,10 +268,18 @@ async function loadTags(repoId) {
   }
   tagsLoading.value = true
   try {
+    const currentTag = formData.value.repo_tag
     const res = await imageApi.getTags(repoId)
     tags.value = res || []
-    if (tags.value.length > 0) {
+
+    if (currentTag && tags.value.some(t => t.name === currentTag)) {
+      formData.value.repo_tag = currentTag
+    } else if (!currentTag && tags.value.length > 0) {
       formData.value.repo_tag = tags.value[0].name
+    } else if (currentTag && tags.value.length > 0) {
+      formData.value.repo_tag = tags.value[0].name
+    } else {
+      formData.value.repo_tag = null
     }
   } catch (err) {
     console.error(err)

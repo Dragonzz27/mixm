@@ -230,6 +230,9 @@ export const instanceApi = {
   startByTemplate(data) {
     return request.post('/instances/start', data)
   },
+  startBatchByTemplate(data) {
+    return request.post('/instances/start/batch-template', data)
+  },
   startQueued(data) {
     return request.post('/instances/start', data)
   },
