@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Set
 
 from app.models.user import User
 
@@ -7,6 +7,23 @@ class RouterService:
 	"""Provide frontend route and menu configuration payloads."""
 
 	def __init__(self):
+		self._default_client_menu_keys = ["ClientHome", "ClientContents", "ClientMyInstances"]
+		self._menu_key_route_names = {
+			"ClientHome": ["ClientHome", "ClientLevels", "ClientLevelDetail"],
+			"ClientContents": ["ClientContents", "ClientContent"],
+			"ClientMyInstances": ["ClientMyInstances", "ClientInstanceDetail"],
+			"Dashboard": ["Dashboard"],
+			"Users": ["Users"],
+			"Roles": ["Roles"],
+			"Categories": ["Categories"],
+			"Contents": ["Contents"],
+			"Templates": ["Templates"],
+			"Bindings": ["Bindings"],
+			"Clusters": ["Clusters"],
+			"Instances": ["Instances"],
+			"AdminImageRepositories": ["AdminImageRepositories", "AdminImageDetail"],
+		}
+
 		self._routes: List[Dict[str, Any]] = [
 			{
 				"path": "/login",
@@ -80,6 +97,11 @@ class RouterService:
 						"component": "views/admin/Users.vue",
 					},
 					{
+						"path": "roles",
+						"name": "Roles",
+						"component": "views/admin/Roles.vue",
+					},
+					{
 						"path": "categories",
 						"name": "Categories",
 						"component": "views/admin/Categories.vue",
@@ -143,6 +165,7 @@ class RouterService:
 			{"type": "divider", "key": "d1", "label": ""},
 			{"key": "Dashboard", "label": "仪表盘", "path": "/admin", "icon": "SpeedometerOutline"},
 			{"key": "Users", "label": "用户管理", "path": "/admin/users", "icon": "PeopleOutline"},
+			{"key": "Roles", "label": "角色管理", "path": "/admin/roles", "icon": "ShieldCheckmarkOutline"},
 			{
 				"key": "Categories",
 				"label": "分类管理",
@@ -181,15 +204,60 @@ class RouterService:
 			},
 		]
 
-	def get_routes(self, user: User) -> List[Dict[str, Any]]:
-		# 按当前需求先返回全部路由，后续可在这里按角色裁剪。
-		return self._routes
+	def _resolve_menu_keys(self, user: User, allow_menu_keys: Optional[List[str]]) -> List[str]:
+		if user.is_superuser:
+			return [item.get("key") for item in self._menu if item.get("key")]
+		if allow_menu_keys is None:
+			return self._default_client_menu_keys
+		return list(dict.fromkeys([key for key in allow_menu_keys if key]))
 
-	def get_menu(self, user: User) -> List[Dict[str, Any]]:
-		# 按当前需求先返回全部菜单，后续可在这里按角色裁剪。
+	def _resolve_route_names_by_menu_keys(self, allow_menu_keys: List[str]) -> Set[str]:
+		allowed_route_names: Set[str] = set()
+		for key in allow_menu_keys:
+			for route_name in self._menu_key_route_names.get(key, [key]):
+				allowed_route_names.add(route_name)
+		return allowed_route_names
+
+	def get_routes(self, user: User, allow_menu_keys: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+		if user.is_superuser:
+			return self._routes
+
+		resolved_menu_keys = self._resolve_menu_keys(user, allow_menu_keys)
+		allowed_route_names = self._resolve_route_names_by_menu_keys(resolved_menu_keys)
+		filtered_routes: List[Dict[str, Any]] = []
+
+		for route in self._routes:
+			if route.get("path") in ["/login", "/register", "/:pathMatch(.*)*"]:
+				filtered_routes.append(route)
+				continue
+
+			children = route.get("children")
+			if not children:
+				continue
+
+			allowed_children = [
+				child for child in children if child.get("name") in allowed_route_names
+			]
+			if allowed_children:
+				route_copy = dict(route)
+				route_copy["children"] = allowed_children
+				filtered_routes.append(route_copy)
+
+		return filtered_routes
+
+	def get_menu(self, user: User, allow_menu_keys: Optional[List[str]] = None) -> List[Dict[str, Any]]:
 		if user.is_superuser:
 			return self._menu
-		else:
-			allow_menu_keys = ["ClientHome", "ClientContents", "ClientMyInstances"]
-			return [item for item in self._menu if item.get("key") in allow_menu_keys]
+
+		resolved_menu_keys = self._resolve_menu_keys(user, allow_menu_keys)
+		return [item for item in self._menu if item.get("key") in resolved_menu_keys]
+
+	def get_permission_options(self) -> List[Dict[str, str]]:
+		permission_options: List[Dict[str, str]] = []
+		for item in self._menu:
+			key = item.get("key")
+			if not key or item.get("type") == "divider":
+				continue
+			permission_options.append({"key": key, "label": item.get("label") or key})
+		return permission_options
 

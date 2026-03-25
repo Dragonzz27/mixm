@@ -55,6 +55,9 @@
         <n-form-item label="密码" path="password">
           <n-input v-model:value="addFormData.password" type="password" show-password-on="click" />
         </n-form-item>
+        <n-form-item label="角色" path="role_id">
+          <n-select v-model:value="addFormData.role_id" :options="roleOptions" placeholder="请选择角色" clearable />
+        </n-form-item>
       </n-form>
       <template #action>
         <n-button @click="showAddModal = false">取消</n-button>
@@ -75,6 +78,9 @@
         </n-form-item>
         <n-form-item label="状态" path="is_active">
           <n-switch v-model:value="editFormData.is_active" />
+        </n-form-item>
+        <n-form-item label="角色" path="role_id">
+          <n-select v-model:value="editFormData.role_id" :options="roleOptions" placeholder="请选择角色" clearable />
         </n-form-item>
       </n-form>
       <template #action>
@@ -103,8 +109,8 @@
 
 <script setup>
 import { ref, h, watch } from 'vue'
-import { NCard, NInput, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NSwitch, useMessage, NUpload, NAlert, NButtonGroup } from 'naive-ui'
-import { authApi } from '@/api'
+import { NCard, NInput, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NSwitch, useMessage, NUpload, NAlert, NButtonGroup, NSelect } from 'naive-ui'
+import { authApi, roleApi } from '@/api'
 
 const message = useMessage()
 const searchKey = ref('')
@@ -117,15 +123,16 @@ const editLoading = ref(false)
 const pwdLoading = ref(false)
 const importLoading = ref(false)
 const users = ref([])
+const roleOptions = ref([])
 const pagination = ref({ pageSize: 10 })
 
-const addFormData = ref({ username: '', email: '', phone: '', password: '' })
+const addFormData = ref({ username: '', email: '', phone: '', password: '', role_id: null })
 const addRules = {
   username: [{ required: true, message: '请输入用户名' }],
   password: [{ required: true, message: '请输入密码' }]
 }
 
-const editFormData = ref({ id: null, username: '', email: '', phone: '', is_active: true })
+const editFormData = ref({ id: null, username: '', email: '', phone: '', is_active: true, role_id: null })
 const editRules = {
   username: [{ required: true, message: '请输入用户名' }]
 }
@@ -148,6 +155,12 @@ const columns = [
   { title: '用户名', key: 'username', width: 120 },
   { title: '邮箱', key: 'email', width: 180 },
   { title: '手机号', key: 'phone', width: 120 },
+  {
+    title: '角色',
+    key: 'role',
+    width: 220,
+    render: (row) => row.role?.name || '-'
+  },
   { title: '状态', key: 'is_active', width: 80, render: (row) => h('span', row.is_active ? '激活' : '禁用') },
   {
     title: '操作',
@@ -175,6 +188,18 @@ async function loadUsers() {
   }
 }
 
+async function loadRoles() {
+  try {
+    const res = await roleApi.getList({ skip: 0, limit: 200 })
+    roleOptions.value = (res.roles || []).map((item) => ({
+      label: item.name,
+      value: item.id
+    }))
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 
 
 async function handleAdd() {
@@ -183,7 +208,7 @@ async function handleAdd() {
     await authApi.register(addFormData.value)
     message.success('添加成功')
     showAddModal.value = false
-    addFormData.value = { username: '', email: '', phone: '', password: '' }
+    addFormData.value = { username: '', email: '', phone: '', password: '', role_id: null }
     loadUsers()
   } catch (err) {
     console.error(err)
@@ -198,7 +223,8 @@ function handleEditClick(row) {
     username: row.username || '',
     email: row.email || '',
     phone: row.phone || '',
-    is_active: row.is_active
+    is_active: row.is_active,
+    role_id: row.role_id || null
   }
   showEditModal.value = true
 }
@@ -210,7 +236,8 @@ async function handleEdit() {
       username: editFormData.value.username,
       email: editFormData.value.email,
       phone: editFormData.value.phone,
-      is_active: editFormData.value.is_active
+      is_active: editFormData.value.is_active,
+      role_id: editFormData.value.role_id
     })
     message.success('更新成功')
     showEditModal.value = false
@@ -286,5 +313,6 @@ function handleImportRequest({ file }) {
   })
 }
 
+loadRoles()
 loadUsers()
 </script>
