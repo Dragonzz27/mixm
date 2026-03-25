@@ -288,3 +288,24 @@ export const imageApi = {
     return request.delete(`/images/${repoId}/tags/${tagName}`)
   }
 }
+
+export const roleApi = {
+  getList(params) {
+    return request.get('/roles/', { params })
+  },
+  getDetail(id) {
+    return request.get(`/roles/${id}`)
+  },
+  create(data) {
+    return request.post('/roles/', data)
+  },
+  update(id, data) {
+    return request.put(`/roles/${id}`, data)
+  },
+  delete(id) {
+    return request.delete(`/roles/${id}`)
+  },
+  getPermissionOptions() {
+    return request.get('/roles/permissions')
+  }
+}

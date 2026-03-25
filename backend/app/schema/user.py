@@ -23,6 +23,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    role_id: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -30,6 +31,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     is_active: Optional[bool] = None
+    role_id: Optional[str] = None
 
     @field_validator("email", "phone", mode="before")
     @classmethod
@@ -48,10 +50,17 @@ class PasswordChange(BaseModel):
     new_password: str
 
 
+class UserRoleItem(BaseModel):
+    id: str
+    name: str
+
+
 class UserResponse(UserBase):
     id: int
     is_active: bool
     is_superuser: bool
+    role: Optional[UserRoleItem] = None
+    role_id: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -76,6 +85,8 @@ class LoginUserInfo(BaseModel):
     is_active: bool
     is_superuser: bool
     role: str
+    user_role: Optional[UserRoleItem] = None
+    role_id: Optional[str] = None
 
 
 class MenuItem(BaseModel):

@@ -1,9 +1,12 @@
 import io
 import logging
+from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.models.role import Role
+from app.models.user_role import UserRole
 from app.models.user import User
 from app.schema.user import (
     UserCreate,
@@ -28,6 +31,63 @@ auth_service = AuthService()
 router_service = RouterService()
 
 
+def _validate_role_id(db: Session, role_id: Optional[str]) -> Optional[str]:
+    if not role_id:
+        return None
+    existing = db.query(Role).filter(Role.id == role_id).first()
+    if not existing:
+        raise HTTPException(status_code=400, detail="Role does not exist")
+    return role_id
+
+
+def _replace_user_role(db: Session, user_id: int, role_id: Optional[str]) -> None:
+    db.query(UserRole).filter(UserRole.user_id == user_id).delete()
+    if role_id:
+        db.add(UserRole(user_id=user_id, role_id=role_id))
+
+
+def _build_user_role_map(db: Session, user_ids: list[int]) -> Dict[int, Optional[Dict[str, str]]]:
+    if not user_ids:
+        return {}
+
+    rows = (
+        db.query(UserRole.user_id, Role.id, Role.name)
+        .join(Role, Role.id == UserRole.role_id)
+        .filter(UserRole.user_id.in_(user_ids))
+        .all()
+    )
+    result: Dict[int, Optional[Dict[str, str]]] = {user_id: None for user_id in user_ids}
+    for user_id, role_id, role_name in rows:
+        result[user_id] = {"id": role_id, "name": role_name}
+    return result
+
+
+def _serialize_user(user: User, role: Optional[Dict[str, str]]) -> Dict:
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "phone": user.phone,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+        "role": role,
+        "role_id": role["id"] if role else None,
+    }
+
+
+def _collect_user_route_keys(db: Session, user_id: int) :
+    rows = (
+        db.query(Role.route_keys)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .filter(UserRole.user_id == user_id)
+        .all()
+    )
+    for (keys,) in rows:
+        if isinstance(keys, list):
+            return [str(key) for key in keys if key]
+    return []
+
+
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
@@ -44,6 +104,8 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         if db_user:
             raise HTTPException(status_code=400, detail="Phone already registered")
 
+    valid_role_id = _validate_role_id(db, user.role_id)
+
     hashed_password = auth_service.get_password_hash(user.password)
     db_user = User(
         username=user.username,
@@ -53,8 +115,11 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(db_user)
     db.commit()
+    _replace_user_role(db, db_user.id, valid_role_id)
+    db.commit()
     db.refresh(db_user)
-    return db_user
+    role_map = _build_user_role_map(db, [db_user.id])
+    return _serialize_user(db_user, role_map.get(db_user.id))
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -79,6 +144,12 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_user)
     role = "admin" if db_user.is_superuser else "client"
+    role_map = _build_user_role_map(db, [db_user.id])
+    user_role = role_map.get(db_user.id)
+    user_route_keys = _collect_user_route_keys(db, db_user.id)
+    if not db_user.is_superuser and not user_route_keys:
+        # Backward compatible fallback for users not yet bound to any role.
+        user_route_keys = ["ClientHome", "ClientContents", "ClientMyInstances"]
 
     return {
         "access_token": access_token,
@@ -92,9 +163,11 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             "is_active": db_user.is_active,
             "is_superuser": db_user.is_superuser,
             "role": role,
+            "user_role": user_role,
+            "role_id": user_role["id"] if user_role else None,
         },
-        "routes": router_service.get_routes(db_user),
-        "menu": router_service.get_menu(db_user),
+        "routes": router_service.get_routes(db_user, user_route_keys),
+        "menu": router_service.get_menu(db_user, user_route_keys),
     }
 
 
@@ -140,7 +213,9 @@ def get_users(
             )
     total = query.count()
     users = query.offset(skip).limit(limit).all()
-    return {"total": total, "users": users}
+    role_map = _build_user_role_map(db, [item.id for item in users])
+    serialized_users = [_serialize_user(item, role_map.get(item.id)) for item in users]
+    return {"total": total, "users": serialized_users}
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -148,7 +223,8 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+    role_map = _build_user_role_map(db, [db_user.id])
+    return _serialize_user(db_user, role_map.get(db_user.id))
 
 
 @router.put("/users/{user_id}", response_model=UserResponse)
@@ -156,6 +232,11 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    valid_role_id = None
+    should_update_role = "role_id" in user_update.model_fields_set
+    if should_update_role:
+        valid_role_id = _validate_role_id(db, user_update.role_id)
 
     if user_update.username and user_update.username != db_user.username:
         existing = db.query(User).filter(User.username == user_update.username).first()
@@ -179,8 +260,12 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
         db_user.is_active = user_update.is_active
 
     db.commit()
+    if should_update_role:
+        _replace_user_role(db, db_user.id, valid_role_id)
+        db.commit()
     db.refresh(db_user)
-    return db_user
+    role_map = _build_user_role_map(db, [db_user.id])
+    return _serialize_user(db_user, role_map.get(db_user.id))
 
 
 @router.post("/users/{user_id}/change-password")
@@ -201,6 +286,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+    db.query(UserRole).filter(UserRole.user_id == user_id).delete()
     db.delete(db_user)
     db.commit()
 

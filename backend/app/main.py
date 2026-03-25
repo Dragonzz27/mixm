@@ -11,6 +11,7 @@ from app.router import (
     cluster,
     instance,
     image,
+    role,
 )
 from app.database import engine
 from app.models import user
@@ -21,6 +22,8 @@ from app.models.content_type import ContentType as ContentTypeModel
 from app.models.template import Template as TemplateModel
 from app.models.instance import Instance as InstanceModel
 from app.models.image import ImageRepository
+from app.models.role import Role as RoleModel
+from app.models.user_role import UserRole as UserRoleModel
 
 user.Base.metadata.create_all(bind=engine)
 CategoryModel.__table__.create(bind=engine, checkfirst=True)
@@ -30,6 +33,8 @@ ContentTypeModel.__table__.create(bind=engine, checkfirst=True)
 TemplateModel.__table__.create(bind=engine, checkfirst=True)
 InstanceModel.__table__.create(bind=engine, checkfirst=True)
 ImageRepository.__table__.create(bind=engine, checkfirst=True)
+RoleModel.__table__.create(bind=engine, checkfirst=True)
+UserRoleModel.__table__.create(bind=engine, checkfirst=True)
 
 app = FastAPI()
 
@@ -53,3 +58,4 @@ app.include_router(system.router, prefix="/api/system", tags=["system"])
 app.include_router(cluster.router, prefix="/api/clusters", tags=["clusters"])
 app.include_router(instance.router, prefix="/api/instances", tags=["instances"])
 app.include_router(image.router, prefix="/api/images", tags=["images"])
+app.include_router(role.router, prefix="/api/roles", tags=["roles"])

@@ -5,3 +5,5 @@ from app.models.content_category import ContentCategory
 from app.models.content_type import ContentType
 from app.models.template import Template
 from app.models.instance import Instance
+from app.models.role import Role
+from app.models.user_role import UserRole
