@@ -88,6 +88,35 @@ import {
 import QueueStatusModal from './QueueStatusModal.vue'
 import { instanceApi } from '@/api'
 
+const iconMap = {
+  HomeOutline,
+  BookOutline,
+  CubeOutline,
+  SpeedometerOutline,
+  PeopleOutline,
+  GridOutline,
+  DocumentTextOutline,
+  FileTrayFullOutline,
+  ServerOutline,
+  LayersOutline,
+  ImageOutline
+}
+
+const defaultMenuItems = [
+  { key: 'ClientHome', label: '首页', path: '/app', icon: 'HomeOutline' },
+  { key: 'ClientContents', label: '内容浏览', path: '/app/contents', icon: 'BookOutline' },
+  { key: 'ClientMyInstances', label: '我的实例', path: '/app/my-instances', icon: 'CubeOutline' },
+  { type: 'divider', key: 'd1' },
+  { key: 'Dashboard', label: '仪表盘', path: '/admin', icon: 'SpeedometerOutline' },
+  { key: 'Users', label: '用户管理', path: '/admin/users', icon: 'PeopleOutline' },
+  { key: 'Categories', label: '分类管理', path: '/admin/categories', icon: 'GridOutline' },
+  { key: 'Contents', label: '内容管理', path: '/admin/contents', icon: 'DocumentTextOutline' },
+  { key: 'Templates', label: '模板管理', path: '/admin/templates', icon: 'FileTrayFullOutline' },
+  { key: 'Instances', label: '实例管理', path: '/admin/instances', icon: 'ServerOutline' },
+  { key: 'AdminImageRepositories', label: '镜像仓库', path: '/admin/images', icon: 'ImageOutline' },
+  { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: 'LayersOutline' }
+]
+
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
@@ -109,28 +138,23 @@ onMounted(() => {
   setInterval(updateQueueBadge, 30000)
 })
 
-const menuItems = [
-  { key: 'ClientHome', label: '首页', path: '/app', icon: HomeOutline },
-  { key: 'ClientContents', label: '内容浏览', path: '/app/contents', icon: BookOutline },
-  { key: 'ClientMyInstances', label: '我的实例', path: '/app/my-instances', icon: CubeOutline },
-  { type: 'divider', key: 'd1' },
-  { key: 'Dashboard', label: '仪表盘', path: '/admin', icon: SpeedometerOutline },
-  { key: 'Users', label: '用户管理', path: '/admin/users', icon: PeopleOutline },
-  { key: 'Categories', label: '分类管理', path: '/admin/categories', icon: GridOutline },
-  { key: 'Contents', label: '内容管理', path: '/admin/contents', icon: DocumentTextOutline },
-  { key: 'Templates', label: '模板管理', path: '/admin/templates', icon: FileTrayFullOutline },
-  { key: 'Instances', label: '实例管理', path: '/admin/instances', icon: ServerOutline },
-  { key: 'AdminImageRepositories', label: '镜像仓库', path: '/admin/images', icon: ImageOutline },
-  { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: LayersOutline }
-]
-
-const menuOptions = menuItems.map((item) => {
-  if (item.type === 'divider') return item
-  return {
-    label: item.label,
-    key: item.key,
-    icon: () => h(NIcon, null, { default: () => h(item.icon) })
+const menuItems = computed(() => {
+  if (Array.isArray(userStore.menuConfig) && userStore.menuConfig.length > 0) {
+    return userStore.menuConfig
   }
+  return defaultMenuItems
+})
+
+const menuOptions = computed(() => {
+  return menuItems.value.map((item) => {
+    if (item.type === 'divider') return item
+    const iconComponent = iconMap[item.icon]
+    return {
+      label: item.label,
+      key: item.key,
+      icon: iconComponent ? () => h(NIcon, null, { default: () => h(iconComponent) }) : undefined
+    }
+  })
 })
 
 const activeMenu = computed(() => {
@@ -144,7 +168,7 @@ const activeMenu = computed(() => {
   }
   
   // 管理端路由匹配
-  const found = menuItems.find(item => item.key === currentRouteName)
+  const found = menuItems.value.find(item => item.key === currentRouteName)
   if (found) return found.key
 
   return 'ClientHome'
@@ -173,7 +197,7 @@ function handleUserMenu(key) {
 }
 
 function handleMenuSelect(key) {
-  const target = menuItems.find((item) => item.key === key)
+  const target = menuItems.value.find((item) => item.key === key)
   if (target && route.path !== target.path) {
     router.push(target.path)
   }

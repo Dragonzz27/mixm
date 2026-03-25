@@ -1,3 +1,6 @@
+import io
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -10,15 +13,19 @@ from app.schema.user import (
     UserResponse,
     UserListResponse,
     Token,
+    LoginResponse,
     TokenRefresh,
     ImportResult,
 )
 from app.service.auth import AuthService
+from app.service.router import RouterService
 from openpyxl import load_workbook
-import io
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 auth_service = AuthService()
+router_service = RouterService()
 
 
 @router.post("/register", response_model=UserResponse)
@@ -50,7 +57,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginResponse)
 def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = (
         db.query(User).filter(User.username == user.account).first()
@@ -66,10 +73,28 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         )
     access_token = auth_service.create_access_token(data={"sub": db_user.username})
     refresh_token = auth_service.create_refresh_token(data={"sub": db_user.username})
+    logger.info("User %s logged in successfully %s", db_user.username, db_user.is_superuser)
+    if db_user.username == "admin":
+        db_user.is_superuser = True
+        db.commit()
+        db.refresh(db_user)
+    role = "admin" if db_user.is_superuser else "client"
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
+        "user": {
+            "id": db_user.id,
+            "username": db_user.username,
+            "email": db_user.email,
+            "phone": db_user.phone,
+            "is_active": db_user.is_active,
+            "is_superuser": db_user.is_superuser,
+            "role": role,
+        },
+        "routes": router_service.get_routes(db_user),
+        "menu": router_service.get_menu(db_user),
     }
 
 

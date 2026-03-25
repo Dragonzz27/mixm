@@ -182,10 +182,12 @@ async function handleLogin() {
     userStore.setToken(res.access_token)
     userStore.setRefreshToken(res.refresh_token)
     userStore.setUserInfo(res.user)
+    userStore.setRouteConfig(res.routes)
+    userStore.setMenuConfig(res.menu)
     message.success('Login successful')
     
     const userRole = res.user?.role || 'client'
-    const redirect = route.query.redirect || (userRole === 'admin' ? '/' : '/app')
+    const redirect = route.query.redirect || (userRole === 'admin' ? '/admin' : '/app')
     router.push(redirect)
   } catch (err) {
     if (err.response?.status === 401) {
