@@ -305,6 +305,7 @@ async function handleSubmit() {
 
     const res = await instanceApi.startQueued(payload)
     message.success(res.message || '实例已加入创建队列，请稍后查看进度')
+    window.dispatchEvent(new CustomEvent('queue-updated'))
     showModal.value = false
     emit('success')
   } catch (err) {
