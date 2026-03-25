@@ -107,25 +107,79 @@
       :enable-user-select="true"
       @success="onInstanceStarted"
     />
+    <n-modal v-model:show="showBatchStartModal" preset="dialog" title="批量启动实例" style="width: 640px;">
+      <n-space vertical :size="16">
+        <n-alert type="info" v-if="batchTemplate">
+          模板：{{ batchTemplate.name }}，请选择需要启动实例的用户。
+        </n-alert>
+        <n-input
+          v-model:value="batchUserKeyword"
+          placeholder="按用户名/邮箱/手机号筛选用户"
+          clearable
+        />
+        <n-select
+          v-model:value="batchRoleId"
+          :options="batchRoleOptions"
+          placeholder="按角色筛选用户"
+          clearable
+        />
+        <n-space justify="space-between" align="center">
+          <n-text depth="3">已选用户：{{ batchUserIds.length }}</n-text>
+          <n-space>
+            <n-button size="small" @click="selectAllFilteredUsers">全选筛选结果</n-button>
+            <n-button size="small" @click="clearBatchUserSelection">清空选择</n-button>
+          </n-space>
+        </n-space>
+        <n-space :size="8" align="center">
+          <n-tag type="info">筛选结果：{{ filteredBatchUsers.length }}</n-tag>
+          <n-tag type="success">已勾选：{{ batchUserIds.length }}</n-tag>
+          <n-tag v-if="batchRoleId" type="warning">
+            角色筛选：{{ batchRoleOptions.find(item => item.value === batchRoleId)?.label || '-' }}
+          </n-tag>
+          <n-tag v-if="batchUserKeyword" type="default">关键词：{{ batchUserKeyword }}</n-tag>
+        </n-space>
+        <div class="batch-user-table-wrap">
+          <n-data-table
+            size="small"
+            :columns="batchUserTableColumns"
+            :data="filteredBatchUsers"
+            :row-key="batchUserRowKey"
+            :max-height="420"
+          />
+        </div>
+      </n-space>
+      <template #action>
+        <n-button @click="showBatchStartModal = false">取消</n-button>
+        <n-button type="primary" :loading="batchLoading" @click="handleBatchStartSubmit">批量启动</n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, h, watch } from 'vue'
-import { NCard, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NInput, NInputNumber, NDivider, NRow, NCol, NScrollbar, NSelect, useMessage } from 'naive-ui'
-import { templateApi, imageApi } from '@/api'
+import { NCard, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NInput, NInputNumber, NDivider, NRow, NCol, NScrollbar, NSelect, NAlert, NText, NCheckbox, NTag, useMessage } from 'naive-ui'
+import { templateApi, imageApi, authApi, instanceApi, roleApi } from '@/api'
 import StartInstanceByTemplateModal from '@/components/StartInstanceByTemplateModal.vue'
 
 const message = useMessage()
 const templates = ref([])
 const showModal = ref(false)
 const showStartModal = ref(false)
+const showBatchStartModal = ref(false)
 const selectedTemplate = ref(null)
+const batchTemplate = ref(null)
 const isEdit = ref(false)
 const loading = ref(false)
+const batchLoading = ref(false)
 const searchKeyword = ref('')
 const pagination = ref({ pageSize: 10 })
 const formRef = ref(null)
+const users = ref([])
+const roles = ref([])
+const batchUserIds = ref([])
+const batchUserKeyword = ref('')
+const batchRoleId = ref(null)
 
 const repos = ref([])
 const tags = ref([])
@@ -227,14 +281,66 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
-    width: 220,
+    width: 320,
     render: (row) => h(NSpace, {}, () => [
       h(NButton, { size: 'small', onClick: () => handleEdit(row) }, () => '编辑'),
       h(NButton, { size: 'small', type: 'success', onClick: () => handleStartClick(row) }, () => '启动实例'),
+      h(NButton, { size: 'small', type: 'primary', onClick: () => handleBatchStartClick(row) }, () => '批量启动'),
       h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, () => '删除')
     ])
   }
 ]
+
+const filteredBatchUsers = computed(() => {
+  const keyword = (batchUserKeyword.value || '').trim().toLowerCase()
+
+  return users.value.filter((u) => {
+    const userRoleId = String(u.role_id || u.role?.id || '')
+    const selectedRoleId = String(batchRoleId.value || '')
+    const roleMatched = !batchRoleId.value || userRoleId === selectedRoleId
+    if (!roleMatched) return false
+
+    if (!keyword) return true
+
+    const username = (u.username || '').toLowerCase()
+    const email = (u.email || '').toLowerCase()
+    const roleName = (u.role?.name || '').toLowerCase()
+    return username.includes(keyword) || email.includes(keyword) || roleName.includes(keyword)
+  })
+})
+
+const batchRoleOptions = computed(() => {
+  return roles.value.map((r) => ({
+    label: r.name,
+    value: r.id,
+  }))
+})
+
+const batchUserColumns = [
+  { title: 'ID', key: 'id', width: 80 },
+  { title: '用户名', key: 'username', width: 140 },
+  { title: '邮箱', key: 'email', width: 220, render: (row) => row.email || '-' },
+  { title: '角色', key: 'role', width: 140, render: (row) => row.role?.name || '-' },
+  {
+    title: '状态',
+    key: 'is_active',
+    width: 100,
+    render: (row) => (row.is_active ? '激活' : '禁用')
+  }
+]
+
+const batchUserTableColumns = computed(() => {
+  const selectionColumn = {
+    title: '',
+    key: 'selection',
+    width: 56,
+    render: (row) => h(NCheckbox, {
+      checked: batchUserIds.value.includes(row.id),
+      'onUpdate:checked': (checked) => toggleBatchUserChecked(row.id, checked),
+    })
+  }
+  return [selectionColumn, ...batchUserColumns]
+})
 
 async function loadTemplates() {
   try {
@@ -327,6 +433,26 @@ async function loadRepos() {
   }
 }
 
+async function loadUsers() {
+  try {
+    const res = await authApi.getUsers({ skip: 0, limit: 1000 })
+    users.value = res.users || []
+  } catch (err) {
+    console.error(err)
+    users.value = []
+  }
+}
+
+async function loadRoles() {
+  try {
+    const res = await roleApi.getList({ skip: 0, limit: 200 })
+    roles.value = res.roles || []
+  } catch (err) {
+    console.error(err)
+    roles.value = []
+  }
+}
+
 async function loadTags(repoId) {
   if (!repoId) {
     tags.value = []
@@ -381,10 +507,70 @@ function handleStartClick(row) {
   showStartModal.value = true
 }
 
+function handleBatchStartClick(row) {
+  batchTemplate.value = row
+  batchUserIds.value = []
+  batchUserKeyword.value = ''
+  batchRoleId.value = null
+  showBatchStartModal.value = true
+}
+
+const batchUserRowKey = (row) => row.id
+
+function toggleBatchUserChecked(userId, checked) {
+  if (checked) {
+    if (!batchUserIds.value.includes(userId)) {
+      batchUserIds.value = [...batchUserIds.value, userId]
+    }
+    return
+  }
+  batchUserIds.value = batchUserIds.value.filter((id) => id !== userId)
+}
+
+function selectAllFilteredUsers() {
+  batchUserIds.value = filteredBatchUsers.value.map((u) => u.id)
+}
+
+function clearBatchUserSelection() {
+  batchUserIds.value = []
+}
+
+async function handleBatchStartSubmit() {
+  if (!batchTemplate.value?.id) {
+    message.warning('模板信息无效')
+    return
+  }
+  if (!batchUserIds.value.length) {
+    message.warning('请至少选择一个用户')
+    return
+  }
+
+  batchLoading.value = true
+  try {
+    const res = await instanceApi.startBatchByTemplate({
+      template_id: batchTemplate.value.id,
+      user_ids: batchUserIds.value,
+    })
+    message.success(res.message || `已提交 ${res.queued_count || 0} 个创建任务`)
+    showBatchStartModal.value = false
+    window.dispatchEvent(new CustomEvent('queue-updated'))
+  } catch (err) {
+    console.error(err)
+    const errorMsg = err.response?.data?.detail || err.message || '批量启动失败'
+    message.error(errorMsg)
+  } finally {
+    batchLoading.value = false
+  }
+}
+
 watch(() => formData.value.config.gpu_limit, (val) => {
   if (val === 0) {
     formData.value.config.gpu_memory_limit = 0
   }
+})
+
+watch([batchUserKeyword, batchRoleId], () => {
+  batchUserIds.value = []
 })
 
 async function handleSubmit() {
@@ -439,7 +625,11 @@ async function handleDelete(id) {
   }
 }
 
-onMounted(loadTemplates)
+onMounted(() => {
+  loadTemplates()
+  loadUsers()
+  loadRoles()
+})
 </script>
 
 <style scoped>
@@ -449,5 +639,9 @@ onMounted(loadTemplates)
 
 :deep(.n-modal-body) {
   max-height: 60vh;
+}
+
+.batch-user-table-wrap {
+  height: 420px;
 }
 </style>
