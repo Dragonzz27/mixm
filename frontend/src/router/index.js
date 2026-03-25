@@ -126,6 +126,23 @@ const routes = [
   }
 ]
 
+function collectAllowedNames(routeTree) {
+  const nameSet = new Set()
+  const walk = (items) => {
+    if (!Array.isArray(items)) return
+    items.forEach((item) => {
+      if (item?.name) {
+        nameSet.add(item.name)
+      }
+      if (Array.isArray(item?.children) && item.children.length > 0) {
+        walk(item.children)
+      }
+    })
+  }
+  walk(routeTree)
+  return nameSet
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes
@@ -133,9 +150,13 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
+  const allowedNames = collectAllowedNames(userStore.routeConfig)
   
   if (to.meta.requiresAuth && !userStore.token) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
+  } else if (to.meta.requiresAuth && allowedNames.size > 0 && to.name && !allowedNames.has(to.name)) {
+    const fallback = userStore.menuConfig?.find?.((item) => item?.path)?.path || '/app'
+    next({ path: fallback })
   } else if (to.meta.guest && userStore.token) {
     const role = userStore.userInfo?.role
     if (role === 'admin') {

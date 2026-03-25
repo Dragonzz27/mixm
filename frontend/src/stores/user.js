@@ -13,6 +13,8 @@ export const useUserStore = defineStore('user', () => {
   const token = ref(getStoredItem('token'))
   const refreshToken = ref(getStoredItem('refreshToken'))
   const userInfo = ref(null)
+  const routeConfig = ref([])
+  const menuConfig = ref([])
   try {
     const storedUserInfo = localStorage.getItem('userInfo')
     if (storedUserInfo && storedUserInfo !== 'undefined') {
@@ -20,6 +22,24 @@ export const useUserStore = defineStore('user', () => {
     }
   } catch (err) {
     console.error('Failed to parse userInfo from localStorage:', err)
+  }
+
+  try {
+    const storedRouteConfig = localStorage.getItem('routeConfig')
+    if (storedRouteConfig && storedRouteConfig !== 'undefined') {
+      routeConfig.value = JSON.parse(storedRouteConfig)
+    }
+  } catch (err) {
+    console.error('Failed to parse routeConfig from localStorage:', err)
+  }
+
+  try {
+    const storedMenuConfig = localStorage.getItem('menuConfig')
+    if (storedMenuConfig && storedMenuConfig !== 'undefined') {
+      menuConfig.value = JSON.parse(storedMenuConfig)
+    }
+  } catch (err) {
+    console.error('Failed to parse menuConfig from localStorage:', err)
   }
   const refreshTokenPending = ref(false)
 
@@ -77,6 +97,24 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  function setRouteConfig(routes) {
+    routeConfig.value = Array.isArray(routes) ? routes : []
+    if (routeConfig.value.length > 0) {
+      localStorage.setItem('routeConfig', JSON.stringify(routeConfig.value))
+    } else {
+      localStorage.removeItem('routeConfig')
+    }
+  }
+
+  function setMenuConfig(menu) {
+    menuConfig.value = Array.isArray(menu) ? menu : []
+    if (menuConfig.value.length > 0) {
+      localStorage.setItem('menuConfig', JSON.stringify(menuConfig.value))
+    } else {
+      localStorage.removeItem('menuConfig')
+    }
+  }
+
   function logout() {
     token.value = ''
     refreshToken.value = ''
@@ -84,6 +122,10 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('userInfo')
+    routeConfig.value = []
+    menuConfig.value = []
+    localStorage.removeItem('routeConfig')
+    localStorage.removeItem('menuConfig')
   }
 
   function updateRole(role) {
@@ -97,11 +139,15 @@ export const useUserStore = defineStore('user', () => {
     token,
     refreshToken,
     userInfo,
+    routeConfig,
+    menuConfig,
     isLoggedIn,
     setToken,
     setRefreshToken,
     refreshAccessToken,
     setUserInfo,
+    setRouteConfig,
+    setMenuConfig,
     logout,
     updateRole
   }

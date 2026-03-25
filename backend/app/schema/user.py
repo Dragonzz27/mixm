@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 
 class UserBase(BaseModel):
@@ -66,6 +66,30 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str
+
+
+class LoginUserInfo(BaseModel):
+    id: int
+    username: str
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    is_active: bool
+    is_superuser: bool
+    role: str
+
+
+class MenuItem(BaseModel):
+    key: str
+    label: str
+    path: Optional[str] = None
+    icon: Optional[str] = None
+    type: Optional[str] = None
+
+
+class LoginResponse(Token):
+    user: LoginUserInfo
+    routes: List[Dict[str, Any]]
+    menu: List[MenuItem]
 
 
 class TokenData(BaseModel):
