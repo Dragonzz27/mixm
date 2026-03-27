@@ -65,6 +65,12 @@ class InstanceService:
             return f"{memory_request_mb // 1024}Gi"
         return f"{memory_request_mb}Mi"
 
+    def _build_virtual_ssh_username(self, username: str, instance_id: str) -> str:
+        deploy_name = f"deploy-cs-{instance_id}"
+        deploy_prefix = deploy_name.replace("-", "")[8:12] or "inst"
+        virtual_username = f"{username}{deploy_prefix}"
+        return virtual_username[:50]
+
 
     def create(
         self,
@@ -124,7 +130,11 @@ class InstanceService:
 
         # Step 4: 回填系统字段并提交一次，确保拿到完整实例ID
         instance_id = db_instance.id
-        db_instance.ssh_username = "root"
+        db_user = db.query(User).filter(User.id == instance.user_id).first()
+        user_name_for_ssh = db_user.username if db_user and db_user.username else "user"
+        db_instance.ssh_username = self._build_virtual_ssh_username(
+            user_name_for_ssh, instance_id
+        )
         db.commit()
         db.refresh(db_instance)
 
@@ -139,8 +149,8 @@ class InstanceService:
         )[:12] or "instance"
         target_hostname = f"mixm-{safe_instance_suffix}"
 
-        # Step 6: 生成通用启动命令（设置 SSH 与 root 登录）
-        startup_common_command = (
+        # Step 6: 生成基础启动命令（仅保留实例级动态配置）
+        startup_base_command = (
             # 1. 开启错误即退出模式
             "set -e; "
             
@@ -150,39 +160,31 @@ class InstanceService:
             # 3. 设置 root 密码
             "echo \"root:$TARGET_PASS\" | chpasswd; "
 
-            # 4. 配置 SSH AllowUsers
+            # 4. 创建 SSH 运行目录
+            "mkdir -p /var/run/sshd; "
+        )
+
+        # 非 code-server 通用镜像保留兜底 SSH 配置，避免镜像未预设导致登录失败。
+        startup_ssh_hardening_command = (
             "if grep -q '^AllowUsers ' /etc/ssh/sshd_config; then "
             "sed -i \"s/^AllowUsers .*/AllowUsers root/\" /etc/ssh/sshd_config; "
             "else "
             "echo \"AllowUsers root\" >> /etc/ssh/sshd_config; "
             "fi; "
-            
-            # 5. 启用密码认证
             "sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config; "
-
-            # 6. 允许 root 通过密码登录
             "sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config; "
-            
-            # 7. 禁用公钥认证 (根据你的原逻辑)
             "sed -i 's/^#\\?PubkeyAuthentication.*/PubkeyAuthentication no/' /etc/ssh/sshd_config; "
-            
-            # 8. 创建 SSH 运行目录
-            "mkdir -p /var/run/sshd; "
         )
 
         # Step 7: 根据镜像类型拼接最终启动命令
         if is_codeserver_image:
-            startup_command = (
-                startup_common_command
-                + "touch /root/.bashrc; "
-                + "if ! grep -q 'MIXM_AUTO_VENV' /root/.bashrc; then "
-                + "printf '\\n# MIXM_AUTO_VENV\\nsource /opt/venv/bin/activate\\n' >> /root/.bashrc; "
-                + "fi; "
-                + "/usr/sbin/sshd -D -e & "
-                + "exec /bin/bash -lc \"export VIRTUAL_ENV=/opt/venv; export PATH=\\\"/opt/venv/bin:$PATH\\\"; PASSWORD=\\\"$TARGET_PASS\\\" code-server --bind-addr 0.0.0.0:8080 --auth password /workspace\""
-            )
+            startup_command = None
         else:
-            startup_command = startup_common_command + "exec /usr/sbin/sshd -D -e"
+            startup_command = (
+                startup_base_command
+                + startup_ssh_hardening_command
+                + "exec /usr/sbin/sshd -D -e"
+            )
 
         # Step 8: 计算 request/limit 及容器服务端口
         cpu_request = self._get_cpu_request(cpu_limit)
@@ -362,6 +364,35 @@ class InstanceService:
                     )
 
             # Step 20: 创建 Deployment
+            container_env = [
+                client.V1EnvVar(name="TARGET_PASS", value=password),
+                client.V1EnvVar(name="SSH_USERNAME", value=db_instance.ssh_username),
+            ]
+            if is_codeserver_image:
+                container_env.append(
+                    client.V1EnvVar(name="CODE_SERVER_PASSWORD", value=password)
+                )
+
+            container_kwargs = {
+                "name": "ubuntu-runtime",
+                "image": image,
+                "working_dir": "/workspace",
+                "ports": container_ports,
+                "env": container_env,
+                "resources": client.V1ResourceRequirements(
+                    limits=deplpy_limits,
+                    requests=deployment_requests,
+                ),
+                "volume_mounts": [
+                    client.V1VolumeMount(
+                        name="project-data",
+                        mount_path="/workspace",
+                    )
+                ],
+            }
+            if startup_command:
+                container_kwargs["command"] = ["bash", "-lc", startup_command]
+
             deployment = client.V1Deployment(
                 api_version="apps/v1",
                 kind="Deployment",
@@ -370,27 +401,17 @@ class InstanceService:
                     replicas=replicas,
                     selector=client.V1LabelSelector(match_labels={"app": deploy_name}),
                     template=client.V1PodTemplateSpec(
-                        metadata=client.V1ObjectMeta(labels={"app": deploy_name}),
+                        metadata=client.V1ObjectMeta(
+                            labels={"app": deploy_name},
+                            annotations={
+                                "mixm/password": password,
+                                "mixm/username": db_instance.ssh_username,
+                            },
+                        ),
                         spec=client.V1PodSpec(
                             hostname=target_hostname,
                             containers=[
-                                client.V1Container(
-                                    name="ubuntu-runtime",
-                                    image=image,
-                                    command=["bash", "-lc", startup_command],
-                                    working_dir="/workspace",
-                                    ports=container_ports,
-                                    resources=client.V1ResourceRequirements(
-                                        limits=deplpy_limits,
-                                        requests=deployment_requests,
-                                    ),
-                                    volume_mounts=[
-                                        client.V1VolumeMount(
-                                            name="project-data",
-                                            mount_path="/workspace",
-                                        )
-                                    ],
-                                )
+                                client.V1Container(**container_kwargs)
                             ],
                             volumes=[
                                 client.V1Volume(

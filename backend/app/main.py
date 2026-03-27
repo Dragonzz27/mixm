@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.router import (
@@ -24,6 +26,7 @@ from app.models.instance import Instance as InstanceModel
 from app.models.image import ImageRepository
 from app.models.role import Role as RoleModel
 from app.models.user_role import UserRole as UserRoleModel
+from app.service.ssh_gateway import SSHGatewayService
 
 user.Base.metadata.create_all(bind=engine)
 CategoryModel.__table__.create(bind=engine, checkfirst=True)
@@ -36,7 +39,19 @@ ImageRepository.__table__.create(bind=engine, checkfirst=True)
 RoleModel.__table__.create(bind=engine, checkfirst=True)
 UserRoleModel.__table__.create(bind=engine, checkfirst=True)
 
-app = FastAPI()
+ssh_gateway_service = SSHGatewayService()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ssh_gateway_service.start()
+    try:
+        yield
+    finally:
+        ssh_gateway_service.stop()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

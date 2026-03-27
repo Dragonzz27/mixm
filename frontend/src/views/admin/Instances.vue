@@ -28,7 +28,7 @@
 
 <script setup>
 import { ref, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NSpace, NTag, useMessage } from 'naive-ui'
+import { NCard, NButton, NDataTable, NSpace, NTag, useMessage, c } from 'naive-ui'
 import { instanceApi } from '@/api'
 import StartInstanceModal from '@/components/StartInstanceModal.vue'
 import InstanceConfigModal from '@/components/InstanceConfigModal.vue'
@@ -189,10 +189,11 @@ async function handleDelete(id) {
 
 function handleViewConfig(row) {
   const config = parseConfig(row.config)
+  console.log(config)
   const sshHost = row.hostIp || ''
   const sshPort = row.ssh_port || ''
   const sshUsername = row.ssh_username || ''
-  const sshConnection = sshUsername && sshPort ? `ssh ${sshUsername}@${sshHost} -p ${sshPort}` : ''
+  const sshConnection = row.ssh_connection || ''
   const endpoint = row.endpoint || `/${row.id}`
   const accessPort = row.port || 80
   const codeServerPassword = config.password || ''

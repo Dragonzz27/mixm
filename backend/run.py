@@ -1,66 +1,35 @@
-import atexit
-import os
-import subprocess
-import sys
-
 import psutil
 import uvicorn
 
 
-celery_process = None
-
-
-def _is_celery_worker_running() -> bool:
-    for proc in psutil.process_iter(attrs=["name", "cmdline"]):
+def _find_celery_workers() -> list[dict]:
+    workers = []
+    for proc in psutil.process_iter(attrs=["pid", "cmdline"]):
         try:
-            cmdline = " ".join(proc.info.get("cmdline") or [])
-            if "celery" in cmdline and "app.celery_app:celery_app" in cmdline:
-                return True
+            cmdline_list = proc.info.get("cmdline") or []
+            cmdline = " ".join(cmdline_list)
+            if (
+                "celery" in cmdline
+                and "app.celery_app:celery_app" in cmdline
+                and "worker" in cmdline
+            ):
+                workers.append({"pid": proc.info["pid"], "cmdline": cmdline})
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
-    return False
+    return workers
 
 
-def _start_celery_worker() -> None:
-    global celery_process
-    if _is_celery_worker_running():
+def _print_celery_status() -> None:
+    workers = _find_celery_workers()
+    if not workers:
+        print("[Startup] Celery worker status: NOT RUNNING")
+        print("[Startup] Start manually: python run_celery.py")
         return
 
-    concurrency = os.getenv("CELERY_WORKER_CONCURRENCY", "4")
-    pool = os.getenv("CELERY_WORKER_POOL", "solo")
-    loglevel = os.getenv("CELERY_WORKER_LOGLEVEL", "info")
-
-    cmd = [
-        sys.executable,
-        "-m",
-        "celery",
-        "-A",
-        "app.celery_app:celery_app",
-        "worker",
-        "-Q",
-        "instance_create",
-        "--concurrency",
-        str(concurrency),
-        "--loglevel",
-        loglevel,
-        "-P",
-        pool,
-    ]
-
-    celery_process = subprocess.Popen(cmd, cwd=os.path.dirname(__file__))
-
-
-def _stop_celery_worker() -> None:
-    global celery_process
-    if celery_process and celery_process.poll() is None:
-        celery_process.terminate()
-    celery_process = None
-
+    print(f"[Startup] Celery worker status: RUNNING ({len(workers)})")
+    for worker in workers:
+        print(f"[Startup] - PID {worker['pid']}: {worker['cmdline']}")
 
 if __name__ == "__main__":
-    auto_start_worker = os.getenv("AUTO_START_CELERY_WORKER", "true").lower() == "true"
-    if auto_start_worker:
-        _start_celery_worker()
-        atexit.register(_stop_celery_worker)
-
+    # _print_celery_status()
     uvicorn.run("app.main:app", host="0.0.0.0", port=8002, reload=True)
