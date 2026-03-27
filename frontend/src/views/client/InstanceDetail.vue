@@ -46,8 +46,8 @@
                 <n-tag :type="statusType" size="small">{{ instance.status }}</n-tag>
               </n-descriptions-item>
               <n-descriptions-item label="镜像">{{ instance.image || 'N/A' }}</n-descriptions-item>
-              <n-descriptions-item label="创建时间">{{ formatTime(instance.created_at) }}</n-descriptions-item>
-              <n-descriptions-item label="更新时间">{{ formatTime(instance.updated_at) }}</n-descriptions-item>
+              <!-- <n-descriptions-item label="创建时间">{{ formatTime(instance.created_at) }}</n-descriptions-item>
+              <n-descriptions-item label="更新时间">{{ formatTime(instance.updated_at) }}</n-descriptions-item> -->
             </n-descriptions>
           </n-card>
 
@@ -57,7 +57,7 @@
             <n-descriptions :column="1" label-placement="left">
               <n-descriptions-item label="CPU">{{ instance.config?.cpu_limit || instance.config?.cpuLimit }}</n-descriptions-item>
               <n-descriptions-item label="内存">{{ instance.config?.memory_limit || instance.config?.memoryLimit }}</n-descriptions-item>
-              <n-descriptions-item label="存储">{{ instance.config?.storage_limit || instance.config?.storageLimit }} Gi</n-descriptions-item>
+              <n-descriptions-item label="存储">{{ resolveStorageLimit(instance) }} Gi</n-descriptions-item>
               <n-descriptions-item label="GPU">{{ instance.config?.gpu_limit || instance.config?.gpuLimit || 0 }} 张</n-descriptions-item>
               <n-descriptions-item label="单卡显存">{{ formatGpuMemory(instance.config?.gpu_memory_limit || instance.config?.gpuMemoryLimit) }}</n-descriptions-item>
             </n-descriptions>
@@ -170,26 +170,57 @@ const instance = ref({
   image: null
 })
 
+function resolveStorageLimit(row) {
+  if (!row) return '-'
+
+  const directValue = row.storage_limit
+  if (directValue !== undefined && directValue !== null && directValue !== '') {
+    return Number(directValue) || directValue
+  }
+
+  const config = row.config || {}
+  const raw = config.storage_limit ?? config.storageLimit ?? config.storage
+  if (raw === undefined || raw === null || raw === '') return '-'
+
+  if (typeof raw === 'number') return raw
+  const strValue = String(raw).trim()
+  const giMatch = strValue.match(/^([0-9]+(?:\.[0-9]+)?)\s*Gi$/i)
+  if (giMatch) {
+    return Number(giMatch[1])
+  }
+
+  const num = Number(strValue)
+  return Number.isNaN(num) ? strValue : num
+}
+
 const instanceConfig = computed(() => {
   const config = instance.value.config || {}
+  const sshHost = instance.value.hostIp || ''
+  const sshPort = instance.value.ssh_port || ''
+  const sshUsername = instance.value.ssh_username || ''
+  const sshConnection = instance.value.ssh_connection || ''
+  const endpoint = instance.value.endpoint || `/${instance.value.id}`
+  const accessPort = instance.value.port || 80
+  const codeServerPassword = config.password || ''
+
   return {
     id: instance.value.id,
     name: instance.value.name,
     image: instance.value.image || '-',
     cpuLimit: config.cpu_limit || config.cpuLimit || '-',
     memoryLimit: config.memory_limit || config.memoryLimit || '-',
-    storageLimit: config.storage_limit || config.storageLimit || '-',
+    storageLimit: resolveStorageLimit(instance.value),
     gpuLimit: config.gpu_limit || config.gpuLimit || 0,
     gpuMemoryLimit: config.gpu_memory_limit || config.gpuMemoryLimit || 0,
     namespace: instance.value.namespace || 'default',
-    sshConnection: `ssh ${config.sshUsername || 'root'}@${instance.value.ip || 'localhost'} -p ${config.sshPort || 22}`,
-    sshUsername: config.sshUsername || 'root',
-    sshPort: config.sshPort || 22,
-    sshPassword: config.sshPassword || '-',
-    sshHost: instance.value.ip || '',
-    endpoint: instance.value.endpoint || '',
-    accessPort: instance.value.port || 80,
-    codeServerPassword: config.password || ''
+    sshHost: sshHost,
+    sshPort: sshPort,
+    sshUsername: sshUsername,
+    sshPassword: instance.value.ssh_password || '',
+    sshConnection: sshConnection,
+    endpoint: endpoint,
+    accessPort: accessPort,
+    codeServerPassword: codeServerPassword
   }
 })
 
@@ -210,7 +241,7 @@ const show_code_server_password = ref("")
 
 const codeServerUrl = computed(() => {
   if (instance.value.status !== 'running') return ''
-  const hostIp = instance.value.ip
+  const hostIp = instance.value.hostIp
   const endpoint = instance.value.endpoint || `/${instance.value.id}`
   const port = instance.value.port || 80
   let config = {}

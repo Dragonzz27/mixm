@@ -149,6 +149,7 @@ class InstanceResponse(InstanceBase):
     hostIp: Optional[str] = None
     port: Optional[int] = None
     ssh_password: Optional[str] = None
+    ssh_connection: Optional[str] = None
     started_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

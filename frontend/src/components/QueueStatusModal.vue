@@ -102,7 +102,7 @@ function startPolling() {
   loadData()
   pollTimer = setInterval(() => {
     loadData()
-  }, 3000)
+  }, 30000)
 }
 
 function stopPolling() {
