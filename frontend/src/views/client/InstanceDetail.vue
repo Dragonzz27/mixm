@@ -102,20 +102,16 @@
           </div>
 
           <template v-else>
-            <div v-if="isIframeLoading" class="preview-loading">
-              <n-spin size="large">
-                <template #description>
-                  <span style="color: #64748b">正在加载 code-server...</span>
-                </template>
-              </n-spin>
+            <div class="preview-runtime">
+              <iframe 
+                :src="codeServerUrl" 
+                class="code-server-frame"
+                allow="clipboard-read; clipboard-write"
+              ></iframe>
+              <div class="iframe-mask" @click="openCodeServerInBrowser">
+                <span>使用本地浏览器访问</span>
+              </div>
             </div>
-            <iframe 
-              v-show="!isIframeLoading" 
-              :src="codeServerUrl" 
-              class="code-server-frame"
-              @load="handleIframeLoad"
-              allow="clipboard-read; clipboard-write"
-            ></iframe>
           </template>
         </div>
       </main>
@@ -150,7 +146,6 @@ const dialog = useDialog()
 
 const previewPanel = ref(null)
 const isFullscreen = ref(false)
-const isIframeLoading = ref(true)
 const isSidebarOpen = ref(true)
 const showConfigModal = ref(false)
 
@@ -280,19 +275,19 @@ function handleFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement
 }
 
-function handleIframeLoad() {
-  isIframeLoading.value = false
+function openCodeServerInBrowser() {
+  if (!codeServerUrl.value) {
+    message.warning('实例未运行，无法访问')
+    return
+  }
+  window.open(codeServerUrl.value, '_blank', 'noopener,noreferrer')
 }
 
 async function fetchInstance() {
   try {
     const res = await instanceApi.getDetail(route.params.id)
-    const oldStatus = instance.value.status
     instance.value = { ...instance.value, ...res }
     instance.value.config = instance.value.config ? JSON.parse(instance.value.config) : {}
-    if (oldStatus !== 'running' && instance.value.status === 'running') {
-      isIframeLoading.value = true
-    }
   } catch (err) {
     console.error('获取实例失败:', err)
     message.error('加载实例详情失败')
@@ -452,6 +447,13 @@ onUnmounted(() => {
 .preview-content {
   flex: 1;
   overflow: hidden;
+  position: relative;
+}
+
+.preview-runtime {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
 
 .preview-placeholder {
@@ -480,5 +482,25 @@ onUnmounted(() => {
   height: 100%;
   border: none;
   background: #fff;
+}
+
+.iframe-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.iframe-mask:hover {
+  background: rgba(15, 23, 42, 0.45);
 }
 </style>
