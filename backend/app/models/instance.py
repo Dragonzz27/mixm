@@ -1,7 +1,6 @@
 import uuid
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float, func, ForeignKey
 from app.database import Base
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 
 class Instance(Base):
@@ -16,7 +15,7 @@ class Instance(Base):
     )
 
     name = Column(String(100), nullable=False, comment="实例名称")
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="用户ID")
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, comment="用户ID")
     image = Column(
         String(200), default="ubuntu:24.04", nullable=False, comment="容器镜像"
     )

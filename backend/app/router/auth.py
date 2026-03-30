@@ -40,13 +40,13 @@ def _validate_role_id(db: Session, role_id: Optional[str]) -> Optional[str]:
     return role_id
 
 
-def _replace_user_role(db: Session, user_id: int, role_id: Optional[str]) -> None:
+def _replace_user_role(db: Session, user_id: str, role_id: Optional[str]) -> None:
     db.query(UserRole).filter(UserRole.user_id == user_id).delete()
     if role_id:
         db.add(UserRole(user_id=user_id, role_id=role_id))
 
 
-def _build_user_role_map(db: Session, user_ids: list[int]) -> Dict[int, Optional[Dict[str, str]]]:
+def _build_user_role_map(db: Session, user_ids: list[str]) -> Dict[str, Optional[Dict[str, str]]]:
     if not user_ids:
         return {}
 
@@ -56,7 +56,7 @@ def _build_user_role_map(db: Session, user_ids: list[int]) -> Dict[int, Optional
         .filter(UserRole.user_id.in_(user_ids))
         .all()
     )
-    result: Dict[int, Optional[Dict[str, str]]] = {user_id: None for user_id in user_ids}
+    result: Dict[str, Optional[Dict[str, str]]] = {user_id: None for user_id in user_ids}
     for user_id, role_id, role_name in rows:
         result[user_id] = {"id": role_id, "name": role_name}
     return result
@@ -75,7 +75,7 @@ def _serialize_user(user: User, role: Optional[Dict[str, str]]) -> Dict:
     }
 
 
-def _collect_user_route_keys(db: Session, user_id: int) :
+def _collect_user_route_keys(db: Session, user_id: str):
     rows = (
         db.query(Role.route_keys)
         .join(UserRole, UserRole.role_id == Role.id)
@@ -219,7 +219,7 @@ def get_users(
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(user_id: str, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -228,7 +228,7 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/users/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
+def update_user(user_id: str, user_update: UserUpdate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -270,7 +270,7 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
 
 @router.post("/users/{user_id}/change-password")
 def change_password(
-    user_id: int, password_data: PasswordChange, db: Session = Depends(get_db)
+    user_id: str, password_data: PasswordChange, db: Session = Depends(get_db)
 ):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
@@ -282,7 +282,7 @@ def change_password(
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(user_id: str, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")

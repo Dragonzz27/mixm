@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def create_instance_task(
     self,
     instance_name: str,
-    user_id: int,
+    user_id: str,
     namespace: str,
     repo_id: Optional[int] = None,
     repo_tag: Optional[str] = None,

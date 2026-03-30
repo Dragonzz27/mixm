@@ -56,7 +56,7 @@ class UserRoleItem(BaseModel):
 
 
 class UserResponse(UserBase):
-    id: int
+    id: str
     is_active: bool
     is_superuser: bool
     role: Optional[UserRoleItem] = None
@@ -78,7 +78,7 @@ class Token(BaseModel):
 
 
 class LoginUserInfo(BaseModel):
-    id: int
+    id: str
     username: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None

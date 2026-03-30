@@ -24,7 +24,7 @@ class ImageTag(BaseModel):
 
 
 class UserInfo(BaseModel):
-    id: int
+    id: str
     username: str
 
     class Config:
@@ -33,7 +33,7 @@ class UserInfo(BaseModel):
 
 class ImageRepositoryResponse(ImageRepositoryBase):
     id: int
-    user_id: int
+    user_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 

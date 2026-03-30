@@ -1,10 +1,20 @@
 import enum
+import uuid
+
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func, JSON, Enum
 from app.database import Base
+
+
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True, comment="用户ID")
+    id = Column(
+        String(36),
+        primary_key=True,
+        index=True,
+        default=lambda: str(uuid.uuid4()),
+        comment="用户ID(UUID)",
+    )
     username = Column(String(50), unique=True, index=True, nullable=False, comment="用户名")
     email = Column(String(100), unique=True, index=True, nullable=True, comment="邮箱地址")
     phone = Column(String(20), unique=True, index=True, nullable=True, comment="手机号码")

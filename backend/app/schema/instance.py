@@ -71,7 +71,7 @@ class InstanceConfig(BaseModel):
 
 class InstanceBase(BaseModel):
     name: str
-    user_id: int
+    user_id: str
     image: Optional[str] = "ubuntu:24.04"
     status: Optional[str] = "pending"
     namespace: Optional[str] = "default"
@@ -95,7 +95,7 @@ class InstanceCreate(InstanceBase):
 
 class InstanceCreateWithConfig(BaseModel):
     name: str = ""
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None
     repo_id: int
     repo_tag: str
     cpu_limit: float = 1.0

@@ -22,7 +22,7 @@ class QueueTask:
     def __init__(self, data: Dict[str, Any]):
         self.task_id = data.get("task_id")
         self.instance_name = data.get("instance_name")
-        self.user_id = int(data.get("user_id")) if data.get("user_id") is not None else None
+        self.user_id = str(data.get("user_id")) if data.get("user_id") else None
         self.namespace = data.get("namespace")
         self.username = data.get("username") or ""
         self.repo_id = _to_int(data.get("repo_id"))
@@ -84,7 +84,7 @@ def _task_key(task_id: str) -> str:
     return f"{TASK_KEY_PREFIX}:{task_id}"
 
 
-def _user_tasks_key(user_id: int) -> str:
+def _user_tasks_key(user_id: str) -> str:
     return f"{USER_TASKS_KEY_PREFIX}:{user_id}"
 
 
@@ -107,7 +107,7 @@ def create_task_record(redis_client: Redis, task_data: Dict[str, Any]) -> None:
             payload[key] = json.dumps(value, ensure_ascii=True)
 
     redis_client.hset(_task_key(task_id), mapping=payload)
-    redis_client.rpush(_user_tasks_key(int(task_data["user_id"])), task_id)
+    redis_client.rpush(_user_tasks_key(str(task_data["user_id"])), task_id)
 
 
 def get_task_record(redis_client: Redis, task_id: str) -> Optional[QueueTask]:
@@ -117,7 +117,7 @@ def get_task_record(redis_client: Redis, task_id: str) -> Optional[QueueTask]:
     return QueueTask(data)
 
 
-def get_user_task_records(redis_client: Redis, user_id: int) -> List[QueueTask]:
+def get_user_task_records(redis_client: Redis, user_id: str) -> List[QueueTask]:
     task_ids = redis_client.lrange(_user_tasks_key(user_id), 0, -1)
     tasks: List[QueueTask] = []
     for task_id in reversed(task_ids):

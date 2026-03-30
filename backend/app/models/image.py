@@ -19,7 +19,7 @@ class ImageRepository(Base):
     )
     is_public = Column(Boolean, default=False, comment="是否公开")
     user_id = Column(
-        Integer, ForeignKey("users.id"), nullable=False, comment="创建者ID"
+        String(36), ForeignKey("users.id"), nullable=False, comment="创建者ID"
     )
 
     created_at = Column(
