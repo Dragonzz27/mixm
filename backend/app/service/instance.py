@@ -379,6 +379,11 @@ class InstanceService:
                 "working_dir": "/workspace",
                 "ports": container_ports,
                 "env": container_env,
+                "security_context": client.V1SecurityContext(
+                    run_as_user=0,
+                    run_as_group=0,
+                    run_as_non_root=False,
+                ),
                 "resources": client.V1ResourceRequirements(
                     limits=deplpy_limits,
                     requests=deployment_requests,
