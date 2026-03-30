@@ -24,7 +24,7 @@ class InstanceQueueService:
     def add_task(
         self,
         instance_name: str,
-        user_id: int,
+        user_id: str,
         namespace: str,
         username: str = "",
         repo_id: Optional[int] = None,
@@ -84,7 +84,7 @@ class InstanceQueueService:
     def get_task(self, task_id: str) -> Optional[QueueTask]:
         return get_task_record(self._redis, task_id)
 
-    def get_user_tasks(self, user_id: int) -> List[QueueTask]:
+    def get_user_tasks(self, user_id: str) -> List[QueueTask]:
         return get_user_task_records(self._redis, user_id)
 
     def get_all_tasks(self) -> List[QueueTask]:
@@ -116,7 +116,7 @@ class InstanceQueueService:
             "total": len(tasks),
         }
 
-    def get_queue_status(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_queue_status(self, user_id: Optional[str] = None) -> Dict[str, Any]:
         tasks = self.get_user_tasks(user_id) if user_id is not None else self.get_all_tasks()
         return self._build_status(tasks)
 

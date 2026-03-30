@@ -33,7 +33,7 @@ def get_current_user(token: str = Depends(auth_service.get_current_user)):
 
 class BatchStartByTemplateRequest(BaseModel):
     template_id: int
-    user_ids: list[int]
+    user_ids: list[str]
 
 
 def _parse_template_config(raw_config: Optional[str]) -> dict:
@@ -319,7 +319,7 @@ def delete_instance(instance_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/user/{user_id}", response_model=InstanceListResponse)
-def get_user_instances(user_id: int, db: Session = Depends(get_db)):
+def get_user_instances(user_id: str, db: Session = Depends(get_db)):
     instances = instance_service.get_by_user(db, user_id)
     return {
         "total": len(instances),

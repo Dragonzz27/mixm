@@ -278,7 +278,7 @@ class ImageService:
         self.registry_service = RegistryService()
 
     def create(
-        self, db: Session, repo: ImageRepositoryCreate, user_id: int
+        self, db: Session, repo: ImageRepositoryCreate, user_id: str
     ) -> ImageRepository:
         existing = (
             db.query(ImageRepository).filter(ImageRepository.name == repo.name).first()
@@ -301,12 +301,12 @@ class ImageService:
     ) -> List[ImageRepository]:
         return db.query(ImageRepository).offset(skip).limit(limit).all()
 
-    def get_by_user(self, db: Session, user_id: int) -> List[ImageRepository]:
+    def get_by_user(self, db: Session, user_id: str) -> List[ImageRepository]:
         return (
             db.query(ImageRepository).filter(ImageRepository.user_id == user_id).all()
         )
 
-    def get_public_and_user(self, db: Session, user_id: int) -> List[ImageRepository]:
+    def get_public_and_user(self, db: Session, user_id: str) -> List[ImageRepository]:
         return (
             db.query(ImageRepository)
             .filter(
@@ -347,25 +347,35 @@ class ImageService:
 
         tags = self.registry_service.get_tags(db_repo.name)
         tag_names = [tag.name for tag in tags]
+        pending_check_tags: List[str] = []
 
         for tag_name in tag_names:
             deleted = self.registry_service.delete_tag(db_repo.name, tag_name)
+            exists = self.registry_service.tag_exists(db_repo.name, tag_name)
+
+            # Tag not found means it was already deleted; skip waiting for it.
+            if exists is False:
+                continue
+
+            if deleted and exists is True:
+                pending_check_tags.append(tag_name)
+                continue
+
             if not deleted:
-                exists = self.registry_service.tag_exists(db_repo.name, tag_name)
                 if exists is True or exists is None:
                     logger.error(
                         f"Failed to delete tag {db_repo.name}:{tag_name}, aborting repository delete"
                     )
                     return False
 
-        if tag_names:
+        if pending_check_tags:
             timeout_seconds = getattr(settings, "REGISTRY_DELETE_TIMEOUT_SECONDS", 30)
             poll_interval_seconds = getattr(
                 settings, "REGISTRY_DELETE_POLL_INTERVAL_SECONDS", 1
             )
             all_deleted = self.registry_service.wait_for_tags_deleted(
                 db_repo.name,
-                tag_names,
+                pending_check_tags,
                 timeout_seconds=timeout_seconds,
                 poll_interval_seconds=poll_interval_seconds,
             )
@@ -393,10 +403,10 @@ class ImageService:
 
         return self.registry_service.delete_tag(db_repo.name, tag_name)
 
-    def can_access(self, db_repo: ImageRepository, user_id: int) -> bool:
+    def can_access(self, db_repo: ImageRepository, user_id: str) -> bool:
         return db_repo.is_public or db_repo.user_id == user_id
 
-    def can_modify(self, db_repo: ImageRepository, user_id: int) -> bool:
+    def can_modify(self, db_repo: ImageRepository, user_id: str) -> bool:
         return db_repo.user_id == user_id
 
 

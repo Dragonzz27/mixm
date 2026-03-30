@@ -29,7 +29,7 @@ class InstanceService:
     def get_count(self, db: Session) -> int:
         return db.query(Instance).count()
 
-    def get_by_user(self, db: Session, user_id: int) -> List[Instance]:
+    def get_by_user(self, db: Session, user_id: str) -> List[Instance]:
         return db.query(Instance).filter(Instance.user_id == user_id).all()
 
     def _parse_memory(self, memory_str: str) -> int:

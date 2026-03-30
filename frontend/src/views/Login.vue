@@ -28,18 +28,28 @@
                 <h1 class="auth-title">Welcome back</h1>
                 <p class="auth-description">Enter your email below to login to your account</p>
               </div>
-              <n-form ref="loginFormRef" :model="loginFormData" :rules="loginRules" class="auth-form">
+              <n-form
+                ref="loginFormRef"
+                :model="loginFormData"
+                :rules="loginRules"
+                class="auth-form"
+                @keydown.enter.prevent="handleLogin"
+              >
                 <div class="form-field">
-                  <label class="form-label">Email</label>
-                  <n-input v-model:value="loginFormData.account" placeholder="m@example.com" />
+                  <label class="form-label">Username</label>
+                  <n-input v-model:value="loginFormData.account" placeholder="Enter your username" />
                 </div>
                 <div class="form-field">
                   <div class="form-label-row">
                     <label class="form-label">Password</label>
                     <a href="#" class="forgot-link">Forgot your password?</a>
                   </div>
-                  <n-input v-model:value="loginFormData.password" type="password" show-password-on="click"
-                    placeholder="Enter your password" @keydown.enter="handleLogin">
+                  <n-input
+                    v-model:value="loginFormData.password"
+                    type="password"
+                    show-password-on="click"
+                    placeholder="Enter your password"
+                  >
                     <template #password-visible-icon>
                       <n-icon :size="16" :component="GlassesOutline" />
                     </template>
@@ -104,14 +114,10 @@
           <div class="divider">
             <span>Or continue with</span>
           </div>
-          <n-button block size="large" class="social-btn">
+          <n-button block size="large" class="social-btn" @click="message.info('GitHub login is not implemented yet')">
             <n-icon :size="20" :component="LogoGithub" class="social-icon" />
             GitHub
           </n-button>
-          <div class="auth-footer">
-            <p v-if="activeTab === 'login'">Don't have an account? <a href="javascript:;" @click="activeTab = 'register'">Sign up</a></p>
-            <p v-else>Already have an account? <a href="javascript:;" @click="activeTab = 'login'">Sign in</a></p>
-          </div>
           <p v-if="activeTab === 'register'" class="terms">By clicking continue, you agree to our Terms of Service and Privacy Policy.</p>
         </div>
       </div>
@@ -209,6 +215,10 @@ async function handleLogin() {
 }
 
 async function handleRegister() {
+  message.warning('Registration is not open yet, please contact the administrator')
+  return 
+
+
   try {
     registerLoading.value = true
     const { confirmPassword, ...data } = registerFormData

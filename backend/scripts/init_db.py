@@ -19,6 +19,8 @@ from app.models.category import Category
 from app.models.content import Content
 from app.models.content_type import ContentType
 from app.models.instance import Instance
+from app.models.role import Role
+from app.models.user_role import UserRole
 
 
 def init_users(db: Session) -> None:
@@ -52,6 +54,46 @@ def init_users(db: Session) -> None:
 
     db.commit()
     print(f"✓ 用户数据初始化完成 ({len(users)} 条)")
+
+
+def init_roles(db: Session) -> None:
+    """初始化角色数据"""
+    roles = [
+        {
+            "name": "管理员",
+            "route_keys": [
+                "ClientHome",
+                "Roles",
+                "AdminImageRepositories",
+                "ClientContents",
+                "Categories",
+                "Clusters",
+                "ClientMyInstances",
+                "Contents",
+                "Dashboard",
+                "Templates",
+                "Users",
+                "Instances",
+            ],
+        },
+        {
+            "name": "学生",
+            "route_keys": [
+                "ClientMyInstances",
+                "ClientContents",
+            ],
+        },
+    ]
+
+    for role_data in roles:
+        db_role = db.query(Role).filter(Role.name == role_data["name"]).first()
+        if db_role:
+            db_role.route_keys = role_data["route_keys"]
+        else:
+            db.add(Role(**role_data))
+
+    db.commit()
+    print(f"✓ 角色数据初始化完成 ({len(roles)} 条)")
 
 
 def init_templates(db: Session) -> None:
@@ -565,6 +607,8 @@ def main():
     from app.models.content_type import ContentType as ContentTypeModel
     from app.models.template import Template as TemplateModel
     from app.models.instance import Instance as InstanceModel
+    from app.models.role import Role as RoleModel
+    from app.models.user_role import UserRole as UserRoleModel
 
     user.Base.metadata.create_all(bind=engine)
     CategoryModel.__table__.create(bind=engine, checkfirst=True)
@@ -573,6 +617,8 @@ def main():
     ContentTypeModel.__table__.create(bind=engine, checkfirst=True)
     TemplateModel.__table__.create(bind=engine, checkfirst=True)
     InstanceModel.__table__.create(bind=engine, checkfirst=True)
+    RoleModel.__table__.create(bind=engine, checkfirst=True)
+    UserRoleModel.__table__.create(bind=engine, checkfirst=True)
     # # 创建所有表（若已 drop_all 则为重新创建）
     # Base.metadata.create_all(bind=engine)
 
@@ -581,6 +627,7 @@ def main():
     db = next(get_db())
     try:
         init_users(db)
+        init_roles(db)
         init_templates(db)
         init_categories(db)
         init_content_types(db)
