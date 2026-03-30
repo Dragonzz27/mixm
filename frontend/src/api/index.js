@@ -245,6 +245,9 @@ export const instanceApi = {
   stop(id) {
     return request.post(`/instances/${id}/stop`)
   },
+  deleteAll() {
+    return request.post('/instances/delete/all')
+  },
   delete(id) {
     return request.delete(`/instances/${id}`)
   },

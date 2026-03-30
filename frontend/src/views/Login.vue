@@ -36,8 +36,8 @@
                 @keydown.enter.prevent="handleLogin"
               >
                 <div class="form-field">
-                  <label class="form-label">Username</label>
-                  <n-input v-model:value="loginFormData.account" placeholder="Enter your username" />
+                  <label class="form-label">Email</label>
+                  <n-input v-model:value="loginFormData.email" placeholder="Enter your email" />
                 </div>
                 <div class="form-field">
                   <div class="form-label-row">
@@ -146,8 +146,8 @@ const loginLoading = ref(false)
 const registerLoading = ref(false)
 
 const loginFormData = reactive({
-  account: 'admin',
-  password: 'password123'
+  email: '',
+  password: ''
 })
 
 const registerFormData = reactive({
@@ -159,7 +159,7 @@ const registerFormData = reactive({
 })
 
 const loginRules = {
-  account: [{ required: true, message: 'Please enter your email', trigger: 'blur' }],
+  email: [{ required: true, message: 'Please enter your email', trigger: 'blur' }],
   password: [{ required: true, message: 'Please enter your password', trigger: 'blur' }]
 }
 

@@ -109,7 +109,7 @@
                 allow="clipboard-read; clipboard-write"
               ></iframe>
               <div class="iframe-mask" @click="openCodeServerInBrowser">
-                <span>使用本地浏览器访问</span>
+                <span>点击使用本地浏览器访问</span>
               </div>
             </div>
           </template>

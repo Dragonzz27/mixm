@@ -4,6 +4,14 @@
       <template #header-extra>
         <n-space>
           <n-button type="primary" @click="showStartModal = true">启动新实例</n-button>
+          <n-button
+            type="error"
+            :loading="deletingAll"
+            :disabled="instances.length === 0"
+            @click="handleDeleteAll"
+          >
+            全部删除
+          </n-button>
           <n-button @click="loadData">刷新</n-button>
         </n-space>
       </template>
@@ -28,17 +36,37 @@
 
 <script setup>
 import { ref, onMounted, h } from 'vue'
-import { NCard, NButton, NDataTable, NSpace, NTag, useMessage, c } from 'naive-ui'
+import { NCard, NButton, NDataTable, NSpace, NTag, NTooltip, useMessage, useDialog } from 'naive-ui'
 import { instanceApi } from '@/api'
 import StartInstanceModal from '@/components/StartInstanceModal.vue'
 import InstanceConfigModal from '@/components/InstanceConfigModal.vue'
 
 const message = useMessage()
+const dialog = useDialog()
 const instances = ref([])
 const showStartModal = ref(false)
 const showConfigModal = ref(false)
 const currentConfig = ref(null)
+const deletingAll = ref(false)
 const pagination = ref({ pageSize: 10 })
+
+function renderShortId(id) {
+  const fullId = String(id || '')
+  const shortId = fullId.slice(0, 4)
+
+  if (!fullId) {
+    return '-'
+  }
+
+  return h(
+    NTooltip,
+    { placement: 'top' },
+    {
+      trigger: () => h('span', { style: 'cursor: help;' }, shortId),
+      default: () => h('span', { style: 'white-space: nowrap;' }, fullId)
+    }
+  )
+}
 
 function parseConfig(config) {
   if (!config) return {}
@@ -88,7 +116,12 @@ function getStatusType(status) {
 }
 
 const columns = [
-  { title: 'ID', key: 'id', width: 160 },
+  {
+    title: 'ID',
+    key: 'id',
+    width: 100,
+    render: (row) => renderShortId(row.id)
+  },
   { title: '实例名称', key: 'name', width: 160 },
   { title: '镜像', key: 'image', width: 200, render: (row) => h('span', row.image || '-') },
   {
@@ -178,13 +211,53 @@ async function handleStop(id) {
 }
 
 async function handleDelete(id) {
-  try {
-    await instanceApi.delete(id)
-    message.success('实例已删除')
-    loadData()
-  } catch (err) {
-    console.error(err)
+  dialog.warning({
+    title: '确认删除',
+    content: '删除后实例将无法恢复，是否继续？',
+    positiveText: '确认删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await instanceApi.delete(id)
+        message.success('实例已删除')
+        loadData()
+      } catch (err) {
+        console.error(err)
+        message.error('删除实例失败')
+      }
+    }
+  })
+}
+
+async function handleDeleteAll() {
+  if (instances.value.length === 0) {
+    message.info('当前没有可删除的实例')
+    return
   }
+
+  dialog.warning({
+    title: '确认全部删除',
+    content: `确认删除全部实例吗？当前共 ${instances.value.length} 个。删除后将无法恢复。`,
+    positiveText: '确认全部删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      deletingAll.value = true
+      try {
+        const result = await instanceApi.deleteAll()
+        if (result.failed > 0) {
+          message.warning(`批量删除完成，成功 ${result.deleted} 个，失败 ${result.failed} 个`)
+        } else {
+          message.success(`已删除 ${result.deleted} 个实例`)
+        }
+        loadData()
+      } catch (err) {
+        console.error(err)
+        message.error('批量删除失败')
+      } finally {
+        deletingAll.value = false
+      }
+    }
+  })
 }
 
 function handleViewConfig(row) {

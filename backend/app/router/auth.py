@@ -124,16 +124,12 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=LoginResponse)
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = (
-        db.query(User).filter(User.username == user.account).first()
-        or db.query(User).filter(User.email == user.account).first()
-        or db.query(User).filter(User.phone == user.account).first()
-    )
+    db_user = db.query(User).filter(User.email == user.email).first()
 
     if not db_user or not auth_service.authenticate_user(db_user, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect account or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = auth_service.create_access_token(data={"sub": db_user.username})
