@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  registry:
+    image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/registry:3.0.0-rc.3
+    container_name: registry
+    restart: always
+    ports:
+      # 绑定指定 IP 和端口 (推/拉镜像使用)
+    #   - "172.20.137.239:55000:5000"
+        - "172.18.120.33:55000:5000"
+    volumes:
+      # 数据持久化到 7.3T 大盘
+      # 奉贤数据盘小，放项目目录下
+        - ./registry-data:/var/lib/registry
+      # - /data/docker-registry:/var/lib/registry
+    environment:
+      # 【关键】允许跨域访问，否则 Web UI 无法加载数据
+      - REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin=["*"]
+      # 可选：启用删除功能 (默认通常是开启的，显式声明更稳妥)
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    networks:
+      - registry-net
+
+  # registry-ui:
+  #   image: joxit/docker-registry-ui:latest
+  #   container_name: registry-ui
+  #   restart: always
+  #   ports:
+  #     # UI 访问端口，这里绑定所有 IP 的 8080，也可改为 "172.20.137.239:8080:80"
+  #     - "8080:80"
+  #   environment:
+  #     # 【关键】指向内部的 registry 服务名和端口
+  #     - REGISTRY_URL=http://127.0.0.1:5000
+  #     # 启用删除按钮
+  #     - DELETE_IMAGES=true
+  #     # 显示镜像摘要 (Digest)
+  #     - SHOW_CONTENT_DIGEST=true
+  #     # 如果需要单标签模式，可取消下面注释
+  #     # - SINGLE_REGISTRY=true
+  #   depends_on:
+  #     - registry
+  #   networks:
+  #     - registry-net
+
+
+# 这个网络目前没用到
+# networks:
+#   registry-net:
+#     driver: bridge
