@@ -756,6 +756,41 @@ class InstanceService:
         db.refresh(db_instance)
         return db_instance
 
+    def delete_all(self, db: Session) -> dict:
+        instance_ids = [instance.id for instance in db.query(Instance).all()]
+
+        if not instance_ids:
+            return {
+                "total": 0,
+                "deleted": 0,
+                "failed": 0,
+                "failed_instance_ids": [],
+            }
+
+        failed_instance_ids = []
+        deleted_count = 0
+
+        for instance_id in instance_ids:
+            try:
+                success = self.delete(db, instance_id)
+                if success:
+                    deleted_count += 1
+                else:
+                    failed_instance_ids.append(instance_id)
+            except Exception as e:
+                logger.error(
+                    f"[K8s] Error deleting instance {instance_id} in delete_all: {str(e)}"
+                )
+                failed_instance_ids.append(instance_id)
+
+        total = len(instance_ids)
+        return {
+            "total": total,
+            "deleted": deleted_count,
+            "failed": len(failed_instance_ids),
+            "failed_instance_ids": failed_instance_ids,
+        }
+
     def delete(self, db: Session, instance_id: str) -> bool:
         db_instance = self.get_by_id(db, instance_id)
         if not db_instance:

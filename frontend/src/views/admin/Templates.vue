@@ -158,7 +158,7 @@
 
 <script setup>
 import { ref, computed, onMounted, h, watch } from 'vue'
-import { NCard, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NInput, NInputNumber, NDivider, NRow, NCol, NScrollbar, NSelect, NAlert, NText, NCheckbox, NTag, useMessage } from 'naive-ui'
+import { NCard, NButton, NDataTable, NSpace, NModal, NForm, NFormItem, NInput, NInputNumber, NDivider, NRow, NCol, NScrollbar, NSelect, NAlert, NText, NCheckbox, NTag, NTooltip, useMessage } from 'naive-ui'
 import { templateApi, imageApi, authApi, instanceApi, roleApi } from '@/api'
 import StartInstanceByTemplateModal from '@/components/StartInstanceByTemplateModal.vue'
 
@@ -271,8 +271,31 @@ const rules = {
   'config.gpu_memory_limit': [{ required: true, message: '请选择单卡显存' }]
 }
 
+function renderShortId(id) {
+  const fullId = String(id || '')
+  const shortId = fullId.slice(0, 4)
+
+  if (!fullId) {
+    return '-'
+  }
+
+  return h(
+    NTooltip,
+    { placement: 'top' },
+    {
+      trigger: () => h('span', { style: 'cursor: help;' }, shortId),
+      default: () => h('span', { style: 'white-space: nowrap;' }, fullId)
+    }
+  )
+}
+
 const columns = [
-  { title: 'ID', key: 'id', width: 60 },
+  {
+    title: 'ID',
+    key: 'id',
+    width: 80,
+    render: (row) => renderShortId(row.id)
+  },
   { title: '模板名称', key: 'name', width: 150 },
   { title: '描述', key: 'description', ellipsis: { tooltip: true } },
   { title: '镜像', key: 'image', ellipsis: { tooltip: true }, width: 200 },
@@ -317,7 +340,12 @@ const batchRoleOptions = computed(() => {
 })
 
 const batchUserColumns = [
-  { title: 'ID', key: 'id', width: 80 },
+  {
+    title: 'ID',
+    key: 'id',
+    width: 80,
+    render: (row) => renderShortId(row.id)
+  },
   { title: '用户名', key: 'username', width: 140 },
   { title: '邮箱', key: 'email', width: 220, render: (row) => row.email || '-' },
   { title: '角色', key: 'role', width: 140, render: (row) => row.role?.name || '-' },

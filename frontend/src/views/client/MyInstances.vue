@@ -5,7 +5,8 @@
         <h1>我启动的实例</h1>
         <p>Manage and monitor your instances</p>
       </div>
-      <n-button type="primary" @click="showStartModal = true">创建实例</n-button>
+      <n-button type="primary" @click="showMessage">创建实例</n-button>
+      <!-- <n-button type="primary" @click="showStartModal = true">创建实例</n-button> -->
     </div>
 
     <n-spin :show="loading">
@@ -102,6 +103,10 @@ async function stopInstance(id) {
   } catch (err) {
     message.error('Failed to stop instance')
   }
+}
+
+const showMessage = () => {
+  message.info('The online instance creation feature is not available yet. Please contact the administrator.')
 }
 
 async function deleteInstance(id) {

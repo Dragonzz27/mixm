@@ -310,6 +310,24 @@ def stop_instance(instance_id: str, db: Session = Depends(get_db)):
     return instance_service.to_response(db, db_instance)
 
 
+@router.post("/delete/all", status_code=status.HTTP_200_OK)
+def delete_all_instances(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="仅管理员可执行批量删除")
+
+    result = instance_service.delete_all(db)
+    logger.info(
+        "[Instance] Batch delete all completed, total=%s deleted=%s failed=%s",
+        result["total"],
+        result["deleted"],
+        result["failed"],
+    )
+    return result
+
+
 @router.delete("/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_instance(instance_id: str, db: Session = Depends(get_db)):
     success = instance_service.delete(db, instance_id)

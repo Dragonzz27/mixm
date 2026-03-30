@@ -2,17 +2,17 @@
   <div class="layout-container">
     <header class="header">
       <div class="header-left">
-        <router-link to="/app" class="logo">
+        <a href="https://mixm.yoobit.cn" class="logo" target="_blank" rel="noopener noreferrer">
           <n-icon :size="24" :component="UnlinkSharp" />
           <span>MutiM</span>
-        </router-link>
+        </a>
       </div>
       <div class="header-right">
-        <n-input placeholder="Search content..." style="width: 240px;">
+        <!-- <n-input placeholder="Search content..." style="width: 240px;">
           <template #prefix>
             <n-icon><SearchOutline /></n-icon>
           </template>
-        </n-input>
+        </n-input> -->
         <n-badge :value="queueBadge" :max="99" :show="queueBadge > 0">
           <n-button quaternary circle @click="showQueueModal = true" title="创建队列">
             <template #icon>
@@ -22,7 +22,6 @@
         </n-badge>
         <n-dropdown :options="userMenuOptions" @select="handleUserMenu">
           <div class="user-info">
-            <!-- <n-avatar round size="small" src="/300.img" /> -->
             <span>{{ userStore.userInfo?.username || 'User' }}</span>
             <n-icon><ChevronDownOutline /></n-icon>
           </div>
@@ -188,9 +187,9 @@ const activeMenu = computed(() => {
 })
 
 const userMenuOptions = [
-  { label: 'Profile', key: 'profile' },
-  { label: 'Settings', key: 'settings' },
-  { type: 'divider', key: 'd1' },
+  // { label: 'Profile', key: 'profile' },
+  // { label: 'Settings', key: 'settings' },
+  // { type: 'divider', key: 'd1' },
   { label: 'Logout', key: 'logout' }
 ]
 
