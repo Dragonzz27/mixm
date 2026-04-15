@@ -32,4 +32,4 @@ def _print_celery_status() -> None:
 
 if __name__ == "__main__":
     # _print_celery_status()
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8002, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=18002, reload=True)

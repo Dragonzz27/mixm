@@ -83,7 +83,8 @@ import {
   ServerOutline,
   LayersOutline,
   ListOutline,
-  ImageOutline
+  ImageOutline,
+  CreateOutline
 } from '@vicons/ionicons5'
 import QueueStatusModal from './QueueStatusModal.vue'
 import { instanceApi } from '@/api'
@@ -100,12 +101,14 @@ const iconMap = {
   FileTrayFullOutline,
   ServerOutline,
   LayersOutline,
-  ImageOutline
+  ImageOutline,
+  CreateOutline
 }
 
 const defaultMenuItems = [
   { key: 'ClientHome', label: '首页', path: '/app', icon: 'HomeOutline' },
   { key: 'ClientContents', label: '内容浏览', path: '/app/contents', icon: 'BookOutline' },
+  { key: 'ClientAssignments', label: '我的作业', path: '/app/assignments', icon: 'CreateOutline' },
   { key: 'ClientMyInstances', label: '我的实例', path: '/app/my-instances', icon: 'CubeOutline' },
   { type: 'divider', key: 'd1' },
   { key: 'Dashboard', label: '仪表盘', path: '/admin', icon: 'SpeedometerOutline' },
@@ -116,7 +119,8 @@ const defaultMenuItems = [
   { key: 'Templates', label: '模板管理', path: '/admin/templates', icon: 'FileTrayFullOutline' },
   { key: 'Instances', label: '实例管理', path: '/admin/instances', icon: 'ServerOutline' },
   { key: 'AdminImageRepositories', label: '镜像仓库', path: '/admin/images', icon: 'ImageOutline' },
-  { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: 'LayersOutline' }
+  { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: 'LayersOutline' },
+  { key: 'Assignments', label: '作业管理', path: '/admin/assignments', icon: 'CreateOutline' }
 ]
 
 const router = useRouter()
@@ -177,6 +181,9 @@ const activeMenu = computed(() => {
   }
   if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) {
     return 'ClientMyInstances'
+  }
+  if (['ClientAssignments'].includes(currentRouteName)) {
+    return 'ClientAssignments'
   }
   
   // 管理端路由匹配
