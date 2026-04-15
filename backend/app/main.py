@@ -14,6 +14,7 @@ from app.router import (
     instance,
     image,
     role,
+    assignment,
 )
 from app.database import engine
 from app.models import user
@@ -26,6 +27,7 @@ from app.models.instance import Instance as InstanceModel
 from app.models.image import ImageRepository
 from app.models.role import Role as RoleModel
 from app.models.user_role import UserRole as UserRoleModel
+from app.models.assignment import Assignment, Submission
 from app.service.ssh_gateway import SSHGatewayService
 
 user.Base.metadata.create_all(bind=engine)
@@ -38,6 +40,8 @@ InstanceModel.__table__.create(bind=engine, checkfirst=True)
 ImageRepository.__table__.create(bind=engine, checkfirst=True)
 RoleModel.__table__.create(bind=engine, checkfirst=True)
 UserRoleModel.__table__.create(bind=engine, checkfirst=True)
+Assignment.__table__.create(bind=engine, checkfirst=True)
+Submission.__table__.create(bind=engine, checkfirst=True)
 
 ssh_gateway_service = SSHGatewayService()
 
@@ -74,3 +78,4 @@ app.include_router(cluster.router, prefix="/api/clusters", tags=["clusters"])
 app.include_router(instance.router, prefix="/api/instances", tags=["instances"])
 app.include_router(image.router, prefix="/api/images", tags=["images"])
 app.include_router(role.router, prefix="/api/roles", tags=["roles"])
+app.include_router(assignment.router, prefix="/api/assignments", tags=["assignments"])

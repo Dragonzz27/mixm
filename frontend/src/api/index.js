@@ -315,3 +315,46 @@ export const roleApi = {
     return request.get('/roles/permissions')
   }
 }
+
+export const assignmentApi = {
+  getList(params) {
+    return request.get('/assignments/', { params })
+  },
+  getActiveList() {
+    return request.get('/assignments/active')
+  },
+  getDetail(id) {
+    return request.get(`/assignments/${id}`)
+  },
+  create(data) {
+    return request.post('/assignments/', data)
+  },
+  update(id, data) {
+    return request.put(`/assignments/${id}`, data)
+  },
+  delete(id) {
+    return request.delete(`/assignments/${id}`)
+  },
+  getSubmissions(assignmentId, params) {
+    return request.get(`/assignments/${assignmentId}/submissions`, { params })
+  },
+  uploadFile(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return request.post('/assignments/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  submit(data) {
+    return request.post('/assignments/submissions', data)
+  },
+  getMySubmissions(params) {
+    return request.get('/assignments/my/submissions', { params })
+  },
+  updateSubmission(id, data) {
+    return request.put(`/assignments/submissions/${id}`, data)
+  },
+  deleteSubmission(id) {
+    return request.delete(`/assignments/submissions/${id}`)
+  }
+}

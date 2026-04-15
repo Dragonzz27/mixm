@@ -58,6 +58,12 @@ const routes = [
         name: 'ClientContent',
         meta: { title: '内容详情' },
         component: () => import('@/views/client/ContentDetail.vue')
+      },
+      {
+        path: 'assignments',
+        name: 'ClientAssignments',
+        meta: { title: '我的作业' },
+        component: () => import('@/views/client/Assignments.vue')
       }
     ]
   },
@@ -122,6 +128,12 @@ const routes = [
         name: 'AdminImageDetail',
         meta: { title: '镜像详情' },
         component: () => import('@/views/admin/ImageDetail.vue')
+      },
+      {
+        path: 'assignments',
+        name: 'Assignments',
+        meta: { title: '作业管理' },
+        component: () => import('@/views/admin/Assignments.vue')
       }
     ]
   },
