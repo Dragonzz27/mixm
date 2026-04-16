@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.router import (
     auth,
     category,
@@ -27,7 +29,7 @@ from app.models.instance import Instance as InstanceModel
 from app.models.image import ImageRepository
 from app.models.role import Role as RoleModel
 from app.models.user_role import UserRole as UserRoleModel
-from app.models.assignment import Assignment, Submission
+from app.models.assignment import Assignment, Submission, assignment_roles
 from app.service.ssh_gateway import SSHGatewayService
 
 user.Base.metadata.create_all(bind=engine)
@@ -40,6 +42,7 @@ InstanceModel.__table__.create(bind=engine, checkfirst=True)
 ImageRepository.__table__.create(bind=engine, checkfirst=True)
 RoleModel.__table__.create(bind=engine, checkfirst=True)
 UserRoleModel.__table__.create(bind=engine, checkfirst=True)
+assignment_roles.create(bind=engine, checkfirst=True)
 Assignment.__table__.create(bind=engine, checkfirst=True)
 Submission.__table__.create(bind=engine, checkfirst=True)
 
@@ -63,6 +66,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+os.makedirs("static/export", exist_ok=True)
+app.mount(
+    "/static/export", StaticFiles(directory="static/export"), name="static/export"
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

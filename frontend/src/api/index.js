@@ -313,6 +313,14 @@ export const roleApi = {
   },
   getPermissionOptions() {
     return request.get('/roles/permissions')
+  },
+  getRoleOptions() {
+    return request.get('/roles/').then(res => {
+      return (res.roles || []).map(item => ({
+        label: item.name,
+        value: item.id
+      }))
+    })
   }
 }
 
@@ -337,6 +345,9 @@ export const assignmentApi = {
   },
   getSubmissions(assignmentId, params) {
     return request.get(`/assignments/${assignmentId}/submissions`, { params })
+  },
+  exportSubmissions(assignmentId) {
+    return request.get(`/assignments/${assignmentId}/submissions/export`)
   },
   uploadFile(file) {
     const formData = new FormData()

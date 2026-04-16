@@ -6,9 +6,18 @@ from sqlalchemy import (
     DateTime,
     func,
     ForeignKey,
+    Table,
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
+
+
+assignment_roles = Table(
+    "assignment_roles",
+    Base.metadata,
+    Column("assignment_id", Integer, ForeignKey("assignments.id"), primary_key=True),
+    Column("role_id", String(36), ForeignKey("roles.id"), primary_key=True),
+)
 
 
 class Assignment(Base):
@@ -33,6 +42,10 @@ class Assignment(Base):
     )
     updated_at = Column(
         DateTime(timezone=True), onupdate=func.now(), comment="更新时间"
+    )
+
+    visible_roles = relationship(
+        "Role", secondary=assignment_roles, back_populates="assignments"
     )
 
 

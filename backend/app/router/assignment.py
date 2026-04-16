@@ -2,6 +2,8 @@ import os
 import uuid
 from datetime import datetime
 from typing import Optional
+import csv
+import io
 
 from fastapi import (
     APIRouter,
@@ -11,7 +13,7 @@ from fastapi import (
     UploadFile,
     Request,
 )
-from fastapi.responses import Response, FileResponse
+from fastapi.responses import Response, FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -52,6 +54,24 @@ def ensure_upload_dir():
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
+def assignment_to_response(assignment: Assignment) -> dict:
+    return {
+        "id": assignment.id,
+        "title": assignment.title,
+        "description": assignment.description,
+        "content_id": assignment.content_id,
+        "deadline": assignment.deadline,
+        "status": assignment.status,
+        "visible_roles": [role.id for role in assignment.visible_roles]
+        if assignment.visible_roles
+        else [],
+        "created_by": assignment.created_by,
+        "created_at": assignment.created_at,
+        "updated_at": assignment.updated_at,
+        "submission_count": getattr(assignment, "submission_count", 0),
+    }
+
+
 @router.post(
     "/", response_model=AssignmentResponse, status_code=status.HTTP_201_CREATED
 )
@@ -61,7 +81,7 @@ def create_assignment(
     current_user: User = Depends(get_current_user),
 ):
     db_assignment = assignment_service.create(db, assignment, current_user.id)
-    return db_assignment
+    return assignment_to_response(db_assignment)
 
 
 @router.get("/", response_model=AssignmentListResponse)
@@ -72,8 +92,26 @@ def get_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    assignments, total = assignment_service.get_list(db, skip, limit, status)
-    return {"total": total, "assignments": assignments}
+    # 获取用户角色
+    from app.models.user_role import UserRole
+
+    user_roles = (
+        db.query(UserRole.role_id).filter(UserRole.user_id == current_user.id).all()
+    )
+    role_list = [r[0] for r in user_roles] if user_roles else []
+
+    assignments, total = assignment_service.get_list(
+        db,
+        skip,
+        limit,
+        status,
+        user_roles=role_list,
+        is_superuser=current_user.is_superuser,
+    )
+    return {
+        "total": total,
+        "assignments": [assignment_to_response(a) for a in assignments],
+    }
 
 
 @router.get("/active", response_model=list[AssignmentResponse])
@@ -81,8 +119,18 @@ def get_active_assignments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    assignments = assignment_service.get_all_active(db)
-    return assignments
+    # 获取用户角色
+    from app.models.user_role import UserRole
+
+    user_roles = (
+        db.query(UserRole.role_id).filter(UserRole.user_id == current_user.id).all()
+    )
+    role_list = [r[0] for r in user_roles] if user_roles else []
+
+    assignments = assignment_service.get_all_active(
+        db, user_roles=role_list, is_superuser=current_user.is_superuser
+    )
+    return [assignment_to_response(a) for a in assignments]
 
 
 @router.get("/my/submissions", response_model=list[SubmissionResponse])
@@ -176,7 +224,7 @@ def get_assignment(
     assignment = assignment_service.get(db, assignment_id)
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
-    return assignment
+    return assignment_to_response(assignment)
 
 
 @router.put("/{assignment_id}", response_model=AssignmentResponse)
@@ -189,7 +237,7 @@ def update_assignment(
     db_assignment = assignment_service.update(db, assignment_id, assignment)
     if not db_assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
-    return db_assignment
+    return assignment_to_response(db_assignment)
 
 
 @router.delete("/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -226,6 +274,50 @@ def get_submissions(
             sub.file_url = f"{base_url}/api/assignments/file/{storage_filename}"
 
     return {"total": total, "submissions": submissions}
+
+
+@router.get("/{assignment_id}/submissions/export")
+def export_submissions(
+    assignment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    assignment = assignment_service.get(db, assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    submissions, total = submission_service.get_by_assignment(
+        db, assignment_id, 0, 1000
+    )
+
+    os.makedirs("static/export", exist_ok=True)
+    filename = f"assignment_{assignment_id}_submissions_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+    filepath = os.path.join("static/export", filename)
+
+    with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            ["ID", "学号", "姓名", "文件名", "提交时间", "状态", "评分", "反馈"]
+        )
+
+        for sub in submissions:
+            writer.writerow(
+                [
+                    sub.id,
+                    sub.user_id,
+                    getattr(sub, "username", ""),
+                    sub.file_name or "",
+                    sub.submitted_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if sub.submitted_at
+                    else "",
+                    sub.status,
+                    sub.grade if sub.grade is not None else "",
+                    sub.feedback or "",
+                ]
+            )
+
+    return {"file_url": f"/static/export/{filename}", "filename": filename}
+
 
 
 @router.post(
@@ -280,9 +372,6 @@ def update_submission(
     db_submission = submission_service.get(db, submission_id)
     if not db_submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-
-    if db_submission.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Forbidden")
 
     db_submission = submission_service.update(db, submission_id, submission)
 

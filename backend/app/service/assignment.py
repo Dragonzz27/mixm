@@ -3,8 +3,10 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, or_
 
-from app.models.assignment import Assignment, Submission
+from app.models.assignment import Assignment, Submission, assignment_roles
+from app.models.role import Role
 from app.schema.assignment import (
     AssignmentCreate,
     AssignmentUpdate,
@@ -30,10 +32,22 @@ class AssignmentService:
         db.add(db_assignment)
         db.commit()
         db.refresh(db_assignment)
+
+        if assignment.visible_roles and len(assignment.visible_roles) > 0:
+            roles = db.query(Role).filter(Role.id.in_(assignment.visible_roles)).all()
+            db_assignment.visible_roles = roles
+            db.commit()
+            db.refresh(db_assignment)
+
         return db_assignment
 
     def get(self, db: Session, assignment_id: int) -> Optional[Assignment]:
-        return db.query(Assignment).filter(Assignment.id == assignment_id).first()
+        return (
+            db.query(Assignment)
+            .options(joinedload(Assignment.visible_roles))
+            .filter(Assignment.id == assignment_id)
+            .first()
+        )
 
     def get_list(
         self,
@@ -41,13 +55,38 @@ class AssignmentService:
         skip: int = 0,
         limit: int = 20,
         status: Optional[str] = None,
+        user_roles: Optional[List[str]] = None,
+        is_superuser: bool = False,
     ) -> Tuple[List[Assignment], int]:
         query = db.query(Assignment)
         if status:
             query = query.filter(Assignment.status == status)
+
+        if not is_superuser:
+            if user_roles and len(user_roles) > 0:
+                query = query.filter(
+                    or_(
+                        ~Assignment.id.in_(db.query(assignment_roles.c.assignment_id)),
+                        Assignment.id.in_(
+                            db.query(assignment_roles.c.assignment_id).filter(
+                                assignment_roles.c.role_id.in_(user_roles)
+                            )
+                        ),
+                    )
+                )
+            else:
+                query = query.filter(
+                    ~Assignment.id.in_(db.query(assignment_roles.c.assignment_id))
+                )
+
         query = query.order_by(Assignment.created_at.desc())
         total = query.count()
-        assignments = query.offset(skip).limit(limit).all()
+        assignments = (
+            query.options(joinedload(Assignment.visible_roles))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
         for assignment in assignments:
             count = (
@@ -59,11 +98,37 @@ class AssignmentService:
 
         return assignments, total
 
-    def get_all_active(self, db: Session) -> List[Assignment]:
-        return (
+    def get_all_active(
+        self,
+        db: Session,
+        user_roles: Optional[List[str]] = None,
+        is_superuser: bool = False,
+    ) -> List[Assignment]:
+        query = (
             db.query(Assignment)
             .filter(Assignment.status == "active")
             .filter(Assignment.deadline >= datetime.now())
+        )
+
+        if not is_superuser:
+            if user_roles and len(user_roles) > 0:
+                query = query.filter(
+                    or_(
+                        ~Assignment.id.in_(db.query(assignment_roles.c.assignment_id)),
+                        Assignment.id.in_(
+                            db.query(assignment_roles.c.assignment_id).filter(
+                                assignment_roles.c.role_id.in_(user_roles)
+                            )
+                        ),
+                    )
+                )
+            else:
+                query = query.filter(
+                    ~Assignment.id.in_(db.query(assignment_roles.c.assignment_id))
+                )
+
+        return (
+            query.options(joinedload(Assignment.visible_roles))
             .order_by(Assignment.deadline.asc())
             .all()
         )
@@ -76,8 +141,17 @@ class AssignmentService:
             return None
 
         update_data = assignment.model_dump(exclude_unset=True)
+        visible_roles = update_data.pop("visible_roles", None)
+
         for field, value in update_data.items():
             setattr(db_assignment, field, value)
+
+        if visible_roles is not None:
+            db_assignment.visible_roles = []
+            db.commit()
+            if len(visible_roles) > 0:
+                roles = db.query(Role).filter(Role.id.in_(visible_roles)).all()
+                db_assignment.visible_roles = roles
 
         db.commit()
         db.refresh(db_assignment)
