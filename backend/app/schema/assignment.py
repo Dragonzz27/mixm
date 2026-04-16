@@ -6,8 +6,11 @@ from pydantic import BaseModel, Field, field_validator
 class AssignmentBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200, description="作业标题")
     description: Optional[str] = Field(None, description="作业描述")
-    content_id: Optional[int] = Field(None, description="关联内容ID")
+    content_id: Optional[int] = Field(None, description="关联内容 ID")
     deadline: datetime = Field(..., description="截止时间")
+    visible_roles: Optional[List[str]] = Field(
+        None, description="可见角色 ID 列表 (为空表示所有角色可见)"
+    )
 
 
 class AssignmentCreate(AssignmentBase):
@@ -19,11 +22,12 @@ class AssignmentUpdate(BaseModel):
         None, min_length=1, max_length=200, description="作业标题"
     )
     description: Optional[str] = Field(None, description="作业描述")
-    content_id: Optional[int] = Field(None, description="关联内容ID")
+    content_id: Optional[int] = Field(None, description="关联内容 ID")
     deadline: Optional[datetime] = Field(None, description="截止时间")
     status: Optional[str] = Field(
         None, pattern="^(active|completed|archived)$", description="状态"
     )
+    visible_roles: Optional[List[str]] = Field(None, description="可见角色 ID 列表")
 
 
 class AssignmentResponse(AssignmentBase):
@@ -33,6 +37,7 @@ class AssignmentResponse(AssignmentBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     submission_count: Optional[int] = 0
+    visible_roles: Optional[List[str]] = []
 
     class Config:
         from_attributes = True

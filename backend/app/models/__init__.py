@@ -7,3 +7,4 @@ from app.models.template import Template
 from app.models.instance import Instance
 from app.models.role import Role
 from app.models.user_role import UserRole
+from app.models.assignment import Assignment, Submission, assignment_roles

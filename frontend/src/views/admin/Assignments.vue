@@ -38,6 +38,16 @@
             actions="confirm"
           />
         </n-form-item>
+        <n-form-item label="可见角色" path="visible_roles">
+          <n-select
+            v-model:value="formData.visible_roles"
+            :options="roleOptions"
+            placeholder="选择可见角色 (留空表示所有角色可见)"
+            multiple
+            clearable
+            style="width: 100%"
+          />
+        </n-form-item>
         <n-form-item label="状态" path="status">
           <n-select v-model:value="formData.status" :options="statusOptions.filter(s => s.value)" />
         </n-form-item>
@@ -49,6 +59,9 @@
     </n-modal>
 
     <n-modal v-model:show="showSubmissionsModal" preset="card" title="提交列表" style="width: 900px; max-width: 90vw;">
+      <template #header-extra>
+        <n-button size="small" @click="exportSubmissions">导出 CSV</n-button>
+      </template>
       <n-data-table
         :columns="submissionColumns"
         :data="submissions"
@@ -83,6 +96,7 @@
 import { ref, computed, onMounted, h } from 'vue'
 import { NCard, NButton, NInput, NDataTable, NSpace, NModal, NForm, NFormItem, NSelect, NDatePicker, useMessage, NTag, NInputNumber } from 'naive-ui'
 import { assignmentApi } from '@/api'
+import { roleApi } from '@/api'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
 
 const message = useMessage()
@@ -103,6 +117,7 @@ const formData = ref({
   title: '',
   description: '',
   deadline: null,
+  visible_roles: null,
   status: 'active'
 })
 
@@ -117,6 +132,8 @@ const statusOptions = [
   { label: '已完成', value: 'completed' },
   { label: '已归档', value: 'archived' }
 ]
+
+const roleOptions = ref([])
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -179,10 +196,16 @@ const submissionColumns = computed(() => [
       return h(NTag, { type: s.type }, () => s.text)
     }
   },
+  { 
+    title: '评分', 
+    key: 'grade', 
+    width: 80,
+    render: (row) => row.grade != null ? h('span', { style: { color: row.grade >= 60 ? '#18a058' : '#d03050', fontWeight: 'bold' } }, row.grade) : '-'
+  },
   {
     title: '操作',
     key: 'actions',
-    width: 300,
+    width: 220,
     render: (row) => h(NSpace, {}, () => [
       row.file_path ? h(NButton, { size: 'small', onClick: () => previewFile(row) }, () => '预览') : null,
       h(NButton, { size: 'small', onClick: () => handleGrade(row) }, () => '评分'),
@@ -190,6 +213,18 @@ const submissionColumns = computed(() => [
     ])
   }
 ])
+
+async function loadRoleOptions() {
+  try {
+    const res = await roleApi.getList({ skip: 0, limit: 100 })
+    roleOptions.value = (res.roles || []).map(item => ({
+      label: item.name,
+      value: item.id
+    }))
+  } catch (err) {
+    console.error(err)
+  }
+}
 
 async function loadAssignments() {
   try {
@@ -204,7 +239,7 @@ async function loadAssignments() {
 
 function handleAddClick() {
   isEdit.value = false
-  formData.value = { title: '', description: '', deadline: null, status: 'active' }
+  formData.value = { title: '', description: '', deadline: null, visible_roles: null, status: 'active' }
   showAddModal.value = true
 }
 
@@ -212,7 +247,8 @@ async function handleEdit(row) {
   isEdit.value = true
   formData.value = {
     ...row,
-    deadline: row.deadline ? new Date(row.deadline).getTime() : null
+    deadline: row.deadline ? new Date(row.deadline).getTime() : null,
+    visible_roles: row.visible_roles || null
   }
   showAddModal.value = true
 }
@@ -228,7 +264,10 @@ async function handleSubmit() {
   try {
     const data = {
       ...formData.value,
-      deadline: new Date(formData.value.deadline).toISOString()
+      deadline: new Date(formData.value.deadline).toISOString(),
+      visible_roles: formData.value.visible_roles && formData.value.visible_roles.length > 0 
+        ? formData.value.visible_roles 
+        : null
     }
     if (isEdit.value) {
       await assignmentApi.update(formData.value.id, data)
@@ -267,6 +306,24 @@ async function viewSubmissions(row) {
   } catch (err) {
     console.error(err)
     message.error('加载提交列表失败')
+  }
+}
+
+async function exportSubmissions() {
+  if (!currentAssignmentId.value) return
+  try {
+    const res = await assignmentApi.exportSubmissions(currentAssignmentId.value)
+    const fileUrl = `${import.meta.env.VITE_API_BASE_URL.replace('/api', '')}${res.file_url}`
+    const link = document.createElement('a')
+    link.href = fileUrl
+    link.download = res.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    message.success('导出成功')
+  } catch (err) {
+    console.error(err)
+    message.error('导出失败')
   }
 }
 
@@ -316,6 +373,7 @@ async function handleDeleteSubmission(id) {
 }
 
 onMounted(() => {
+  loadRoleOptions()
   loadAssignments()
 })
 </script>

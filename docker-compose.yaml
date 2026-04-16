@@ -1,32 +1,9 @@
 services:
-  postgres:
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/postgres:18.1-alpine
-    container_name: postgres_db
-    user: "70:70"  # 添加这一行
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: mutim
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d mutim"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
   redis:
     image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:8.4.0-alpine
     container_name: redis_cache
     restart: unless-stopped
-    command: redis-server 
+    command: redis-server
     ports:
       - "6379:6379"
     volumes:
@@ -36,10 +13,78 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    networks:
-      - app-network
 
+  rustfs:
+    image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/rustfs:v1
+    container_name: rustfs-server
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    volumes:
+      - ./RustFS/data:/data
+    environment:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_CONSOLE_ENABLE=true
+    command:
+      - --console-enable
+      - /data
+    restart: unless-stopped
 
-networks:
-  app-network:
-    driver: bridge
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend_app
+    restart: unless-stopped
+    # ports:
+    #   - "8002:8002"
+    volumes:
+      - ./backend:/app
+      - ./backend/static:/app/static
+      - ./backend/uploads:/app/uploads
+    working_dir: /app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8002 --reload
+    environment:
+      - DATABASE_URL=sqlite:///./app.db
+      - SECRET_KEY=your-secret-key-here
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=180
+    network_mode: host
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: celery_worker
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+    working_dir: /app
+    command: python run_celery.py
+    environment:
+      - CELERY_WORKER_CONCURRENCY=4
+      - CELERY_WORKER_POOL=solo
+      - CELERY_WORKER_LOGLEVEL=info
+      - CELERY_WORKER_QUEUE=instance_create
+    network_mode: host
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: frontend_app
+  #   restart: unless-stopped
+  #   # ports:
+  #   #   - "3000:3000"
+  #   volumes:
+  #     - ./frontend/src:/app/src
+  #     - ./frontend/public:/app/public
+  #     - ./frontend/index.html:/app/index.html
+  #     - ./frontend/vite.config.js:/app/vite.config.js
+  #     - ./frontend/.env:/app/.env
+  #   working_dir: /app
+  #   command: pnpm dev
+  #   environment:
+  #     - VITE_API_BASE_URL=http://localhost:8002/api
+  #   network_mode: host

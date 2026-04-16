@@ -11,12 +11,13 @@ export default defineConfig({
   },
   server: {
     port: 5155,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:18002',
-        changeOrigin: true
-      }
-    }
+    host: true,
+    // proxy: {
+    //   '/api': {
+    //     target: 'http://localhost:18002',
+    //     changeOrigin: true
+    //   }
+    // }
   },
   css: {
     preprocessorOptions: {

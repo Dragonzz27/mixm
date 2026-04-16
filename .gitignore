@@ -285,3 +285,6 @@ alembic/versions/*.py
 # Temporary files
 *.tmp
 *.temp
+
+# Export files
+backend/static/export/
