@@ -65,6 +65,7 @@ import { h, ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { NIcon, NBadge } from 'naive-ui'
+import { resetRouter } from '@/router'
 import {
   UnlinkSharp,
   SearchOutline,
@@ -200,11 +201,12 @@ const userMenuOptions = [
   { label: 'Logout', key: 'logout' }
 ]
 
-function handleUserMenu(key) {
+async function handleUserMenu(key) {
   switch (key) {
     case 'logout':
       userStore.logout()
-      router.push('/login')
+      resetRouter()
+      await router.replace('/login')
       break
     case 'profile':
       router.push('/app/profile')

@@ -143,6 +143,25 @@ const routes = [
   }
 ]
 
+function collectRouteNames(routeTree) {
+  const nameSet = new Set()
+  const walk = (items) => {
+    if (!Array.isArray(items)) return
+    items.forEach((item) => {
+      if (item?.name) {
+        nameSet.add(item.name)
+      }
+      if (Array.isArray(item?.children) && item.children.length > 0) {
+        walk(item.children)
+      }
+    })
+  }
+  walk(routeTree)
+  return nameSet
+}
+
+const staticRouteNames = collectRouteNames(routes)
+
 function collectAllowedNames(routeTree) {
   const nameSet = new Set()
   const walk = (items) => {
@@ -164,6 +183,18 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 })
+
+export function resetRouter() {
+  router.getRoutes().forEach((routeRecord) => {
+    const routeName = routeRecord.name
+    if (!routeName || staticRouteNames.has(routeName)) {
+      return
+    }
+    if (router.hasRoute(routeName)) {
+      router.removeRoute(routeName)
+    }
+  })
+}
 
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore()

@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { useUserStore } from '@/stores/user'
 import { createDiscreteApi } from 'naive-ui'
-import router from '@/router'
+import router, { resetRouter } from '@/router'
 
 let message
 try {
@@ -90,7 +90,8 @@ request.interceptors.response.use(
           isRefreshing = false
           message.error('登录已过期，请重新登录')
           userStore.logout()
-          router.push('/login')
+          resetRouter()
+          router.replace('/login')
           return Promise.reject(error)
         }
 
