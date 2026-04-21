@@ -3,8 +3,8 @@
     <n-card title="模板管理">
       <template #header-extra>
         <n-space>
-          <n-input v-model:value="searchKeyword" placeholder="搜索模板名称" clearable style="width: 200px;" @keyup.enter="loadTemplates" />
-          <n-button type="primary" @click="loadTemplates">搜索</n-button>
+          <n-input v-model:value="searchKeyword" placeholder="搜索模板名称" clearable style="width: 200px;" @keyup.enter="handleSearch" />
+          <n-button type="primary" @click="handleSearch">搜索</n-button>
           <n-button @click="handleAddClick">添加模板</n-button>
         </n-space>
       </template>
@@ -12,6 +12,7 @@
         :columns="columns"
         :data="templates"
         :pagination="pagination"
+        remote
         :bordered="false"
       />
     </n-card>
@@ -173,7 +174,22 @@ const isEdit = ref(false)
 const loading = ref(false)
 const batchLoading = ref(false)
 const searchKeyword = ref('')
-const pagination = ref({ pageSize: 10 })
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    pagination.value.page = page
+    loadTemplates()
+  },
+  onUpdatePageSize: (pageSize) => {
+    pagination.value.pageSize = pageSize
+    pagination.value.page = 1
+    loadTemplates()
+  }
+})
 const formRef = ref(null)
 const users = ref([])
 const roles = ref([])
@@ -372,7 +388,12 @@ const batchUserTableColumns = computed(() => {
 
 async function loadTemplates() {
   try {
-    const params = { limit: pagination.value.pageSize }
+    const page = pagination.value.page || 1
+    const pageSize = pagination.value.pageSize || 10
+    const params = {
+      skip: (page - 1) * pageSize,
+      limit: pageSize
+    }
     if (searchKeyword.value) {
       params.keyword = searchKeyword.value
     }
@@ -392,10 +413,21 @@ async function loadTemplates() {
         replicas: config.replicas || 1
       }
     })
-    pagination.value.pageCount = Math.ceil((res.total || 0) / pagination.value.pageSize)
+    pagination.value.itemCount = res.total || 0
+
+    const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
+    if (pagination.value.page > maxPage) {
+      pagination.value.page = maxPage
+      return loadTemplates()
+    }
   } catch (err) {
     console.error(err)
   }
+}
+
+function handleSearch() {
+  pagination.value.page = 1
+  loadTemplates()
 }
 
 function parseConfig(configStr) {

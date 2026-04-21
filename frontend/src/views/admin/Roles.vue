@@ -8,7 +8,7 @@
             placeholder="搜索角色名"
             clearable
             style="width: 220px"
-            @keyup.enter="loadRoles"
+            @keyup.enter="handleSearch"
           />
           <n-button type="primary" @click="openCreateModal">新增角色</n-button>
         </n-space>
@@ -18,6 +18,7 @@
         :columns="columns"
         :data="roles"
         :pagination="pagination"
+        remote
         :bordered="false"
       />
     </n-card>
@@ -83,7 +84,22 @@ const searchKeyword = ref('')
 const permissionOptions = ref([])
 const formRef = ref(null)
 
-const pagination = ref({ pageSize: 10 })
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    pagination.value.page = page
+    loadRoles()
+  },
+  onUpdatePageSize: (pageSize) => {
+    pagination.value.pageSize = pageSize
+    pagination.value.page = 1
+    loadRoles()
+  }
+})
 
 const formData = ref({
   id: '',
@@ -173,18 +189,31 @@ async function loadPermissionOptions() {
 
 async function loadRoles() {
   try {
+    const page = pagination.value.page || 1
+    const pageSize = pagination.value.pageSize || 10
     const params = {
-      skip: 0,
-      limit: pagination.value.pageSize,
+      skip: (page - 1) * pageSize,
+      limit: pageSize,
       keyword: searchKeyword.value || undefined
     }
     const res = await roleApi.getList(params)
     roles.value = res.roles || []
-    pagination.value.pageCount = Math.ceil((res.total || 0) / pagination.value.pageSize)
+    pagination.value.itemCount = res.total || 0
+
+    const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
+    if (pagination.value.page > maxPage) {
+      pagination.value.page = maxPage
+      return loadRoles()
+    }
   } catch (err) {
     console.error(err)
     message.error('读取角色列表失败')
   }
+}
+
+function handleSearch() {
+  pagination.value.page = 1
+  loadRoles()
 }
 
 function openCreateModal() {

@@ -19,7 +19,7 @@ class ContentTypeUpdate(ContentTypeBase):
 
 
 class ContentTypeResponse(ContentTypeBase):
-    id: int
+    id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 

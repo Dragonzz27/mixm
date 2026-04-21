@@ -5,7 +5,7 @@ from app.schema.content_type import ContentTypeCreate, ContentTypeUpdate
 
 
 class ContentTypeService:
-    def get_by_id(self, db: Session, type_id: int) -> Optional[ContentType]:
+    def get_by_id(self, db: Session, type_id: str) -> Optional[ContentType]:
         return db.query(ContentType).filter(ContentType.id == type_id).first()
 
     def get_by_code(self, db: Session, code: str) -> Optional[ContentType]:
@@ -36,7 +36,7 @@ class ContentTypeService:
         db.refresh(db_type)
         return db_type
 
-    def update_type(self, db: Session, type_id: int, content_type: ContentTypeUpdate) -> Optional[ContentType]:
+    def update_type(self, db: Session, type_id: str, content_type: ContentTypeUpdate) -> Optional[ContentType]:
         db_type = self.get_by_id(db, type_id)
         if not db_type:
             return None
@@ -49,7 +49,7 @@ class ContentTypeService:
         db.refresh(db_type)
         return db_type
 
-    def delete_type(self, db: Session, type_id: int) -> bool:
+    def delete_type(self, db: Session, type_id: str) -> bool:
         db_type = self.get_by_id(db, type_id)
         if not db_type:
             return False

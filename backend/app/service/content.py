@@ -6,7 +6,7 @@ from app.schema.content import ContentCreate, ContentUpdate
 
 
 class ContentService:
-    def get_content_by_id(self, db: Session, content_id: int) -> Optional[Content]:
+    def get_content_by_id(self, db: Session, content_id: str) -> Optional[Content]:
         print(db.query(Content).filter(Content.id == content_id))
         return db.query(Content).filter(Content.id == content_id).first()
 
@@ -33,7 +33,7 @@ class ContentService:
     def get_contents_by_category(
         self,
         db: Session,
-        category_id: int,
+        category_id: str,
         limit: int = 12,
         skip: int = 0,
         keyword: Optional[str] = None,
@@ -62,7 +62,7 @@ class ContentService:
     def get_contents_by_categories(
         self,
         db: Session,
-        category_ids: List[int],
+        category_ids: List[str],
         limit: int = 12,
         skip: int = 0,
         keyword: Optional[str] = None,
@@ -122,7 +122,7 @@ class ContentService:
         return db_content
 
     def update_content(
-        self, db: Session, content_id: int, content: ContentUpdate
+        self, db: Session, content_id: str, content: ContentUpdate
     ) -> Optional[Content]:
         db_content = self.get_content_by_id(db, content_id)
         if not db_content:
@@ -136,7 +136,7 @@ class ContentService:
         db.refresh(db_content)
         return db_content
 
-    def delete_content(self, db: Session, content_id: int) -> bool:
+    def delete_content(self, db: Session, content_id: str) -> bool:
         db_content = self.get_content_by_id(db, content_id)
         if not db_content:
             return False

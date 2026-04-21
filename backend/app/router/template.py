@@ -32,7 +32,7 @@ def get_templates(skip: int = 0, limit: int = 100, keyword: str = None, db: Sess
 
 
 @router.get("/{template_id}", response_model=TemplateResponse)
-def get_template(template_id: int, db: Session = Depends(get_db)):
+def get_template(template_id: str, db: Session = Depends(get_db)):
     db_template = template_service.get_template_by_id(db, template_id)
     if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -40,7 +40,7 @@ def get_template(template_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{template_id}", response_model=TemplateResponse)
-def update_template(template_id: int, template: TemplateUpdate, db: Session = Depends(get_db)):
+def update_template(template_id: str, template: TemplateUpdate, db: Session = Depends(get_db)):
     db_template = template_service.update_template(db, template_id, template)
     if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -48,7 +48,7 @@ def update_template(template_id: int, template: TemplateUpdate, db: Session = De
 
 
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_template(template_id: int, db: Session = Depends(get_db)):
+def delete_template(template_id: str, db: Session = Depends(get_db)):
     success = template_service.delete_template(db, template_id)
     if not success:
         raise HTTPException(status_code=404, detail="Template not found")

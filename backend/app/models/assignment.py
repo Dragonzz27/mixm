@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -15,7 +17,12 @@ from app.database import Base
 assignment_roles = Table(
     "assignment_roles",
     Base.metadata,
-    Column("assignment_id", Integer, ForeignKey("assignments.id"), primary_key=True),
+    Column(
+        "assignment_id",
+        String(36),
+        ForeignKey("assignments.id"),
+        primary_key=True,
+    ),
     Column("role_id", String(36), ForeignKey("roles.id"), primary_key=True),
 )
 
@@ -23,11 +30,20 @@ assignment_roles = Table(
 class Assignment(Base):
     __tablename__ = "assignments"
 
-    id = Column(Integer, primary_key=True, index=True, comment="作业 ID")
+    id = Column(
+        String(36),
+        primary_key=True,
+        index=True,
+        default=lambda: str(uuid.uuid4()),
+        comment="作业 ID(UUID)",
+    )
     title = Column(String(200), nullable=False, index=True, comment="作业标题")
     description = Column(Text, nullable=True, comment="作业描述")
     content_id = Column(
-        Integer, ForeignKey("contents.id"), nullable=True, comment="关联内容 ID"
+        String(36),
+        ForeignKey("contents.id"),
+        nullable=True,
+        comment="关联内容 ID",
     )
     deadline = Column(DateTime(timezone=True), nullable=False, comment="截止时间")
     status = Column(
@@ -52,9 +68,18 @@ class Assignment(Base):
 class Submission(Base):
     __tablename__ = "submissions"
 
-    id = Column(Integer, primary_key=True, index=True, comment="提交 ID")
+    id = Column(
+        String(36),
+        primary_key=True,
+        index=True,
+        default=lambda: str(uuid.uuid4()),
+        comment="提交 ID(UUID)",
+    )
     assignment_id = Column(
-        Integer, ForeignKey("assignments.id"), nullable=False, comment="作业 ID"
+        String(36),
+        ForeignKey("assignments.id"),
+        nullable=False,
+        comment="作业 ID",
     )
     user_id = Column(
         String(36), ForeignKey("users.id"), nullable=False, comment="提交者用户 ID"

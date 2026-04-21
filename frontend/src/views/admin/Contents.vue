@@ -8,7 +8,7 @@
             placeholder="搜索标题" 
             clearable 
             style="width: 200px"
-            @keyup.enter="loadContents"
+            @keyup.enter="handleSearch"
           />
           <n-button type="primary" @click="handleAddClick">添加内容</n-button>
         </n-space>
@@ -17,6 +17,7 @@
         :columns="columns"
         :data="contents"
         :pagination="pagination"
+        remote
         :bordered="false"
       />
     </n-card>
@@ -70,7 +71,22 @@ const templates = ref([])
 const showAddModal = ref(false)
 const isEdit = ref(false)
 const loading = ref(false)
-const pagination = ref({ pageSize: 10 })
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    pagination.value.page = page
+    loadContents()
+  },
+  onUpdatePageSize: (pageSize) => {
+    pagination.value.pageSize = pageSize
+    pagination.value.page = 1
+    loadContents()
+  }
+})
 
 const formData = ref({ title: '', content: '', content_type: null, template_id: null, url: '', status: 'draft' })
 
@@ -95,7 +111,7 @@ const statusOptions = [
 ]
 
 const columns = [
-  { title: 'ID', key: 'id', width: 60 },
+  { title: 'ID', key: 'id', width: 360 },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { title: '类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },
   { title: '模板ID', key: 'template_id', width: 80, render: (row) => row.template_id || '-' },
@@ -113,15 +129,29 @@ const columns = [
 
 async function loadContents() {
   try {
+    const page = pagination.value.page || 1
+    const pageSize = pagination.value.pageSize || 10
     const res = await contentApi.getList({
-      skip: 0,
-      limit: 100,
+      skip: (page - 1) * pageSize,
+      limit: pageSize,
       keyword: searchKey.value || undefined
     })
     contents.value = res.contents || []
+    pagination.value.itemCount = res.total || 0
+
+    const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
+    if (pagination.value.page > maxPage) {
+      pagination.value.page = maxPage
+      return loadContents()
+    }
   } catch (err) {
     console.error(err)
   }
+}
+
+function handleSearch() {
+  pagination.value.page = 1
+  loadContents()
 }
 
 async function loadTemplates() {

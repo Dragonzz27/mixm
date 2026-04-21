@@ -32,7 +32,7 @@ class UserInfo(BaseModel):
 
 
 class ImageRepositoryResponse(ImageRepositoryBase):
-    id: int
+    id: str
     user_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -63,7 +63,7 @@ class ImageTagOption(BaseModel):
 
 
 class ImageRepositoryOption(BaseModel):
-    value: int = Field(..., description="仓库ID")
+    value: str = Field(..., description="仓库ID")
     label: str = Field(..., description="仓库名称")
     children: Optional[List[ImageTagOption]] = Field(
         default_factory=list, description="标签列表"

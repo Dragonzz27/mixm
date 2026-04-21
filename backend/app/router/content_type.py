@@ -33,7 +33,7 @@ def get_content_types(
 
 
 @router.get("/{type_id}", response_model=ContentTypeResponse)
-def get_content_type(type_id: int, db: Session = Depends(get_db)):
+def get_content_type(type_id: str, db: Session = Depends(get_db)):
     db_type = type_service.get_by_id(db, type_id)
     if not db_type:
         raise HTTPException(status_code=404, detail="Content type not found")
@@ -41,7 +41,7 @@ def get_content_type(type_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{type_id}", response_model=ContentTypeResponse)
-def update_content_type(type_id: int, content_type: ContentTypeUpdate, db: Session = Depends(get_db)):
+def update_content_type(type_id: str, content_type: ContentTypeUpdate, db: Session = Depends(get_db)):
     db_type = type_service.update_type(db, type_id, content_type)
     if not db_type:
         raise HTTPException(status_code=404, detail="Content type not found")
@@ -49,7 +49,7 @@ def update_content_type(type_id: int, content_type: ContentTypeUpdate, db: Sessi
 
 
 @router.delete("/{type_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_content_type(type_id: int, db: Session = Depends(get_db)):
+def delete_content_type(type_id: str, db: Session = Depends(get_db)):
     success = type_service.delete_type(db, type_id)
     if not success:
         raise HTTPException(status_code=404, detail="Content type not found")

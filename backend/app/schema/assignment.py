@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 class AssignmentBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200, description="作业标题")
     description: Optional[str] = Field(None, description="作业描述")
-    content_id: Optional[int] = Field(None, description="关联内容 ID")
+    content_id: Optional[str] = Field(None, description="关联内容 ID")
     deadline: datetime = Field(..., description="截止时间")
     visible_roles: Optional[List[str]] = Field(
         None, description="可见角色 ID 列表 (为空表示所有角色可见)"
@@ -22,7 +22,7 @@ class AssignmentUpdate(BaseModel):
         None, min_length=1, max_length=200, description="作业标题"
     )
     description: Optional[str] = Field(None, description="作业描述")
-    content_id: Optional[int] = Field(None, description="关联内容 ID")
+    content_id: Optional[str] = Field(None, description="关联内容 ID")
     deadline: Optional[datetime] = Field(None, description="截止时间")
     status: Optional[str] = Field(
         None, pattern="^(active|completed|archived)$", description="状态"
@@ -31,7 +31,7 @@ class AssignmentUpdate(BaseModel):
 
 
 class AssignmentResponse(AssignmentBase):
-    id: int
+    id: str
     status: str
     created_by: str
     created_at: datetime
@@ -44,7 +44,7 @@ class AssignmentResponse(AssignmentBase):
 
 
 class SubmissionBase(BaseModel):
-    assignment_id: int = Field(..., description="作业 ID")
+    assignment_id: str = Field(..., description="作业 ID")
     content: Optional[str] = Field(None, description="提交内容（如果是文本）")
 
 
@@ -67,8 +67,8 @@ class SubmissionUpdate(BaseModel):
 
 
 class SubmissionResponse(BaseModel):
-    id: int
-    assignment_id: int
+    id: str
+    assignment_id: str
     user_id: str
     file_path: Optional[str] = None
     file_name: Optional[str] = None

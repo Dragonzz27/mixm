@@ -7,20 +7,20 @@ from app.schema.content_category import ContentCategoryCreate
 
 
 class ContentCategoryService:
-    def get_by_id(self, db: Session, binding_id: int) -> Optional[ContentCategory]:
+    def get_by_id(self, db: Session, binding_id: str) -> Optional[ContentCategory]:
         return db.query(ContentCategory).filter(ContentCategory.id == binding_id).first()
 
-    def get_by_content_id(self, db: Session, content_id: int) -> List[ContentCategory]:
+    def get_by_content_id(self, db: Session, content_id: str) -> List[ContentCategory]:
         return db.query(ContentCategory).filter(ContentCategory.content_id == content_id).all()
 
-    def get_by_category_id(self, db: Session, category_id: int) -> List[ContentCategory]:
+    def get_by_category_id(self, db: Session, category_id: str) -> List[ContentCategory]:
         return db.query(ContentCategory).filter(ContentCategory.category_id == category_id).order_by(
             ContentCategory.sort_order).all()
 
     def get_all(self, db: Session) -> List[ContentCategory]:
         return db.query(ContentCategory).all()
 
-    def get_binding(self, db: Session, content_id: int, category_id: int) -> Optional[ContentCategory]:
+    def get_binding(self, db: Session, content_id: str, category_id: str) -> Optional[ContentCategory]:
         return (db.query(ContentCategory)
                 .filter(ContentCategory.content_id == content_id,
                        ContentCategory.category_id == category_id)
@@ -41,7 +41,7 @@ class ContentCategoryService:
         db.refresh(db_binding)
         return db_binding
 
-    def delete_binding(self, db: Session, content_id: int, category_id: int) -> bool:
+    def delete_binding(self, db: Session, content_id: str, category_id: str) -> bool:
         binding = self.get_binding(db, content_id, category_id)
         if not binding:
             return False
@@ -50,13 +50,13 @@ class ContentCategoryService:
         db.commit()
         return True
 
-    def delete_all_by_content(self, db: Session, content_id: int) -> int:
+    def delete_all_by_content(self, db: Session, content_id: str) -> int:
         count = db.query(ContentCategory).filter(ContentCategory.content_id == content_id).count()
         db.query(ContentCategory).filter(ContentCategory.content_id == content_id).delete()
         db.commit()
         return count
 
-    def get_content_with_categories(self, db: Session, content_id: int) -> Optional[dict]:
+    def get_content_with_categories(self, db: Session, content_id: str) -> Optional[dict]:
         content = db.query(Content).filter(Content.id == content_id).first()
         if not content:
             return None
@@ -87,7 +87,7 @@ class ContentCategoryService:
             "categories": categories
         }
 
-    def get_category_with_contents(self, db: Session, category_id: int) -> Optional[dict]:
+    def get_category_with_contents(self, db: Session, category_id: str) -> Optional[dict]:
         category = db.query(Category).filter(Category.id == category_id).first()
         if not category:
             return None

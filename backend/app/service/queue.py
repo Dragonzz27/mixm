@@ -27,7 +27,7 @@ class InstanceQueueService:
         user_id: str,
         namespace: str,
         username: str = "",
-        repo_id: Optional[int] = None,
+        repo_id: Optional[str] = None,
         repo_tag: Optional[str] = None,
         cpu_limit: float = 1.0,
         memory_limit: str = "1Gi",

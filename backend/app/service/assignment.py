@@ -41,7 +41,7 @@ class AssignmentService:
 
         return db_assignment
 
-    def get(self, db: Session, assignment_id: int) -> Optional[Assignment]:
+    def get(self, db: Session, assignment_id: str) -> Optional[Assignment]:
         return (
             db.query(Assignment)
             .options(joinedload(Assignment.visible_roles))
@@ -134,7 +134,7 @@ class AssignmentService:
         )
 
     def update(
-        self, db: Session, assignment_id: int, assignment: AssignmentUpdate
+        self, db: Session, assignment_id: str, assignment: AssignmentUpdate
     ) -> Optional[Assignment]:
         db_assignment = self.get(db, assignment_id)
         if not db_assignment:
@@ -157,7 +157,7 @@ class AssignmentService:
         db.refresh(db_assignment)
         return db_assignment
 
-    def delete(self, db: Session, assignment_id: int) -> bool:
+    def delete(self, db: Session, assignment_id: str) -> bool:
         db_assignment = self.get(db, assignment_id)
         if not db_assignment:
             return False
@@ -199,13 +199,13 @@ class SubmissionService:
         db.refresh(db_submission)
         return db_submission
 
-    def get(self, db: Session, submission_id: int) -> Optional[Submission]:
+    def get(self, db: Session, submission_id: str) -> Optional[Submission]:
         return db.query(Submission).filter(Submission.id == submission_id).first()
 
     def get_by_assignment(
         self,
         db: Session,
-        assignment_id: int,
+        assignment_id: str,
         skip: int = 0,
         limit: int = 20,
     ) -> Tuple[List[Submission], int]:
@@ -226,7 +226,7 @@ class SubmissionService:
         return submissions, total
 
     def get_by_user(
-        self, db: Session, user_id: str, assignment_id: Optional[int] = None
+        self, db: Session, user_id: str, assignment_id: Optional[str] = None
     ) -> List[Submission]:
         query = db.query(Submission).filter(Submission.user_id == user_id)
         if assignment_id:
@@ -234,7 +234,7 @@ class SubmissionService:
         return query.order_by(Submission.submitted_at.desc()).all()
 
     def get_user_submission_for_assignment(
-        self, db: Session, user_id: str, assignment_id: int
+        self, db: Session, user_id: str, assignment_id: str
     ) -> Optional[Submission]:
         return (
             db.query(Submission)
@@ -248,7 +248,7 @@ class SubmissionService:
     def update(
         self,
         db: Session,
-        submission_id: int,
+        submission_id: str,
         submission: SubmissionUpdate,
     ) -> Optional[Submission]:
         db_submission = self.get(db, submission_id)
@@ -265,7 +265,7 @@ class SubmissionService:
         db.refresh(db_submission)
         return db_submission
 
-    def delete(self, db: Session, submission_id: int) -> bool:
+    def delete(self, db: Session, submission_id: str) -> bool:
         db_submission = self.get(db, submission_id)
         if not db_submission:
             return False

@@ -9,7 +9,7 @@ class ContentBase(BaseModel):
     content_type: Optional[str] = "article"
     url: Optional[str] = None
     status: Optional[str] = "draft"
-    template_id: Optional[int] = None
+    template_id: Optional[str] = None
     is_active: Optional[bool] = True
 
     @field_validator("content_type", "status", mode="before")
@@ -36,7 +36,7 @@ class ContentUpdate(ContentBase):
 
 
 class ContentBriefResponse(BaseModel):
-    id: int
+    id: str
     title: str
     content_type: str
     url: Optional[str] = None
@@ -49,7 +49,7 @@ class ContentBriefResponse(BaseModel):
 
 
 class ContentResponse(ContentBase):
-    id: int
+    id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 

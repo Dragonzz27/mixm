@@ -6,7 +6,7 @@ from datetime import datetime
 class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
-    parent_id: Optional[int] = None
+    parent_id: Optional[str] = None
     level: Optional[int] = 1
     sort_order: Optional[int] = 0
     is_active: Optional[bool] = True
@@ -26,7 +26,7 @@ class CategoryUpdate(CategoryBase):
 
 
 class CategoryResponse(CategoryBase):
-    id: int
+    id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -35,7 +35,7 @@ class CategoryResponse(CategoryBase):
 
 
 class CategoryTreeResponse(CategoryBase):
-    id: int
+    id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
     children: List['CategoryTreeResponse'] = []

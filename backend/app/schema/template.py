@@ -18,7 +18,7 @@ class TemplateUpdate(TemplateBase):
 
 
 class TemplateResponse(TemplateBase):
-    id: int
+    id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 

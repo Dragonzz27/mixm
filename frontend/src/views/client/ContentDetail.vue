@@ -376,7 +376,7 @@ function handleExpand(keys) {
 async function fetchData() {
   loading.value = true
   try {
-    const id = Number(route.params.id)
+    const id = String(route.params.id || '')
     const isCategory = route.query.type === 'category'
 
     if (isCategory) {

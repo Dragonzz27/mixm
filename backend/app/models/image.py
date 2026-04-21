@@ -1,6 +1,7 @@
+import uuid
+
 from sqlalchemy import (
     Column,
-    Integer,
     String,
     DateTime,
     Boolean,
@@ -13,7 +14,13 @@ from app.database import Base
 class ImageRepository(Base):
     __tablename__ = "image_repositories"
 
-    id = Column(Integer, primary_key=True, index=True, comment="镜像仓库ID")
+    id = Column(
+        String(36),
+        primary_key=True,
+        index=True,
+        default=lambda: str(uuid.uuid4()),
+        comment="镜像仓库ID(UUID)",
+    )
     name = Column(
         String(100), unique=True, nullable=False, index=True, comment="仓库名称"
     )

@@ -323,11 +323,11 @@ class ImageService:
             db.query(ImageRepository).filter(ImageRepository.is_public.is_(True)).all()
         )
 
-    def get_by_id(self, db: Session, repo_id: int) -> Optional[ImageRepository]:
+    def get_by_id(self, db: Session, repo_id: str) -> Optional[ImageRepository]:
         return db.query(ImageRepository).filter(ImageRepository.id == repo_id).first()
 
     def update(
-        self, db: Session, repo_id: int, repo: ImageRepositoryUpdate
+        self, db: Session, repo_id: str, repo: ImageRepositoryUpdate
     ) -> Optional[ImageRepository]:
         db_repo = self.get_by_id(db, repo_id)
         if not db_repo:
@@ -340,7 +340,7 @@ class ImageService:
         db.refresh(db_repo)
         return db_repo
 
-    def delete(self, db: Session, repo_id: int) -> bool:
+    def delete(self, db: Session, repo_id: str) -> bool:
         db_repo = self.get_by_id(db, repo_id)
         if not db_repo:
             return False
@@ -389,14 +389,14 @@ class ImageService:
         db.commit()
         return True
 
-    def get_tags(self, db: Session, repo_id: int) -> List[ImageTag]:
+    def get_tags(self, db: Session, repo_id: str) -> List[ImageTag]:
         db_repo = self.get_by_id(db, repo_id)
         if not db_repo:
             return []
 
         return self.registry_service.get_tags(db_repo.name)
 
-    def delete_tag(self, db: Session, repo_id: int, tag_name: str) -> bool:
+    def delete_tag(self, db: Session, repo_id: str, tag_name: str) -> bool:
         db_repo = self.get_by_id(db, repo_id)
         if not db_repo:
             return False

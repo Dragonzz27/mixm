@@ -5,11 +5,11 @@ from app.schema.category import CategoryCreate, CategoryUpdate
 
 
 class CategoryService:
-    def get_category_by_id(self, db: Session, category_id: int) -> Optional[Category]:
+    def get_category_by_id(self, db: Session, category_id: str) -> Optional[Category]:
         return db.query(Category).filter(Category.id == category_id).first()
 
     def get_categories_by_parent(
-        self, db: Session, parent_id: Optional[int] = None
+        self, db: Session, parent_id: Optional[str] = None
     ) -> List[Category]:
         query = db.query(Category).filter(
             Category.parent_id == parent_id, Category.is_active == True
@@ -34,7 +34,7 @@ class CategoryService:
     def get_category_tree(
         self,
         db: Session,
-        parent_id: Optional[int] = None,
+        parent_id: Optional[str] = None,
         max_depth: int = 3,
         current_depth: int = 1,
     ) -> List[dict]:
@@ -85,7 +85,7 @@ class CategoryService:
         return db_category
 
     def update_category(
-        self, db: Session, category_id: int, category: CategoryUpdate
+        self, db: Session, category_id: str, category: CategoryUpdate
     ) -> Optional[Category]:
         db_category = self.get_category_by_id(db, category_id)
         if not db_category:
@@ -107,7 +107,7 @@ class CategoryService:
         db.refresh(db_category)
         return db_category
 
-    def delete_category(self, db: Session, category_id: int) -> bool:
+    def delete_category(self, db: Session, category_id: str) -> bool:
         db_category = self.get_category_by_id(db, category_id)
         if not db_category:
             return False
@@ -120,7 +120,7 @@ class CategoryService:
         db.commit()
         return True
 
-    def update_children_level(self, db: Session, category_id: int, level: int):
+    def update_children_level(self, db: Session, category_id: str, level: int):
         children = self.get_categories_by_parent(db, category_id)
         for child in children:
             child.level = level + 1

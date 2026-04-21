@@ -25,7 +25,7 @@ class QueueTask:
         self.user_id = str(data.get("user_id")) if data.get("user_id") else None
         self.namespace = data.get("namespace")
         self.username = data.get("username") or ""
-        self.repo_id = _to_int(data.get("repo_id"))
+        self.repo_id = _to_str(data.get("repo_id"))
         self.repo_tag = data.get("repo_tag")
         self.cpu_limit = _to_float(data.get("cpu_limit"), default=1.0)
         self.memory_limit = data.get("memory_limit") or "1Gi"
@@ -69,6 +69,12 @@ def _to_int(value: Any, default: Optional[int] = None) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _to_str(value: Any, default: Optional[str] = None) -> Optional[str]:
+    if value is None or value == "":
+        return default
+    return str(value)
 
 
 def _to_float(value: Any, default: float = 1.0) -> float:

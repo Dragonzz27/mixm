@@ -18,6 +18,7 @@
         :columns="columns"
         :data="users"
         :pagination="pagination"
+        remote
         :bordered="false"
       />
     </n-card>
@@ -132,7 +133,22 @@ const pwdLoading = ref(false)
 const importLoading = ref(false)
 const users = ref([])
 const roleOptions = ref([])
-const pagination = ref({ pageSize: 10 })
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    pagination.value.page = page
+    loadUsers()
+  },
+  onUpdatePageSize: (pageSize) => {
+    pagination.value.pageSize = pageSize
+    pagination.value.page = 1
+    loadUsers()
+  }
+})
 
 const addFormData = ref({ username: '', email: '', phone: '', password: '', role_id: null })
 const addRules = {
@@ -182,15 +198,34 @@ const columns = [
 
 let searchTimer = null
 
+watch(searchKey, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    pagination.value.page = 1
+    loadUsers()
+  }, 300)
+})
+
 async function loadUsers() {
   try {
+    const page = pagination.value.page || 1
+    const pageSize = pagination.value.pageSize || 10
+    const skip = (page - 1) * pageSize
+
     const res = await authApi.getUsers({ 
-      skip: 0, 
-      limit: pagination.value.pageSize,
+      skip,
+      limit: pageSize,
       keyword: searchKey.value || undefined
     })
+
     users.value = res.users || []
-    pagination.value.pageSize = 10
+    pagination.value.itemCount = res.total || 0
+
+    const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
+    if (pagination.value.page > maxPage) {
+      pagination.value.page = maxPage
+      return loadUsers()
+    }
   } catch (err) {
     console.error(err)
   }

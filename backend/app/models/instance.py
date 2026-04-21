@@ -21,7 +21,7 @@ class Instance(Base):
     )
 
     repo_id = Column(
-        Integer,
+        String(36),
         ForeignKey("image_repositories.id"),
         nullable=True,
         comment="镜像仓库ID",

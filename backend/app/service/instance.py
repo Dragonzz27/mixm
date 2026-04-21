@@ -44,7 +44,7 @@ class InstanceService:
             return int(memory_str[:-1])
         return int(memory_str)
 
-    def _get_image_full_name(self, db: Session, repo_id: int, repo_tag: str) -> str:
+    def _get_image_full_name(self, db: Session, repo_id: str, repo_tag: str) -> str:
         repo = db.query(ImageRepository).filter(ImageRepository.id == repo_id).first()
         if not repo:
             return f"ubuntu:{repo_tag}"
@@ -76,7 +76,7 @@ class InstanceService:
         self,
         db: Session,
         instance: InstanceCreate,
-        repo_id: Optional[int] = None,
+        repo_id: Optional[str] = None,
         repo_tag: Optional[str] = None,
         cpu_limit: float = 1.0,
         memory_limit: str = "1Gi",
