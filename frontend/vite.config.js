@@ -12,6 +12,7 @@ export default defineConfig({
   server: {
     port: 5155,
     host: true,
+    allowedHosts: ['mixm-edu.yoobit.cn', 'https://mixm-edu.yoobit.cn/'],
     // proxy: {
     //   '/api': {
     //     target: 'http://localhost:18002',
