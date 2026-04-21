@@ -19,6 +19,7 @@
         :columns="columns"
         :data="instances"
         :pagination="pagination"
+        remote
         :bordered="false"
       />
     </n-card>
@@ -48,7 +49,22 @@ const showStartModal = ref(false)
 const showConfigModal = ref(false)
 const currentConfig = ref(null)
 const deletingAll = ref(false)
-const pagination = ref({ pageSize: 10 })
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    pagination.value.page = page
+    loadData()
+  },
+  onUpdatePageSize: (pageSize) => {
+    pagination.value.pageSize = pageSize
+    pagination.value.page = 1
+    loadData()
+  }
+})
 
 function renderShortId(id) {
   const fullId = String(id || '')
@@ -176,8 +192,21 @@ const columns = [
 
 async function loadData() {
   try {
-    const instancesRes = await instanceApi.getList({})
+    const page = pagination.value.page || 1
+    const pageSize = pagination.value.pageSize || 10
+    const instancesRes = await instanceApi.getList({
+      skip: (page - 1) * pageSize,
+      limit: pageSize
+    })
     instances.value = instancesRes.instances || []
+    pagination.value.itemCount = instancesRes.total || 0
+
+    const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
+    if (pagination.value.page > maxPage) {
+      pagination.value.page = maxPage
+      return loadData()
+    }
+
     for (const instance of instances.value) {
       if (instance.started_at) {
         instance.name = instance.name.split('-').slice(0, -1).join('-')

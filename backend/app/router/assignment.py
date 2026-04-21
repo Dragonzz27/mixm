@@ -135,7 +135,7 @@ def get_active_assignments(
 
 @router.get("/my/submissions", response_model=list[SubmissionResponse])
 def get_my_submissions(
-    assignment_id: Optional[int] = None,
+    assignment_id: Optional[str] = None,
     request: Request = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -217,7 +217,7 @@ async def get_submission_file(filename: str):
 
 @router.get("/{assignment_id}", response_model=AssignmentResponse)
 def get_assignment(
-    assignment_id: int,
+    assignment_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -229,7 +229,7 @@ def get_assignment(
 
 @router.put("/{assignment_id}", response_model=AssignmentResponse)
 def update_assignment(
-    assignment_id: int,
+    assignment_id: str,
     assignment: AssignmentUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -242,7 +242,7 @@ def update_assignment(
 
 @router.delete("/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_assignment(
-    assignment_id: int,
+    assignment_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -253,7 +253,7 @@ def delete_assignment(
 
 @router.get("/{assignment_id}/submissions", response_model=SubmissionListResponse)
 def get_submissions(
-    assignment_id: int,
+    assignment_id: str,
     skip: int = 0,
     limit: int = 20,
     request: Request = None,
@@ -278,7 +278,7 @@ def get_submissions(
 
 @router.get("/{assignment_id}/submissions/export")
 def export_submissions(
-    assignment_id: int,
+    assignment_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -363,7 +363,7 @@ def create_submission(
 
 @router.put("/submissions/{submission_id}", response_model=SubmissionResponse)
 def update_submission(
-    submission_id: int,
+    submission_id: str,
     submission: SubmissionUpdate,
     request: Request,
     db: Session = Depends(get_db),
@@ -385,7 +385,7 @@ def update_submission(
 
 @router.delete("/submissions/{submission_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_submission(
-    submission_id: int,
+    submission_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

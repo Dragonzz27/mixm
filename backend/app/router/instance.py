@@ -32,7 +32,7 @@ def get_current_user(token: str = Depends(auth_service.get_current_user)):
 
 
 class BatchStartByTemplateRequest(BaseModel):
-    template_id: int
+    template_id: str
     user_ids: list[str]
 
 
@@ -172,7 +172,10 @@ def start_instances_by_template_batch(
     repo_id = template_config.get("repo_id")
     repo_tag = template_config.get("repo_tag")
 
-    if not repo_id or not repo_tag:
+    repo_id_text = str(repo_id).strip() if repo_id is not None else ""
+    repo_tag_text = str(repo_tag).strip() if repo_tag is not None else ""
+
+    if not repo_id_text or not repo_tag_text:
         raise HTTPException(
             status_code=400,
             detail="模板配置缺少 repo_id 或 repo_tag，无法批量启动",
@@ -200,8 +203,8 @@ def start_instances_by_template_batch(
         # Align validation behavior with single-start API.
         InstanceCreateWithConfig(
             name="batch-validate",
-            repo_id=int(repo_id),
-            repo_tag=str(repo_tag),
+            repo_id=repo_id_text,
+            repo_tag=repo_tag_text,
             cpu_limit=cpu_limit,
             memory_limit=str(memory_limit),
             storage_limit=storage_limit,
@@ -225,8 +228,8 @@ def start_instances_by_template_batch(
             user_id=target_user.id,
             namespace="default",
             username=target_user.username,
-            repo_id=repo_id,
-            repo_tag=repo_tag,
+            repo_id=repo_id_text,
+            repo_tag=repo_tag_text,
             cpu_limit=cpu_limit,
             memory_limit=memory_limit,
             storage_limit=storage_limit,

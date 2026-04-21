@@ -129,7 +129,7 @@ def get_my_repositories(
 
 @router.get("/{repo_id}", response_model=ImageRepositoryWithTags)
 def get_repository(
-    repo_id: int,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_service.get_current_user),
 ):
@@ -158,7 +158,7 @@ def get_repository(
 
 @router.put("/{repo_id}", response_model=ImageRepositoryResponse)
 def update_repository(
-    repo_id: int,
+    repo_id: str,
     repo: ImageRepositoryUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_service.get_current_user),
@@ -176,7 +176,7 @@ def update_repository(
 
 @router.delete("/{repo_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_repository(
-    repo_id: int,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_service.get_current_user),
 ):
@@ -194,7 +194,7 @@ def delete_repository(
 
 @router.get("/{repo_id}/tags", response_model=List[ImageTag])
 def get_repository_tags(
-    repo_id: int,
+    repo_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_service.get_current_user),
 ):
@@ -210,7 +210,7 @@ def get_repository_tags(
 
 @router.delete("/{repo_id}/tags/{tag_name}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_repository_tag(
-    repo_id: int,
+    repo_id: str,
     tag_name: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_service.get_current_user),

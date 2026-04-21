@@ -20,7 +20,7 @@ content_service = ContentService()
 
 
 def get_category_tree_with_contents(
-    db: Session, category_id: int, max_depth: int = 3
+    db: Session, category_id: str, max_depth: int = 3
 ) -> Dict[str, Any]:
     def build_tree(cat: Category, current_depth: int = 1) -> Dict[str, Any]:
         result = {
@@ -57,7 +57,7 @@ def get_category_tree_with_contents(
 
 @router.get("/category-tree/{category_id}")
 def get_category_tree(
-    category_id: int, max_depth: int = 3, db: Session = Depends(get_db)
+    category_id: str, max_depth: int = 3, db: Session = Depends(get_db)
 ):
     tree = get_category_tree_with_contents(db, category_id, max_depth)
     if not tree:
@@ -89,7 +89,7 @@ def get_contents(
 
 @router.get("/by-category/{category_id}")
 def get_contents_by_category(
-    category_id: int,
+    category_id: str,
     skip: int = 0,
     limit: int = 12,
     keyword: Optional[str] = None,
@@ -99,9 +99,7 @@ def get_contents_by_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    contents = content_service.get_contents_by_category(
-        db, int(category_id), limit, skip, keyword
-    )
+    contents = content_service.get_contents_by_category(db, category_id, limit, skip, keyword)
     # Use list comprehension to ensure we return ContentBriefResponse compatible data
     return {
         "category": {"id": category.id, "name": category.name},
@@ -124,7 +122,7 @@ def get_categories_with_contents(
     for category in categories:
         contents = content_service.get_contents_by_category(
             db,
-            int(category.id),
+            category.id,
             limit_per_category,  # type: ignore
         )
         result.append(
@@ -152,7 +150,7 @@ def get_contents_by_categories(
     if not category_ids:
         return {"total": 0, "contents": []}
 
-    ids = [int(x.strip()) for x in category_ids.split(",") if x.strip().isdigit()]
+    ids = [x.strip() for x in category_ids.split(",") if x.strip()]
     if not ids:
         return {"total": 0, "contents": []}
 
@@ -161,7 +159,7 @@ def get_contents_by_categories(
 
 
 @router.get("/{content_id}", response_model=ContentResponse)
-def get_content(content_id: int, db: Session = Depends(get_db)):
+def get_content(content_id: str, db: Session = Depends(get_db)):
     print("here", content_id)
     db_content = content_service.get_content_by_id(db, content_id)
     if not db_content:
@@ -171,7 +169,7 @@ def get_content(content_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{content_id}", response_model=ContentResponse)
 def update_content(
-    content_id: int, content: ContentUpdate, db: Session = Depends(get_db)
+    content_id: str, content: ContentUpdate, db: Session = Depends(get_db)
 ):
     db_content = content_service.update_content(db, content_id, content)
     if not db_content:
@@ -180,7 +178,7 @@ def update_content(
 
 
 @router.delete("/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_content(content_id: int, db: Session = Depends(get_db)):
+def delete_content(content_id: str, db: Session = Depends(get_db)):
     success = content_service.delete_content(db, content_id)
     if not success:
         raise HTTPException(status_code=404, detail="Content not found")

@@ -4,8 +4,8 @@ from datetime import datetime
 
 
 class ContentCategoryBase(BaseModel):
-    content_id: int
-    category_id: int
+    content_id: str
+    category_id: str
     sort_order: Optional[int] = 0
 
 
@@ -14,7 +14,7 @@ class ContentCategoryCreate(ContentCategoryBase):
 
 
 class ContentCategoryResponse(ContentCategoryBase):
-    id: int
+    id: str
     created_at: datetime
 
     class Config:
@@ -22,7 +22,7 @@ class ContentCategoryResponse(ContentCategoryBase):
 
 
 class ContentWithCategories(BaseModel):
-    id: int
+    id: str
     title: str
     content: Optional[str] = None
     content_type: str
@@ -38,10 +38,10 @@ class ContentWithCategories(BaseModel):
 
 
 class CategoryWithContents(BaseModel):
-    id: int
+    id: str
     name: str
     description: Optional[str] = None
-    parent_id: Optional[int] = None
+    parent_id: Optional[str] = None
     level: int
     sort_order: int
     is_active: bool

@@ -9,7 +9,7 @@
             placeholder="筛选状态"
             clearable
             style="width: 120px"
-            @update:value="loadAssignments"
+            @update:value="handleStatusChange"
           />
           <n-button type="primary" @click="handleAddClick">发布作业</n-button>
         </n-space>
@@ -17,7 +17,8 @@
       <n-data-table
         :columns="columns"
         :data="assignments"
-        :pagination="pagination"
+        :pagination="assignmentPagination"
+        remote
         :bordered="false"
       />
     </n-card>
@@ -65,7 +66,8 @@
       <n-data-table
         :columns="submissionColumns"
         :data="submissions"
-        :pagination="pagination"
+        :pagination="submissionPagination"
+        remote
         :bordered="false"
       />
     </n-modal>
@@ -109,9 +111,42 @@ const showPreviewModal = ref(false)
 const previewFileData = ref(null)
 const isEdit = ref(false)
 const loading = ref(false)
-const pagination = ref({ pageSize: 10 })
 const filterStatus = ref(null)
 const currentAssignmentId = ref(null)
+
+const assignmentPagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    assignmentPagination.value.page = page
+    loadAssignments()
+  },
+  onUpdatePageSize: (pageSize) => {
+    assignmentPagination.value.pageSize = pageSize
+    assignmentPagination.value.page = 1
+    loadAssignments()
+  }
+})
+
+const submissionPagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    submissionPagination.value.page = page
+    loadSubmissions()
+  },
+  onUpdatePageSize: (pageSize) => {
+    submissionPagination.value.pageSize = pageSize
+    submissionPagination.value.page = 1
+    loadSubmissions()
+  }
+})
 
 const formData = ref({
   title: '',
@@ -146,7 +181,7 @@ function isOverdue(deadline) {
 }
 
 const columns = computed(() => [
-  { title: 'ID', key: 'id', width: 60 },
+  { title: 'ID', key: 'id', width: 360 },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { 
     title: '截止时间', 
@@ -182,7 +217,7 @@ const columns = computed(() => [
 ])
 
 const submissionColumns = computed(() => [
-  { title: 'ID', key: 'id', width: 60 },
+  // { title: 'ID', key: 'id', width: 360 },
   { title: '用户', key: 'username', width: 120 },
   { title: '文件名', key: 'file_name', ellipsis: { tooltip: true } },
   { title: '提交时间', key: 'submitted_at', width: 180, render: (row) => formatDate(row.submitted_at) },
@@ -228,12 +263,54 @@ async function loadRoleOptions() {
 
 async function loadAssignments() {
   try {
-    const params = { skip: 0, limit: 100 }
+    const page = assignmentPagination.value.page || 1
+    const pageSize = assignmentPagination.value.pageSize || 10
+    const params = {
+      skip: (page - 1) * pageSize,
+      limit: pageSize
+    }
     if (filterStatus.value) params.status = filterStatus.value
+
     const res = await assignmentApi.getList(params)
     assignments.value = res.assignments || []
+    assignmentPagination.value.itemCount = res.total || 0
+
+    const maxPage = Math.max(1, Math.ceil((assignmentPagination.value.itemCount || 0) / pageSize))
+    if (assignmentPagination.value.page > maxPage) {
+      assignmentPagination.value.page = maxPage
+      return loadAssignments()
+    }
   } catch (err) {
     console.error(err)
+  }
+}
+
+function handleStatusChange() {
+  assignmentPagination.value.page = 1
+  loadAssignments()
+}
+
+async function loadSubmissions(assignmentId = currentAssignmentId.value) {
+  if (!assignmentId) return
+
+  const page = submissionPagination.value.page || 1
+  const pageSize = submissionPagination.value.pageSize || 10
+  try {
+    const res = await assignmentApi.getSubmissions(assignmentId, {
+      skip: (page - 1) * pageSize,
+      limit: pageSize
+    })
+    submissions.value = res.submissions || []
+    submissionPagination.value.itemCount = res.total || 0
+
+    const maxPage = Math.max(1, Math.ceil((submissionPagination.value.itemCount || 0) / pageSize))
+    if (submissionPagination.value.page > maxPage) {
+      submissionPagination.value.page = maxPage
+      return loadSubmissions(assignmentId)
+    }
+  } catch (err) {
+    console.error(err)
+    message.error('加载提交列表失败')
   }
 }
 
@@ -299,10 +376,10 @@ async function handleDelete(id) {
 
 async function viewSubmissions(row) {
   currentAssignmentId.value = row.id
+  submissionPagination.value.page = 1
+  showSubmissionsModal.value = true
   try {
-    const res = await assignmentApi.getSubmissions(row.id, { skip: 0, limit: 100 })
-    submissions.value = res.submissions || []
-    showSubmissionsModal.value = true
+    await loadSubmissions(row.id)
   } catch (err) {
     console.error(err)
     message.error('加载提交列表失败')
@@ -354,7 +431,7 @@ async function submitGrade() {
     })
     message.success('评分成功')
     gradeModalVisible.value = false
-    viewSubmissions({ id: currentAssignmentId.value })
+    await loadSubmissions(currentAssignmentId.value)
   } catch (err) {
     console.error(err)
     message.error('评分失败')
@@ -365,7 +442,7 @@ async function handleDeleteSubmission(id) {
   try {
     await assignmentApi.deleteSubmission(id)
     message.success('删除成功')
-    viewSubmissions({ id: currentAssignmentId.value })
+    await loadSubmissions(currentAssignmentId.value)
   } catch (err) {
     console.error(err)
     message.error('删除失败')

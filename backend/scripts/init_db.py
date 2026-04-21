@@ -30,22 +30,7 @@ def init_users(db: Session) -> None:
             username="admin",
             email="admin@mutim.com",
             hashed_password="$2b$12$xW2pZsIAcrBEt8zX1MgIxuBevXAe0N1/RUYQ31lC2A8taB3j6suba",
-        ),
-        User(
-            username="testuser",
-            email="test@mutim.com",
-            hashed_password="$2b$12$xW2pZsIAcrBEt8zX1MgIxuBevXAe0N1/RUYQ31lC2A8taB3j6suba",
-        ),
-        User(
-            username="developer",
-            email="dev@mutim.com",
-            hashed_password="$2b$12$xW2pZsIAcrBEt8zX1MgIxuBevXAe0N1/RUYQ31lC2A8taB3j6suba",
-        ),
-        User(
-            username="operator",
-            email="ops@mutim.com",
-            hashed_password="$2b$12$xW2pZsIAcrBEt8zX1MgIxuBevXAe0N1/RUYQ31lC2A8taB3j6suba",
-        ),
+        )
     ]
 
     for user in users:
@@ -75,14 +60,7 @@ def init_roles(db: Session) -> None:
                 "Users",
                 "Instances",
             ],
-        },
-        {
-            "name": "学生",
-            "route_keys": [
-                "ClientMyInstances",
-                "ClientContents",
-            ],
-        },
+        }
     ]
 
     for role_data in roles:
@@ -100,45 +78,10 @@ def init_templates(db: Session) -> None:
     """初始化模板数据"""
     templates = [
         Template(
-            name="后端API服务2",
+            name="模板Demo，不可直接启动",
             description="基于FastAPI的后端API服务模板，包含Python运行时和依赖配置",
             config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
-        Template(
-            name="前端Web应用",
-            description="Vue3前端应用模板，Nginx服务静态文件",
-            config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
-        Template(
-            name="数据库服务",
-            description="PostgreSQL数据库服务模板",
-            config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
-        Template(
-            name="缓存服务",
-            description="Redis缓存服务模板",
-            config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
-        Template(
-            name="Java后端服务",
-            description="Spring Boot Java后端服务模板",
-            config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
-        Template(
-            name="消息队列",
-            description="RabbitMQ消息队列服务模板",
-            config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
-        Template(
-            name="文件存储",
-            description="MinIO对象存储服务模板",
-            config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
-        Template(
-            name="监控服务",
-            description="Prometheus监控服务模板",
-            config='{"image": "codercom/code-server:latest", "container_port": 8080, "cpu_limit": "1", "memory_limit": "1Gi", "cpu_request": "0.5", "memory_request": "512Mi", "storage": "1Gi", "working_dir": "/home/coder/project", "env": [{"name": "CS_DISABLE_PROXY_URI_VALIDATION", "value": "1"}, {"name": "CS_ALLOW_IFRAME", "value": "true"}]}',
-        ),
+        )
     ]
 
     for template in templates:

@@ -29,7 +29,7 @@ def create_binding(binding: ContentCategoryCreate, db: Session = Depends(get_db)
 
 
 @router.get("/{binding_id}", response_model=ContentCategoryResponse)
-def get_binding(binding_id: int, db: Session = Depends(get_db)):
+def get_binding(binding_id: str, db: Session = Depends(get_db)):
     db_binding = binding_service.get_by_id(db, binding_id)
     if not db_binding:
         raise HTTPException(status_code=404, detail="Binding not found")
@@ -37,7 +37,7 @@ def get_binding(binding_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/content/{content_id}", response_model=list[ContentCategoryResponse])
-def get_bindings_by_content(content_id: int, db: Session = Depends(get_db)):
+def get_bindings_by_content(content_id: str, db: Session = Depends(get_db)):
     if not content_service.get_content_by_id(db, content_id):
         raise HTTPException(status_code=404, detail="Content not found")
     
@@ -50,7 +50,7 @@ def get_all_bindings(db: Session = Depends(get_db)):
 
 
 @router.get("/category/{category_id}", response_model=list[ContentCategoryResponse])
-def get_bindings_by_category(category_id: int, db: Session = Depends(get_db)):
+def get_bindings_by_category(category_id: str, db: Session = Depends(get_db)):
     from app.models.category import Category
     if not db.query(Category).filter(Category.id == category_id).first():
         raise HTTPException(status_code=404, detail="Category not found")
@@ -59,18 +59,18 @@ def get_bindings_by_category(category_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{binding_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_binding(binding_id: int, db: Session = Depends(get_db)):
+def delete_binding(binding_id: str, db: Session = Depends(get_db)):
     db_binding = binding_service.get_by_id(db, binding_id)
     if not db_binding:
         raise HTTPException(status_code=404, detail="Binding not found")
     
-    success = binding_service.delete_binding(db, int(db_binding.content_id), int(db_binding.category_id))
+    success = binding_service.delete_binding(db, db_binding.content_id, db_binding.category_id)
     if not success:
         raise HTTPException(status_code=404, detail="Binding not found")
 
 
 @router.delete("/by-content/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_all_bindings_by_content(content_id: int, db: Session = Depends(get_db)):
+def delete_all_bindings_by_content(content_id: str, db: Session = Depends(get_db)):
     if not content_service.get_content_by_id(db, content_id):
         raise HTTPException(status_code=404, detail="Content not found")
     
@@ -78,7 +78,7 @@ def delete_all_bindings_by_content(content_id: int, db: Session = Depends(get_db
 
 
 @router.get("/detail/content/{content_id}", response_model=ContentWithCategories)
-def get_content_with_categories(content_id: int, db: Session = Depends(get_db)):
+def get_content_with_categories(content_id: str, db: Session = Depends(get_db)):
     result = binding_service.get_content_with_categories(db, content_id)
     if not result:
         raise HTTPException(status_code=404, detail="Content not found")
@@ -86,7 +86,7 @@ def get_content_with_categories(content_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/detail/category/{category_id}", response_model=CategoryWithContents)
-def get_category_with_contents(category_id: int, db: Session = Depends(get_db)):
+def get_category_with_contents(category_id: str, db: Session = Depends(get_db)):
     result = binding_service.get_category_with_contents(db, category_id)
     if not result:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -94,7 +94,7 @@ def get_category_with_contents(category_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/category/{category_id}/unbound")
-def get_unbound_contents(category_id: int, keyword: str = None, skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
+def get_unbound_contents(category_id: str, keyword: str = None, skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
     from app.models.category import Category
     from app.models.content import Content
     
@@ -120,7 +120,7 @@ def get_unbound_contents(category_id: int, keyword: str = None, skip: int = 0, l
 
 
 @router.post("/category/{category_id}/batch-bind")
-def batch_bind_contents(category_id: int, data: dict, db: Session = Depends(get_db)):
+def batch_bind_contents(category_id: str, data: dict, db: Session = Depends(get_db)):
     from app.models.category import Category
     
     if not db.query(Category).filter(Category.id == category_id).first():
@@ -141,7 +141,7 @@ def batch_bind_contents(category_id: int, data: dict, db: Session = Depends(get_
 
 
 @router.delete("/category/{category_id}/batch-unbind")
-def batch_unbind_contents(category_id: int, data: dict, db: Session = Depends(get_db)):
+def batch_unbind_contents(category_id: str, data: dict, db: Session = Depends(get_db)):
     content_ids = data.get("content_ids", [])
     for content_id in content_ids:
         binding_service.delete_binding(db, content_id, category_id)
@@ -157,7 +157,8 @@ def get_category_binding_counts(data: dict, db: Session = Depends(get_db)):
     
     result = {}
     for category_id in category_ids:
-        count = db.query(ContentCategory).filter(ContentCategory.category_id == int(category_id)).count()
-        result[int(category_id)] = count
+        category_key = str(category_id)
+        count = db.query(ContentCategory).filter(ContentCategory.category_id == category_key).count()
+        result[category_key] = count
     
     return result

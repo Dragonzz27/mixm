@@ -281,16 +281,12 @@ def delete_pod(namespace: str, pod_name: str, db: Session = Depends(get_db)):
 
         if app_label.startswith("deploy-cs-"):
             instance_id_str = app_label.replace("deploy-cs-", "")
-            try:
-                instance_id = int(instance_id_str)
-                success = instance_service.delete(db, instance_id)
-                if success:
-                    logger.info(
-                        f"[K8s] Deleted instance {instance_id} via pod {pod_name}"
-                    )
-                    return {"success": True, "message": f"实例 {instance_id} 已删除"}
-            except ValueError:
-                pass
+            success = instance_service.delete(db, instance_id_str)
+            if success:
+                logger.info(
+                    f"[K8s] Deleted instance {instance_id_str} via pod {pod_name}"
+                )
+                return {"success": True, "message": f"实例 {instance_id_str} 已删除"}
 
         core_v1.delete_namespaced_pod(
             name=pod_name,

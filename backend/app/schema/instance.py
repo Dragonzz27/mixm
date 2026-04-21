@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 class InstanceConfig(BaseModel):
-    repo_id: int
+    repo_id: str
     repo_tag: str
     cpu_limit: float = 1.0
     memory_limit: str = "1Gi"
@@ -82,7 +82,7 @@ class InstanceBase(BaseModel):
     memory_limit_mb: Optional[int] = 1024
     storage_limit: Optional[int] = 1
     cpu_limit: Optional[float] = 1.0
-    repo_id: Optional[int] = None
+    repo_id: Optional[str] = None
     repo_tag: Optional[str] = None
     ssh_port: Optional[int] = None
     ssh_username: Optional[str] = None
@@ -96,7 +96,7 @@ class InstanceCreate(InstanceBase):
 class InstanceCreateWithConfig(BaseModel):
     name: str = ""
     user_id: Optional[str] = None
-    repo_id: int
+    repo_id: str
     repo_tag: str
     cpu_limit: float = 1.0
     memory_limit: str = "1Gi"

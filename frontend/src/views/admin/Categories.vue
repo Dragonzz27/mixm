@@ -66,11 +66,10 @@
               :bordered="false"
               :max-height="350"
               :pagination="unboundPagination"
+              remote
               :row-key="row => row.id"
               :checked-row-keys="selectedUnbound"
               @update:checked-row-keys="val => selectedUnbound = val"
-              @update:page="page => loadUnboundContents(page)"
-              @update:page-size="pageSize => { unboundPagination.pageSize = pageSize; loadUnboundContents(1); }"
             />
           </n-spin>
         </div>
@@ -134,7 +133,20 @@ const rules = {
 const showBindModal = ref(false)
 const currentCategoryId = ref(null)
 const unboundContents = ref([])
-const unboundPagination = ref({ page: 1, pageSize: 10, total: 0 })
+const unboundPagination = ref({
+  page: 1,
+  pageSize: 10,
+  itemCount: 0,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page) => {
+    loadUnboundContents(page)
+  },
+  onUpdatePageSize: (pageSize) => {
+    unboundPagination.value.pageSize = pageSize
+    loadUnboundContents(1)
+  }
+})
 const boundContents = ref([])
 const selectedUnbound = ref([])
 const selectedBound = ref([])
@@ -289,7 +301,9 @@ async function openBindModal(category) {
   currentCategoryId.value = category.id
   showBindModal.value = true
   unboundSearchKey.value = ''
-  unboundPagination.value = { page: 1, pageSize: 10, total: 0 }
+  unboundPagination.value.page = 1
+  unboundPagination.value.pageSize = 10
+  unboundPagination.value.itemCount = 0
   selectedUnbound.value = []
   selectedBound.value = []
   await Promise.all([
@@ -301,16 +315,22 @@ async function openBindModal(category) {
 async function loadUnboundContents(page = 1) {
   loadingUnbound.value = true
   try {
-    const skip = (page - 1) * unboundPagination.value.pageSize
+    const pageSize = unboundPagination.value.pageSize
+    const skip = (page - 1) * pageSize
     const params = {
       keyword: unboundSearchKey.value || undefined,
       skip: skip,
-      limit: unboundPagination.value.pageSize
+      limit: pageSize
     }
     const res = await bindingApi.getUnboundContents(currentCategoryId.value, params)
     unboundContents.value = res.contents || []
-    unboundPagination.value.total = res.total || 0
+    unboundPagination.value.itemCount = res.total || 0
     unboundPagination.value.page = page
+
+    const maxPage = Math.max(1, Math.ceil((unboundPagination.value.itemCount || 0) / pageSize))
+    if (unboundPagination.value.page > maxPage) {
+      return loadUnboundContents(maxPage)
+    }
   } catch (err) {
     console.error(err)
     unboundContents.value = []

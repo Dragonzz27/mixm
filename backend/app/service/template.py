@@ -5,7 +5,7 @@ from app.schema.template import TemplateCreate, TemplateUpdate
 
 
 class TemplateService:
-    def get_template_by_id(self, db: Session, template_id: int) -> Optional[Template]:
+    def get_template_by_id(self, db: Session, template_id: str) -> Optional[Template]:
         return db.query(Template).filter(Template.id == template_id).first()
 
     def get_all_templates(self, db: Session, skip: int = 0, limit: int = 100) -> List[Template]:
@@ -33,7 +33,7 @@ class TemplateService:
         db.refresh(db_template)
         return db_template
 
-    def update_template(self, db: Session, template_id: int, template: TemplateUpdate) -> Optional[Template]:
+    def update_template(self, db: Session, template_id: str, template: TemplateUpdate) -> Optional[Template]:
         db_template = self.get_template_by_id(db, template_id)
         if not db_template:
             return None
@@ -46,7 +46,7 @@ class TemplateService:
         db.refresh(db_template)
         return db_template
 
-    def delete_template(self, db: Session, template_id: int) -> bool:
+    def delete_template(self, db: Session, template_id: str) -> bool:
         db_template = self.get_template_by_id(db, template_id)
         if not db_template:
             return False
