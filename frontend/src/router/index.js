@@ -134,6 +134,12 @@ const routes = [
         name: 'Assignments',
         meta: { title: '作业管理' },
         component: () => import('@/views/admin/Assignments.vue')
+      },
+      {
+        path: 'questions',
+        name: 'Questions',
+        meta: { title: '题库管理' },
+        component: () => import('@/views/admin/Questions.vue')
       }
     ]
   },

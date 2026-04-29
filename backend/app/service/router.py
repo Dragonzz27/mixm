@@ -29,6 +29,7 @@ class RouterService:
             "Instances": ["Instances"],
             "AdminImageRepositories": ["AdminImageRepositories", "AdminImageDetail"],
             "Assignments": ["Assignments"],
+            "Questions": ["Questions"],
         }
 
         self._routes: List[Dict[str, Any]] = [
@@ -162,6 +163,12 @@ class RouterService:
                         "component": "views/admin/Assignments.vue",
                         "meta": {"title": "作业管理"},
                     },
+                    {
+                        "path": "questions",
+                        "name": "Questions",
+                        "component": "views/admin/Questions.vue",
+                        "meta": {"title": "题库管理"},
+                    },
                 ],
             },
             {"path": "/:pathMatch(.*)*", "redirect": "/app"},
@@ -232,6 +239,12 @@ class RouterService:
 				"label": "作业管理",
 				"path": "/admin/assignments",
 				"icon": "CreateOutline",
+			},
+			{
+				"key": "Questions",
+				"label": "题库管理",
+				"path": "/admin/questions",
+				"icon": "DocumentTextOutline",
 			},
 		]
 

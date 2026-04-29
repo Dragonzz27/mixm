@@ -121,7 +121,8 @@ const defaultMenuItems = [
   { key: 'Instances', label: '实例管理', path: '/admin/instances', icon: 'ServerOutline' },
   { key: 'AdminImageRepositories', label: '镜像仓库', path: '/admin/images', icon: 'ImageOutline' },
   { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: 'LayersOutline' },
-  { key: 'Assignments', label: '作业管理', path: '/admin/assignments', icon: 'CreateOutline' }
+  { key: 'Assignments', label: '作业管理', path: '/admin/assignments', icon: 'CreateOutline' },
+  { key: 'Questions', label: '题库管理', path: '/admin/questions', icon: 'DocumentTextOutline' }
 ]
 
 const router = useRouter()

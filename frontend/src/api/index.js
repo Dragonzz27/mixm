@@ -369,3 +369,48 @@ export const assignmentApi = {
     return request.delete(`/assignments/submissions/${id}`)
   }
 }
+
+export const questionApi = {
+  getList(params) {
+    return request.get('/questions/', { params })
+  },
+  getDetail(id) {
+    return request.get(`/questions/${id}`)
+  },
+  create(data) {
+    return request.post('/questions/', data)
+  },
+  update(id, data) {
+    return request.put(`/questions/${id}`, data)
+  },
+  delete(id) {
+    return request.delete(`/questions/${id}`)
+  },
+  batchCreate(questions) {
+    return request.post('/questions/batch', questions)
+  },
+  getAiGenerated(params) {
+    return request.get('/questions/ai-generated', { params })
+  }
+}
+
+export const questionCategoryApi = {
+  getList(params) {
+    return request.get('/question-categories/', { params })
+  },
+  getTree() {
+    return request.get('/question-categories/tree')
+  },
+  getDetail(id) {
+    return request.get(`/question-categories/${id}`)
+  },
+  create(data) {
+    return request.post('/question-categories/', data)
+  },
+  update(id, data) {
+    return request.put(`/question-categories/${id}`, data)
+  },
+  delete(id) {
+    return request.delete(`/question-categories/${id}`)
+  }
+}
