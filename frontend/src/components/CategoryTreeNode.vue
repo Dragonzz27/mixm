@@ -10,7 +10,7 @@
       <span v-else class="expand-placeholder"></span>
       <!-- <span class="node-icon">📁</span> -->
       <span class="node-name">{{ category.name }}</span>
-      <span class="node-level">(L{{ category.level }})</span>
+      <span class="node-level">({{ getLevelName(category.level) }})</span>
       <span class="node-count" v-if="category.bound_count > 0">({{ category.bound_count }})</span>
       <div class="node-actions">
         <n-button size="small" @click.stop="$emit('add-child', category)">添加子分类</n-button>
@@ -39,6 +39,18 @@
 <script setup>
 import { NIcon, NButton } from 'naive-ui'
 import { ChevronForwardOutline, ChevronDownOutline } from '@vicons/ionicons5'
+
+const levelNames = {
+  1: '课程',
+  2: '章节',
+  3: '小节',
+  4: '知识点',
+  5: '知识元',
+}
+
+function getLevelName(level) {
+  return levelNames[level] || `L${level}`
+}
 
 defineProps({
   category: {

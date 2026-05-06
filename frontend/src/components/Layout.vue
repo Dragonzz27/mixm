@@ -144,7 +144,7 @@ async function updateQueueBadge() {
 
 onMounted(() => {
   updateQueueBadge()
-  queueBadgeTimer = setInterval(updateQueueBadge, 5000)
+  queueBadgeTimer = setInterval(updateQueueBadge, 30000)
   window.addEventListener('queue-updated', updateQueueBadge)
 })
 

@@ -391,6 +391,61 @@ export const questionApi = {
   },
   getAiGenerated(params) {
     return request.get('/questions/ai-generated', { params })
+  },
+  generateQuestion(data, onChunk, onDone, onError) {
+    const token = localStorage.getItem('token')
+    return fetch('/api/questions/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: JSON.stringify(data)
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (buffer) {
+              try {
+                const data = JSON.parse(buffer)
+                if (data.type === 'done') {
+                  onDone(data.data)
+                } else if (data.type === 'error') {
+                  onError(data.message)
+                }
+              } catch (e) {}
+            }
+            return
+          }
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop()
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                if (data.type === 'chunk') {
+                  onChunk(data.content)
+                } else if (data.type === 'done') {
+                  onDone(data.data)
+                } else if (data.type === 'error') {
+                  onError(data.message)
+                }
+              } catch (e) {}
+            }
+          }
+          read()
+        })
+      }
+      read()
+    }).catch(onError)
   }
 }
 
@@ -412,5 +467,69 @@ export const questionCategoryApi = {
   },
   delete(id) {
     return request.delete(`/question-categories/${id}`)
+  }
+}
+
+export const knowledgeTreeApi = {
+  analyze(data) {
+    return request.post('/knowledge-tree/analyze', data)
+  },
+  analyzeStream(data, onChunk, onDone, onError) {
+    const token = localStorage.getItem('token')
+    return fetch('/api/knowledge-tree/analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: JSON.stringify(data)
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (buffer) {
+              try {
+                const data = JSON.parse(buffer)
+                if (data.type === 'done') {
+                  onDone(data.data)
+                } else if (data.type === 'error') {
+                  onError(data.message)
+                }
+              } catch (e) {}
+            }
+            return
+          }
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop()
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                if (data.type === 'chunk') {
+                  onChunk(data.content)
+                } else if (data.type === 'done') {
+                  onDone(data.data)
+                } else if (data.type === 'error') {
+                  onError(data.message)
+                }
+              } catch (e) {}
+            }
+          }
+          read()
+        })
+      }
+      read()
+    }).catch(onError)
+  },
+  save(data) {
+    return request.post('/knowledge-tree/save', data)
   }
 }

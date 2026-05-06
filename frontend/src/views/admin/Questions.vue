@@ -81,6 +81,18 @@
             style="width: 100%"
           />
         </n-form-item>
+
+        <n-card size="small" title="智能体生成题目" v-if="!isEdit" style="margin-bottom: 16px;">
+          <n-space align="center">
+            <n-button type="primary" :loading="aiLoading" :disabled="!formData.knowledge_tag_ids?.length" @click="handleAiGenerate">
+              生成题目（{{ typeOptions.find(t => t.value === formData.type)?.label }} / 难度{{ formData.difficulty }}）
+            </n-button>
+            <div v-if="aiStreaming" class="ai-streaming">
+              <n-spin size="small" />
+              <span>AI生成中: {{ aiContent }}</span>
+            </div>
+          </n-space>
+        </n-card>
         <div v-if="['single_choice', 'multi_choice'].includes(formData.type)">
           <n-form-item label="选项" path="options">
             <div class="options-container">
@@ -209,7 +221,9 @@ const cascaderOptions = computed(() => {
     .filter(node => node.name)
     .map(node => ({
       key: node.id,
+      value: node.id,
       label: node.name,
+      description: node.description || '',
       children: node.children?.length > 0 ? transform(node.children) : undefined
     }))
   return transform(knowledgeTagTreeData.value)
@@ -277,6 +291,10 @@ const formData = ref({
     { option_key: 'D', content: '', is_correct: false }
   ]
 })
+
+const aiLoading = ref(false)
+const aiStreaming = ref(false)
+const aiContent = ref('')
 
 const rules = {
   title: [{ required: true, message: '请输入题目内容' }],
@@ -366,6 +384,74 @@ async function loadQuestions() {
     console.error(err)
     message.error('加载题库失败')
   }
+}
+
+function getKnowledgeItems(ids) {
+  const items = []
+  function findInTree(nodes) {
+    for (const node of nodes) {
+      if (ids.includes(node.id)) {
+        items.push({
+          name: node.name || node.label || '',
+          description: node.description || ''
+        })
+      }
+      if (node.children) findInTree(node.children)
+    }
+  }
+  findInTree(knowledgeTagTreeData.value)
+  return items
+}
+
+function handleAiGenerate() {
+  if (!formData.value.knowledge_tag_ids?.length) {
+    message.warning('请先选择知识元')
+    return
+  }
+  aiLoading.value = true
+  aiStreaming.value = true
+  aiContent.value = ''
+  formData.value.title = ''
+  formData.value.answer = ''
+  formData.value.explanation = ''
+
+  const knowledgeItems = getKnowledgeItems(formData.value.knowledge_tag_ids)
+
+  questionApi.generateQuestion(
+    {
+      knowledge_items: knowledgeItems,
+      question_type: formData.value.type,
+      difficulty: formData.value.difficulty
+    },
+    (chunk) => {
+      aiContent.value += chunk
+    },
+    (data) => {
+      formData.value.title = data.title || ''
+      formData.value.type = data.type || formData.value.type
+      formData.value.difficulty = data.difficulty || formData.value.difficulty
+      formData.value.answer = data.answer || ''
+      formData.value.explanation = data.explanation || ''
+
+      if (data.options?.length) {
+        formData.value.options = data.options.map(opt => ({
+          option_key: opt.option_key,
+          content: opt.content,
+          is_correct: opt.is_correct
+        }))
+      }
+
+      aiStreaming.value = false
+      aiLoading.value = false
+      message.success('题目生成成功')
+    },
+    (err) => {
+      console.error(err)
+      message.error(err.message || '生成失败')
+      aiStreaming.value = false
+      aiLoading.value = false
+    }
+  )
 }
 
 function handleAddClick() {
@@ -517,5 +603,15 @@ onMounted(() => {
   padding: 12px;
   background: #f9f9f9;
   border-radius: 4px;
+}
+.ai-streaming {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #666;
 }
 </style>
