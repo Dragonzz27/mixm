@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
     QUEUE_REDIS_URL: str = "redis://localhost:6379/2"
+    LLM_API_URL: str = "https://api.openai.com/v1"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "gpt-4o"
 
 
     class Config:

@@ -71,6 +71,7 @@ const templates = ref([])
 const showAddModal = ref(false)
 const isEdit = ref(false)
 const loading = ref(false)
+
 const pagination = ref({
   page: 1,
   pageSize: 10,

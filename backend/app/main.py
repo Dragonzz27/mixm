@@ -20,6 +20,8 @@ from app.router import (
     role,
     assignment,
     question,
+    knowledge_tree,
+    question_generate,
 )
 from app.database import engine
 from app.models import user
@@ -106,3 +108,5 @@ app.include_router(role.router, prefix="/api/roles", tags=["roles"])
 app.include_router(assignment.router, prefix="/api/assignments", tags=["assignments"])
 app.include_router(question.router, prefix="/api/questions", tags=["questions"])
 app.include_router(question.category_router, prefix="/api/question-categories", tags=["question-categories"])
+app.include_router(knowledge_tree.router, prefix="/api/knowledge-tree", tags=["knowledge-tree"])
+app.include_router(question_generate.router, prefix="/api/questions", tags=["questions"])
