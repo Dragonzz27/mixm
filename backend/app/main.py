@@ -20,6 +20,7 @@ from app.router import (
     image,
     role,
     assignment,
+    practice,
     question,
     knowledge_tree,
     question_generate,
@@ -37,6 +38,7 @@ from app.models.role import Role as RoleModel
 from app.models.user_role import UserRole as UserRoleModel
 from app.models.assignment import Assignment, Submission, assignment_roles
 from app.models.relations import question_roles, question_tags
+from app.models.practice import Practice, PracticeQuestion, practice_roles, practice_tags
 from app.models.question import (
     Question,
     QuestionCategory,
@@ -85,6 +87,10 @@ UserRoleModel.__table__.create(bind=engine, checkfirst=True)
 assignment_roles.create(bind=engine, checkfirst=True)
 Assignment.__table__.create(bind=engine, checkfirst=True)
 Submission.__table__.create(bind=engine, checkfirst=True)
+practice_roles.create(bind=engine, checkfirst=True)
+practice_tags.create(bind=engine, checkfirst=True)
+Practice.__table__.create(bind=engine, checkfirst=True)
+PracticeQuestion.__table__.create(bind=engine, checkfirst=True)
 question_roles.create(bind=engine, checkfirst=True)
 question_tags.create(bind=engine, checkfirst=True)
 Question.__table__.create(bind=engine, checkfirst=True)
@@ -134,6 +140,7 @@ app.include_router(instance.router, prefix="/api/instances", tags=["instances"])
 app.include_router(image.router, prefix="/api/images", tags=["images"])
 app.include_router(role.router, prefix="/api/roles", tags=["roles"])
 app.include_router(assignment.router, prefix="/api/assignments", tags=["assignments"])
+app.include_router(practice.router, prefix="/api/practices", tags=["practices"])
 app.include_router(question.router, prefix="/api/questions", tags=["questions"])
 app.include_router(question.category_router, prefix="/api/question-categories", tags=["question-categories"])
 app.include_router(knowledge_tree.router, prefix="/api/knowledge-tree", tags=["knowledge-tree"])

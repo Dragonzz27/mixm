@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from app.models.user import User
 
@@ -30,6 +30,7 @@ class RouterService:
             "AdminImageRepositories": ["AdminImageRepositories", "AdminImageDetail"],
             "Assignments": ["Assignments"],
             "Questions": ["Questions"],
+            "Practices": ["Practices"],
         }
 
         self._routes: List[Dict[str, Any]] = [
@@ -73,7 +74,7 @@ class RouterService:
                         "path": "my-instances",
                         "name": "ClientMyInstances",
                         "component": "views/client/MyInstances.vue",
-                        "meta": {"title": "我启动的实例"},
+                        "meta": {"title": "我的实例"},
                     },
                     {
                         "path": "instances/:id",
@@ -169,84 +170,51 @@ class RouterService:
                         "component": "views/admin/Questions.vue",
                         "meta": {"title": "题库管理"},
                     },
+                    {
+                        "path": "practices",
+                        "name": "Practices",
+                        "component": "views/admin/Practices.vue",
+                        "meta": {"title": "练习管理"},
+                    },
                 ],
             },
             {"path": "/:pathMatch(.*)*", "redirect": "/app"},
         ]
 
         self._menu: List[Dict[str, Any]] = [
-			{"key": "ClientHome", "label": "首页", "path": "/app", "icon": "HomeOutline"},
-			{
-				"key": "ClientContents",
-				"label": "内容浏览",
-				"path": "/app/contents",
-				"icon": "BookOutline",
-			},
-			{
-				"key": "ClientAssignments",
-				"label": "我的作业",
-				"path": "/app/assignments",
-				"icon": "CreateOutline",
-			},
-			{
-				"key": "ClientMyInstances",
-				"label": "我的实例",
-				"path": "/app/my-instances",
-				"icon": "CubeOutline",
-			},
-			{"type": "divider", "key": "d1", "label": ""},
-			{"key": "Dashboard", "label": "仪表盘", "path": "/admin", "icon": "SpeedometerOutline"},
-			{"key": "Users", "label": "用户管理", "path": "/admin/users", "icon": "PeopleOutline"},
-			{"key": "Roles", "label": "角色管理", "path": "/admin/roles", "icon": "ShieldCheckmarkOutline"},
-			{
-				"key": "Categories",
-				"label": "分类管理",
-				"path": "/admin/categories",
-				"icon": "GridOutline",
-			},
-			{
-				"key": "Contents",
-				"label": "内容管理",
-				"path": "/admin/contents",
-				"icon": "DocumentTextOutline",
-			},
-			{
-				"key": "Templates",
-				"label": "模板管理",
-				"path": "/admin/templates",
-				"icon": "FileTrayFullOutline",
-			},
-			{
-				"key": "Instances",
-				"label": "实例管理",
-				"path": "/admin/instances",
-				"icon": "ServerOutline",
-			},
-			{
-				"key": "AdminImageRepositories",
-				"label": "镜像仓库",
-				"path": "/admin/images",
-				"icon": "ImageOutline",
-			},
-			{
-				"key": "Clusters",
-				"label": "集群管理",
-				"path": "/admin/clusters",
-				"icon": "LayersOutline",
-			},
-			{
-				"key": "Assignments",
-				"label": "作业管理",
-				"path": "/admin/assignments",
-				"icon": "CreateOutline",
-			},
-			{
-				"key": "Questions",
-				"label": "题库管理",
-				"path": "/admin/questions",
-				"icon": "DocumentTextOutline",
-			},
-		]
+            {"key": "ClientHome", "label": "首页", "path": "/app", "icon": "HomeOutline"},
+            {
+                "key": "ClientContents",
+                "label": "内容浏览",
+                "path": "/app/contents",
+                "icon": "BookOutline",
+            },
+            {
+                "key": "ClientAssignments",
+                "label": "我的作业",
+                "path": "/app/assignments",
+                "icon": "CreateOutline",
+            },
+            {
+                "key": "ClientMyInstances",
+                "label": "我的实例",
+                "path": "/app/my-instances",
+                "icon": "CubeOutline",
+            },
+            {"type": "divider", "key": "d1", "label": ""},
+            {"key": "Dashboard", "label": "仪表盘", "path": "/admin", "icon": "SpeedometerOutline"},
+            {"key": "Users", "label": "用户管理", "path": "/admin/users", "icon": "PeopleOutline"},
+            {"key": "Roles", "label": "角色管理", "path": "/admin/roles", "icon": "ShieldCheckmarkOutline"},
+            {"key": "Categories", "label": "分类管理", "path": "/admin/categories", "icon": "GridOutline"},
+            {"key": "Contents", "label": "内容管理", "path": "/admin/contents", "icon": "DocumentTextOutline"},
+            {"key": "Templates", "label": "模板管理", "path": "/admin/templates", "icon": "FileTrayFullOutline"},
+            {"key": "Instances", "label": "实例管理", "path": "/admin/instances", "icon": "ServerOutline"},
+            {"key": "AdminImageRepositories", "label": "镜像仓库", "path": "/admin/images", "icon": "ImageOutline"},
+            {"key": "Clusters", "label": "集群管理", "path": "/admin/clusters", "icon": "LayersOutline"},
+            {"key": "Assignments", "label": "作业管理", "path": "/admin/assignments", "icon": "CreateOutline"},
+            {"key": "Questions", "label": "题库管理", "path": "/admin/questions", "icon": "DocumentTextOutline"},
+            {"key": "Practices", "label": "练习管理", "path": "/admin/practices", "icon": "CreateOutline"},
+        ]
 
     def _resolve_menu_keys(
         self, user: User, allow_menu_keys: Optional[List[str]]
