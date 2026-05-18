@@ -134,7 +134,7 @@ const requiredClientKeys = new Set([
   'ClientMyInstances'
 ])
 const instanceMenuKeys = new Set(['Templates', 'Instances', 'AdminImageRepositories', 'Clusters'])
-const practiceMenuKeys = new Set(['Assignments', 'Questions', 'Practices'])
+const practiceMenuKeys = new Set(['Assignments', 'Questions', 'Practices', 'ClientSimulationTest'])
 
 const router = useRouter()
 const route = useRoute()

@@ -120,12 +120,6 @@ class RouterService:
                         "component": "views/admin/Users.vue",
                     },
                     {
-                        "key": "ClientSimulationTest",
-                        "label": "模拟测试",
-                        "path": "/app/simulation-test",
-                        "icon": "DocumentTextOutline",
-                    },
-                    {
                         "path": "roles",
                         "name": "Roles",
                         "component": "views/admin/Roles.vue",
@@ -228,6 +222,12 @@ class RouterService:
             {"key": "Assignments", "label": "作业管理", "path": "/admin/assignments", "icon": "CreateOutline"},
             {"key": "Questions", "label": "题库管理", "path": "/admin/questions", "icon": "DocumentTextOutline"},
             {"key": "Practices", "label": "练习管理", "path": "/admin/practices", "icon": "CreateOutline"},
+            {
+                "key": "ClientSimulationTest",
+                "label": "模拟测试",
+                "path": "/app/simulation-test",
+                "icon": "DocumentTextOutline",
+            },
         ]
 
     def _resolve_menu_keys(
