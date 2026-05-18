@@ -4,6 +4,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 from app.config import get_settings
 
 from app.router import (
@@ -19,6 +20,7 @@ from app.router import (
     image,
     role,
     assignment,
+    practice,
     question,
     knowledge_tree,
     question_generate,
@@ -37,6 +39,7 @@ from app.models.role import Role as RoleModel
 from app.models.user_role import UserRole as UserRoleModel
 from app.models.assignment import Assignment, Submission, assignment_roles
 from app.models.relations import question_roles, question_tags
+from app.models.practice import Practice, PracticeQuestion, practice_roles, practice_tags
 from app.models.question import (
     Question,
     QuestionCategory,
@@ -45,6 +48,32 @@ from app.models.question import (
 )
 from app.models.knowledge_tracing import KnowledgeMastery, SimulationAnswerTrace
 from app.service.ssh_gateway import SSHGatewayService
+
+
+def ensure_question_review_columns():
+    inspector = inspect(engine)
+    if "questions" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("questions")}
+    statements = []
+
+    if "review_status" not in existing_columns:
+        statements.append(
+            "ALTER TABLE questions ADD COLUMN review_status VARCHAR(20) NOT NULL DEFAULT 'approved'"
+        )
+    if "reviewed_by" not in existing_columns:
+        statements.append(
+            "ALTER TABLE questions ADD COLUMN reviewed_by VARCHAR(36)"
+        )
+    if "reviewed_at" not in existing_columns:
+        statements.append(
+            "ALTER TABLE questions ADD COLUMN reviewed_at DATETIME"
+        )
+    if statements:
+        with engine.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
 
 
 user.Base.metadata.create_all(bind=engine)
@@ -60,6 +89,10 @@ UserRoleModel.__table__.create(bind=engine, checkfirst=True)
 assignment_roles.create(bind=engine, checkfirst=True)
 Assignment.__table__.create(bind=engine, checkfirst=True)
 Submission.__table__.create(bind=engine, checkfirst=True)
+practice_roles.create(bind=engine, checkfirst=True)
+practice_tags.create(bind=engine, checkfirst=True)
+Practice.__table__.create(bind=engine, checkfirst=True)
+PracticeQuestion.__table__.create(bind=engine, checkfirst=True)
 question_roles.create(bind=engine, checkfirst=True)
 question_tags.create(bind=engine, checkfirst=True)
 Question.__table__.create(bind=engine, checkfirst=True)
@@ -68,6 +101,7 @@ QuestionOption.__table__.create(bind=engine, checkfirst=True)
 QuestionAttachment.__table__.create(bind=engine, checkfirst=True)
 KnowledgeMastery.__table__.create(bind=engine, checkfirst=True)
 SimulationAnswerTrace.__table__.create(bind=engine, checkfirst=True)
+ensure_question_review_columns()
 
 ssh_gateway_service = SSHGatewayService()
 
@@ -110,6 +144,7 @@ app.include_router(instance.router, prefix="/api/instances", tags=["instances"])
 app.include_router(image.router, prefix="/api/images", tags=["images"])
 app.include_router(role.router, prefix="/api/roles", tags=["roles"])
 app.include_router(assignment.router, prefix="/api/assignments", tags=["assignments"])
+app.include_router(practice.router, prefix="/api/practices", tags=["practices"])
 app.include_router(question.router, prefix="/api/questions", tags=["questions"])
 app.include_router(question.category_router, prefix="/api/question-categories", tags=["question-categories"])
 app.include_router(knowledge_tree.router, prefix="/api/knowledge-tree", tags=["knowledge-tree"])

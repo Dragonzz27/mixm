@@ -9,7 +9,7 @@
       </div>
       <div class="header-right">
         <n-badge :value="queueBadge" :max="99" :show="queueBadge > 0">
-          <n-button quaternary circle @click="showQueueModal = true" title="创建队列">
+          <n-button quaternary circle @click="showQueueModal = true" title="鍒涘缓闃熷垪">
             <template #icon>
               <n-icon><ListOutline /></n-icon>
             </template>
@@ -35,6 +35,7 @@
             :collapsed="isSidebarCollapsed"
             :collapsed-width="64"
             :collapsed-icon-size="22"
+            :default-expand-all="true"
             @update:value="handleMenuSelect"
           />
         </div>
@@ -58,11 +59,9 @@
 </template>
 
 <script setup>
-import { h, ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { NIcon, NBadge } from 'naive-ui'
-import { resetRouter } from '@/router'
+import { computed, h, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { NBadge, NIcon } from 'naive-ui'
 import {
   UnlinkSharp,
   ChevronDownOutline,
@@ -70,19 +69,22 @@ import {
   ChevronForwardOutline,
   HomeOutline,
   BookOutline,
+  CreateOutline,
   CubeOutline,
-  SpeedometerOutline,
-  PeopleOutline,
-  ShieldCheckmarkOutline,
-  GridOutline,
   DocumentTextOutline,
   FileTrayFullOutline,
-  ServerOutline,
+  GridOutline,
+  ImageOutline,
   LayersOutline,
   ListOutline,
-  ImageOutline,
-  CreateOutline
+  PeopleOutline,
+  SearchOutline,
+  ServerOutline,
+  ShieldCheckmarkOutline,
+  SpeedometerOutline,
 } from '@vicons/ionicons5'
+import { useUserStore } from '@/stores/user'
+import { resetRouter } from '@/router'
 import QueueStatusModal from './QueueStatusModal.vue'
 import { instanceApi } from '@/api'
 
@@ -99,7 +101,8 @@ const iconMap = {
   ServerOutline,
   LayersOutline,
   ImageOutline,
-  CreateOutline
+  CreateOutline,
+  SearchOutline,
 }
 
 const defaultMenuItems = [
@@ -119,7 +122,8 @@ const defaultMenuItems = [
   { key: 'AdminImageRepositories', label: '镜像仓库', path: '/admin/images', icon: 'ImageOutline' },
   { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: 'LayersOutline' },
   { key: 'Assignments', label: '作业管理', path: '/admin/assignments', icon: 'CreateOutline' },
-  { key: 'Questions', label: '题库管理', path: '/admin/questions', icon: 'DocumentTextOutline' }
+  { key: 'Questions', label: '题库管理', path: '/admin/questions', icon: 'DocumentTextOutline' },
+  { key: 'Practices', label: '练习管理', path: '/admin/practices', icon: 'CreateOutline' },
 ]
 
 const requiredClientKeys = new Set([
@@ -129,19 +133,111 @@ const requiredClientKeys = new Set([
   'ClientSimulationTest',
   'ClientMyInstances'
 ])
+const instanceMenuKeys = new Set(['Templates', 'Instances', 'AdminImageRepositories', 'Clusters'])
+const practiceMenuKeys = new Set(['Assignments', 'Questions', 'Practices'])
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
 const isSidebarCollapsed = ref(false)
 const showQueueModal = ref(false)
 const queueBadge = ref(0)
 let queueBadgeTimer = null
 
+function buildGroupedAdminMenu(items) {
+  const result = []
+  const instanceItems = []
+  const practiceItems = []
+
+  for (const item of items) {
+    if (item?.type === 'divider') {
+      result.push(item)
+      continue
+    }
+
+    if (instanceMenuKeys.has(item.key)) {
+      instanceItems.push(item)
+      continue
+    }
+
+    if (practiceMenuKeys.has(item.key)) {
+      practiceItems.push(item)
+      continue
+    }
+
+    result.push(item)
+  }
+
+  if (instanceItems.length > 0) {
+    result.push({
+      key: 'AdminInstanceGroup',
+      label: '实例管理',
+      icon: 'ServerOutline',
+      hideChildrenIcon: true,
+      children: instanceItems,
+    })
+  }
+
+  if (practiceItems.length > 0) {
+    result.push({
+      key: 'AdminPracticeGroup',
+      label: '练习管理',
+      icon: 'CreateOutline',
+      hideChildrenIcon: true,
+      children: practiceItems,
+    })
+  }
+
+  return result
+}
+
+function normalizeMenuItems(items) {
+  const source = Array.isArray(items) ? items : []
+  const hasAdminItems = source.some((item) => item?.path?.startsWith?.('/admin'))
+  const hasNestedChildren = source.some((item) => Array.isArray(item?.children) && item.children.length > 0)
+
+  if (!hasAdminItems || hasNestedChildren) {
+    return source
+  }
+
+  return buildGroupedAdminMenu(source)
+}
+
+const groupedParentKeys = new Set(['AdminInstanceGroup', 'AdminPracticeGroup'])
+
+function renderMenuOption(item, parentKey = null) {
+  if (item.type === 'divider') return item
+
+  const shouldHideIcon = groupedParentKeys.has(parentKey)
+  const iconComponent = shouldHideIcon ? null : iconMap[item.icon]
+  return {
+    label: item.label,
+    key: item.key,
+    icon: iconComponent ? () => h(NIcon, null, { default: () => h(iconComponent) }) : undefined,
+    children: Array.isArray(item.children)
+      ? item.children.map((child) => renderMenuOption(child, item.key))
+      : undefined,
+  }
+}
+
+function findMenuItemByKey(items, key) {
+  for (const item of items || []) {
+    if (item?.key === key) {
+      return item
+    }
+    if (Array.isArray(item?.children)) {
+      const found = findMenuItemByKey(item.children, key)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 async function updateQueueBadge() {
   try {
     const res = await instanceApi.getQueueStatus()
-    queueBadge.value = (res.pending || 0) + (res.processing || 0)
+    queueBadge.value = (res?.pending || 0) + (res?.processing || 0)
   } catch (err) {
     console.error('Failed to get queue status:', err)
   }
@@ -170,22 +266,12 @@ const menuItems = computed(() => {
         fromStore.push(item)
       }
     })
-    return fromStore
+    return normalizeMenuItems(fromStore)
   }
-  return defaultMenuItems
+  return normalizeMenuItems(defaultMenuItems)
 })
 
-const menuOptions = computed(() => {
-  return menuItems.value.map((item) => {
-    if (item.type === 'divider') return item
-    const iconComponent = iconMap[item.icon]
-    return {
-      label: item.label,
-      key: item.key,
-      icon: iconComponent ? () => h(NIcon, null, { default: () => h(iconComponent) }) : undefined
-    }
-  })
-})
+const menuOptions = computed(() => menuItems.value.map(renderMenuOption))
 
 const activeMenu = computed(() => {
   const currentRouteName = route.name
@@ -193,6 +279,8 @@ const activeMenu = computed(() => {
   if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) return 'ClientMyInstances'
   if (['ClientAssignments'].includes(currentRouteName)) return 'ClientAssignments'
   if (['ClientSimulationTest'].includes(currentRouteName)) return 'ClientSimulationTest'
+  const foundNested = findMenuItemByKey(menuItems.value, currentRouteName)
+  if (foundNested) return foundNested.key
 
   const found = menuItems.value.find((item) => item.key === currentRouteName)
   if (found) return found.key
@@ -210,8 +298,8 @@ async function handleUserMenu(key) {
 }
 
 function handleMenuSelect(key) {
-  const target = menuItems.value.find((item) => item.key === key)
-  if (target && route.path !== target.path) {
+  const target = findMenuItemByKey(menuItems.value, key)
+  if (target?.path && route.path !== target.path) {
     router.push(target.path)
   }
 }

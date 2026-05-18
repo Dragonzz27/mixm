@@ -180,8 +180,14 @@ function isOverdue(deadline) {
   return new Date(deadline) < new Date()
 }
 
+function getRowNumber(pagination, index) {
+  const page = pagination?.page || 1
+  const pageSize = pagination?.pageSize || 10
+  return (page - 1) * pageSize + index + 1
+}
+
 const columns = computed(() => [
-  { title: 'ID', key: 'id', width: 360 },
+  { title: '序号', key: 'index', width: 80, render: (_, index) => getRowNumber(assignmentPagination.value, index) },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { 
     title: '截止时间', 
