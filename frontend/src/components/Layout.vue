@@ -8,11 +8,6 @@
         </a>
       </div>
       <div class="header-right">
-        <!-- <n-input placeholder="Search content..." style="width: 240px;">
-          <template #prefix>
-            <n-icon><SearchOutline /></n-icon>
-          </template>
-        </n-input> -->
         <n-badge :value="queueBadge" :max="99" :show="queueBadge > 0">
           <n-button quaternary circle @click="showQueueModal = true" title="创建队列">
             <template #icon>
@@ -22,14 +17,15 @@
         </n-badge>
         <n-dropdown :options="userMenuOptions" @select="handleUserMenu">
           <div class="user-info">
-            <span>{{ userStore.userInfo?.username || 'User' }}</span>
+            <span>{{ userStore.userInfo?.username || '用户' }}</span>
             <n-icon><ChevronDownOutline /></n-icon>
           </div>
         </n-dropdown>
-        <!-- <n-button type="primary" size="small" @click="goToAdmin">Admin</n-button> -->
       </div>
     </header>
+
     <QueueStatusModal v-model:show="showQueueModal" />
+
     <div class="layout-body">
       <aside :class="['sidebar', { collapsed: isSidebarCollapsed }]">
         <div class="sidebar-menu">
@@ -53,6 +49,7 @@
           </n-button>
         </div>
       </aside>
+
       <main class="main-content">
         <router-view />
       </main>
@@ -68,7 +65,6 @@ import { NIcon, NBadge } from 'naive-ui'
 import { resetRouter } from '@/router'
 import {
   UnlinkSharp,
-  SearchOutline,
   ChevronDownOutline,
   ChevronBackOutline,
   ChevronForwardOutline,
@@ -110,6 +106,7 @@ const defaultMenuItems = [
   { key: 'ClientHome', label: '首页', path: '/app', icon: 'HomeOutline' },
   { key: 'ClientContents', label: '内容浏览', path: '/app/contents', icon: 'BookOutline' },
   { key: 'ClientAssignments', label: '我的作业', path: '/app/assignments', icon: 'CreateOutline' },
+  { key: 'ClientSimulationTest', label: '模拟测试', path: '/app/simulation-test', icon: 'DocumentTextOutline' },
   { key: 'ClientMyInstances', label: '我的实例', path: '/app/my-instances', icon: 'CubeOutline' },
   { type: 'divider', key: 'd1' },
   { key: 'Dashboard', label: '仪表盘', path: '/admin', icon: 'SpeedometerOutline' },
@@ -124,6 +121,14 @@ const defaultMenuItems = [
   { key: 'Assignments', label: '作业管理', path: '/admin/assignments', icon: 'CreateOutline' },
   { key: 'Questions', label: '题库管理', path: '/admin/questions', icon: 'DocumentTextOutline' }
 ]
+
+const requiredClientKeys = new Set([
+  'ClientHome',
+  'ClientContents',
+  'ClientAssignments',
+  'ClientSimulationTest',
+  'ClientMyInstances'
+])
 
 const router = useRouter()
 const route = useRoute()
@@ -158,7 +163,14 @@ onUnmounted(() => {
 
 const menuItems = computed(() => {
   if (Array.isArray(userStore.menuConfig) && userStore.menuConfig.length > 0) {
-    return userStore.menuConfig
+    const fromStore = [...userStore.menuConfig]
+    const existingKeys = new Set(fromStore.map((item) => item?.key).filter(Boolean))
+    defaultMenuItems.forEach((item) => {
+      if (requiredClientKeys.has(item.key) && !existingKeys.has(item.key)) {
+        fromStore.push(item)
+      }
+    })
+    return fromStore
   }
   return defaultMenuItems
 })
@@ -177,44 +189,23 @@ const menuOptions = computed(() => {
 
 const activeMenu = computed(() => {
   const currentRouteName = route.name
-  // 匹配子级路由到父级菜单项
-  if (['ClientContents', 'ClientContent'].includes(currentRouteName)) {
-    return 'ClientContents'
-  }
-  if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) {
-    return 'ClientMyInstances'
-  }
-  if (['ClientAssignments'].includes(currentRouteName)) {
-    return 'ClientAssignments'
-  }
-  
-  // 管理端路由匹配
-  const found = menuItems.value.find(item => item.key === currentRouteName)
-  if (found) return found.key
+  if (['ClientContents', 'ClientContent'].includes(currentRouteName)) return 'ClientContents'
+  if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) return 'ClientMyInstances'
+  if (['ClientAssignments'].includes(currentRouteName)) return 'ClientAssignments'
+  if (['ClientSimulationTest'].includes(currentRouteName)) return 'ClientSimulationTest'
 
+  const found = menuItems.value.find((item) => item.key === currentRouteName)
+  if (found) return found.key
   return 'ClientHome'
 })
 
-const userMenuOptions = [
-  // { label: 'Profile', key: 'profile' },
-  // { label: 'Settings', key: 'settings' },
-  // { type: 'divider', key: 'd1' },
-  { label: 'Logout', key: 'logout' }
-]
+const userMenuOptions = [{ label: '退出登录', key: 'logout' }]
 
 async function handleUserMenu(key) {
-  switch (key) {
-    case 'logout':
-      userStore.logout()
-      resetRouter()
-      await router.replace('/login')
-      break
-    case 'profile':
-      router.push('/app/profile')
-      break
-    case 'settings':
-      router.push('/app/settings')
-      break
+  if (key === 'logout') {
+    userStore.logout()
+    resetRouter()
+    await router.replace('/login')
   }
 }
 
@@ -234,15 +225,15 @@ function toggleSidebar() {
 .layout-container {
   display: flex;
   flex-direction: column;
-  height: 100vh; 
-  overflow: hidden; /* 切断边缘溢出，保持画幅纯粹 */
+  height: 100vh;
+  overflow: hidden;
   background-color: #ffffff;
 }
 
 .header {
   height: 64px;
-  flex-shrink: 0; /* 关键：拒绝被压缩 */
-  background: white;
+  flex-shrink: 0;
+  background: #ffffff;
   border-bottom: 1px solid #e0e0e6;
   display: flex;
   align-items: center;
@@ -271,36 +262,30 @@ function toggleSidebar() {
   color: #36ad6a;
 }
 
-/* 3. 画面的下半部分（主体承载区） */
-/* 占据 Header 剩下的所有空间，同时锁死不让内容撑破这个区域 */
 .layout-body {
   flex: 1;
   display: flex;
-  overflow: hidden; /* 关键：这就像遮罩层，确保 Sidebar 和 Main 都在此高度内 */
+  overflow: hidden;
 }
 
-/* 4. 左侧前景框架（Sidebar） */
-/* 它的高度会自动撑满 layout-body，达到完美的 100% 占比 */
 .sidebar {
   width: 220px;
-  height: 100%; /* 严丝合缝地填满高度 */
+  height: 100%;
   border-right: 1px solid #e0e0e6;
   background: #fff;
   display: flex;
   flex-direction: column;
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  /* overflow: hidden; 这里移除，交给内部的 sidebar-menu 去处理滚动 */
 }
 
 .sidebar.collapsed {
   width: 64px;
 }
 
-/* 如果菜单项极多，允许左侧这部分区域自己拥有微小的内部滚动，不破坏框架 */
 .sidebar-menu {
   flex: 1;
   padding: 16px 0;
-  overflow-y: auto; 
+  overflow-y: auto;
 }
 
 .sidebar-footer {
@@ -336,16 +321,14 @@ function toggleSidebar() {
   color: #333;
 }
 
-/* 5. 核心流动主体（Main Content） */
-/* 让右侧内容像胶卷一样，在固定的画框中自由上下滑动 */
 .main-content {
   flex: 1;
   min-width: 0;
-  height: 100%; /* 高度强制约束在父级框架内 */
+  height: 100%;
   display: flex;
   flex-direction: column;
   padding: 24px;
-  overflow-y: auto; /* 关键：开启右侧独立的垂直滚动条！ */
+  overflow-y: auto;
 }
 
 .main-content:has(.fullscreen-page) {

@@ -533,3 +533,12 @@ export const knowledgeTreeApi = {
     return request.post('/knowledge-tree/save', data)
   }
 }
+
+export const simulationApi = {
+  generate(data) {
+    return request.post('/simulation/generate', data)
+  },
+  submit(data) {
+    return request.post('/simulation/submit', data)
+  }
+}
