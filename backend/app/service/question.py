@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_
+from sqlalchemy import or_
 
 from app.models.question import (
     Question,
@@ -20,6 +21,10 @@ from app.schema.question import (
 
 
 class QuestionService:
+    REVIEW_PENDING = "pending"
+    REVIEW_APPROVED = "approved"
+    REVIEW_REJECTED = "rejected"
+
     def create(
         self, db: Session, question: QuestionCreate, created_by: str
     ) -> Question:
@@ -33,6 +38,7 @@ class QuestionService:
             tags=question.tags,
             source=question.source,
             created_by=created_by,
+            review_status=self.REVIEW_PENDING,
         )
         db.add(db_question)
         db.commit()
@@ -93,6 +99,7 @@ class QuestionService:
         keyword: Optional[str] = None,
         is_ai_generated: Optional[bool] = None,
         knowledge_tag_id: Optional[str] = None,
+        review_status: Optional[str] = None,
         user_roles: Optional[List[str]] = None,
         is_superuser: bool = False,
     ) -> Tuple[List[Question], int]:
@@ -108,6 +115,11 @@ class QuestionService:
             query = query.filter(Question.is_ai_generated == is_ai_generated)
         if knowledge_tag_id:
             query = query.join(Question.knowledge_tags).filter(Category.id == knowledge_tag_id)
+        if is_superuser:
+            if review_status:
+                query = query.filter(Question.review_status == review_status)
+        else:
+            query = query.filter(Question.review_status == self.REVIEW_APPROVED)
 
         if not is_superuser:
             if user_roles and len(user_roles) > 0:
@@ -159,6 +171,10 @@ class QuestionService:
             if value is not None:
                 setattr(db_question, field, value)
 
+        db_question.review_status = self.REVIEW_PENDING
+        db_question.reviewed_by = None
+        db_question.reviewed_at = None
+
         if options is not None:
             db.query(QuestionOption).filter(
                 QuestionOption.question_id == question_id
@@ -198,6 +214,32 @@ class QuestionService:
             if len(visible_roles) > 0:
                 roles = db.query(Role).filter(Role.id.in_(visible_roles)).all()
                 db_question.visible_roles = roles
+
+        db.commit()
+        db.refresh(db_question)
+        return db_question
+
+    def review(
+        self,
+        db: Session,
+        question_id: str,
+        review_status: str,
+        reviewed_by: str,
+    ) -> Optional[Question]:
+        db_question = self.get(db, question_id)
+        if not db_question:
+            return None
+
+        if review_status not in {
+            self.REVIEW_PENDING,
+            self.REVIEW_APPROVED,
+            self.REVIEW_REJECTED,
+        }:
+            raise ValueError("Invalid review status")
+
+        db_question.review_status = review_status
+        db_question.reviewed_by = reviewed_by if review_status != self.REVIEW_PENDING else None
+        db_question.reviewed_at = datetime.utcnow() if review_status != self.REVIEW_PENDING else None
 
         db.commit()
         db.refresh(db_question)

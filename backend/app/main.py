@@ -4,6 +4,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 from app.config import get_settings
 
 from app.router import (
@@ -45,6 +46,32 @@ from app.models.question import (
 from app.service.ssh_gateway import SSHGatewayService
 
 
+def ensure_question_review_columns():
+    inspector = inspect(engine)
+    if "questions" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("questions")}
+    statements = []
+
+    if "review_status" not in existing_columns:
+        statements.append(
+            "ALTER TABLE questions ADD COLUMN review_status VARCHAR(20) NOT NULL DEFAULT 'approved'"
+        )
+    if "reviewed_by" not in existing_columns:
+        statements.append(
+            "ALTER TABLE questions ADD COLUMN reviewed_by VARCHAR(36)"
+        )
+    if "reviewed_at" not in existing_columns:
+        statements.append(
+            "ALTER TABLE questions ADD COLUMN reviewed_at DATETIME"
+        )
+    if statements:
+        with engine.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
+
+
 user.Base.metadata.create_all(bind=engine)
 CategoryModel.__table__.create(bind=engine, checkfirst=True)
 ContentModel.__table__.create(bind=engine, checkfirst=True)
@@ -64,6 +91,7 @@ Question.__table__.create(bind=engine, checkfirst=True)
 QuestionCategory.__table__.create(bind=engine, checkfirst=True)
 QuestionOption.__table__.create(bind=engine, checkfirst=True)
 QuestionAttachment.__table__.create(bind=engine, checkfirst=True)
+ensure_question_review_columns()
 
 ssh_gateway_service = SSHGatewayService()
 
