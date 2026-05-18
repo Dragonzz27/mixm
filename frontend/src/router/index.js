@@ -44,7 +44,7 @@ const routes = [
       {
         path: 'my-instances',
         name: 'ClientMyInstances',
-        meta: { title: '我启动的实例' },
+        meta: { title: '我的实例' },
         component: () => import('@/views/client/MyInstances.vue')
       },
       {
@@ -140,6 +140,12 @@ const routes = [
         name: 'Questions',
         meta: { title: '题库管理' },
         component: () => import('@/views/admin/Questions.vue')
+      },
+      {
+        path: 'practices',
+        name: 'Practices',
+        meta: { title: '练习管理' },
+        component: () => import('@/views/admin/Practices.vue')
       }
     ]
   },
@@ -205,7 +211,7 @@ export function resetRouter() {
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
   const allowedNames = collectAllowedNames(userStore.routeConfig)
-  
+
   if (to.meta.requiresAuth && !userStore.token) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
   } else if (to.meta.requiresAuth && allowedNames.size > 0 && to.name && !allowedNames.has(to.name)) {

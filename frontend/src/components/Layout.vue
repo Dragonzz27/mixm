@@ -8,13 +8,8 @@
         </a>
       </div>
       <div class="header-right">
-        <!-- <n-input placeholder="Search content..." style="width: 240px;">
-          <template #prefix>
-            <n-icon><SearchOutline /></n-icon>
-          </template>
-        </n-input> -->
         <n-badge :value="queueBadge" :max="99" :show="queueBadge > 0">
-          <n-button quaternary circle @click="showQueueModal = true" title="创建队列">
+          <n-button quaternary circle @click="showQueueModal = true" title="鍒涘缓闃熷垪">
             <template #icon>
               <n-icon><ListOutline /></n-icon>
             </template>
@@ -26,10 +21,11 @@
             <n-icon><ChevronDownOutline /></n-icon>
           </div>
         </n-dropdown>
-        <!-- <n-button type="primary" size="small" @click="goToAdmin">Admin</n-button> -->
       </div>
     </header>
+
     <QueueStatusModal v-model:show="showQueueModal" />
+
     <div class="layout-body">
       <aside :class="['sidebar', { collapsed: isSidebarCollapsed }]">
         <div class="sidebar-menu">
@@ -39,6 +35,7 @@
             :collapsed="isSidebarCollapsed"
             :collapsed-width="64"
             :collapsed-icon-size="22"
+            :default-expand-all="true"
             @update:value="handleMenuSelect"
           />
         </div>
@@ -53,6 +50,7 @@
           </n-button>
         </div>
       </aside>
+
       <main class="main-content">
         <router-view />
       </main>
@@ -61,32 +59,32 @@
 </template>
 
 <script setup>
-import { h, ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { NIcon, NBadge } from 'naive-ui'
-import { resetRouter } from '@/router'
+import { computed, h, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { NBadge, NIcon } from 'naive-ui'
 import {
-  UnlinkSharp,
-  SearchOutline,
-  ChevronDownOutline,
-  ChevronBackOutline,
-  ChevronForwardOutline,
-  HomeOutline,
   BookOutline,
+  ChevronBackOutline,
+  ChevronDownOutline,
+  ChevronForwardOutline,
+  CreateOutline,
   CubeOutline,
-  SpeedometerOutline,
-  PeopleOutline,
-  ShieldCheckmarkOutline,
-  GridOutline,
   DocumentTextOutline,
   FileTrayFullOutline,
-  ServerOutline,
+  GridOutline,
+  HomeOutline,
+  ImageOutline,
   LayersOutline,
   ListOutline,
-  ImageOutline,
-  CreateOutline
+  PeopleOutline,
+  SearchOutline,
+  ServerOutline,
+  ShieldCheckmarkOutline,
+  SpeedometerOutline,
+  UnlinkSharp,
 } from '@vicons/ionicons5'
+import { useUserStore } from '@/stores/user'
+import { resetRouter } from '@/router'
 import QueueStatusModal from './QueueStatusModal.vue'
 import { instanceApi } from '@/api'
 
@@ -103,7 +101,8 @@ const iconMap = {
   ServerOutline,
   LayersOutline,
   ImageOutline,
-  CreateOutline
+  CreateOutline,
+  SearchOutline,
 }
 
 const defaultMenuItems = [
@@ -122,21 +121,115 @@ const defaultMenuItems = [
   { key: 'AdminImageRepositories', label: '镜像仓库', path: '/admin/images', icon: 'ImageOutline' },
   { key: 'Clusters', label: '集群管理', path: '/admin/clusters', icon: 'LayersOutline' },
   { key: 'Assignments', label: '作业管理', path: '/admin/assignments', icon: 'CreateOutline' },
-  { key: 'Questions', label: '题库管理', path: '/admin/questions', icon: 'DocumentTextOutline' }
+  { key: 'Questions', label: '题库管理', path: '/admin/questions', icon: 'DocumentTextOutline' },
+  { key: 'Practices', label: '练习管理', path: '/admin/practices', icon: 'CreateOutline' },
 ]
+
+const instanceMenuKeys = new Set(['Templates', 'Instances', 'AdminImageRepositories', 'Clusters'])
+const practiceMenuKeys = new Set(['Assignments', 'Questions', 'Practices'])
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
 const isSidebarCollapsed = ref(false)
 const showQueueModal = ref(false)
 const queueBadge = ref(0)
 let queueBadgeTimer = null
 
+function buildGroupedAdminMenu(items) {
+  const result = []
+  const instanceItems = []
+  const practiceItems = []
+
+  for (const item of items) {
+    if (item?.type === 'divider') {
+      result.push(item)
+      continue
+    }
+
+    if (instanceMenuKeys.has(item.key)) {
+      instanceItems.push(item)
+      continue
+    }
+
+    if (practiceMenuKeys.has(item.key)) {
+      practiceItems.push(item)
+      continue
+    }
+
+    result.push(item)
+  }
+
+  if (instanceItems.length > 0) {
+    result.push({
+      key: 'AdminInstanceGroup',
+      label: '实例管理',
+      icon: 'ServerOutline',
+      hideChildrenIcon: true,
+      children: instanceItems,
+    })
+  }
+
+  if (practiceItems.length > 0) {
+    result.push({
+      key: 'AdminPracticeGroup',
+      label: '练习管理',
+      icon: 'CreateOutline',
+      hideChildrenIcon: true,
+      children: practiceItems,
+    })
+  }
+
+  return result
+}
+
+function normalizeMenuItems(items) {
+  const source = Array.isArray(items) ? items : []
+  const hasAdminItems = source.some((item) => item?.path?.startsWith?.('/admin'))
+  const hasNestedChildren = source.some((item) => Array.isArray(item?.children) && item.children.length > 0)
+
+  if (!hasAdminItems || hasNestedChildren) {
+    return source
+  }
+
+  return buildGroupedAdminMenu(source)
+}
+
+const groupedParentKeys = new Set(['AdminInstanceGroup', 'AdminPracticeGroup'])
+
+function renderMenuOption(item, parentKey = null) {
+  if (item.type === 'divider') return item
+
+  const shouldHideIcon = groupedParentKeys.has(parentKey)
+  const iconComponent = shouldHideIcon ? null : iconMap[item.icon]
+  return {
+    label: item.label,
+    key: item.key,
+    icon: iconComponent ? () => h(NIcon, null, { default: () => h(iconComponent) }) : undefined,
+    children: Array.isArray(item.children)
+      ? item.children.map((child) => renderMenuOption(child, item.key))
+      : undefined,
+  }
+}
+
+function findMenuItemByKey(items, key) {
+  for (const item of items || []) {
+    if (item?.key === key) {
+      return item
+    }
+    if (Array.isArray(item?.children)) {
+      const found = findMenuItemByKey(item.children, key)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 async function updateQueueBadge() {
   try {
     const res = await instanceApi.getQueueStatus()
-    queueBadge.value = (res.pending || 0) + (res.processing || 0)
+    queueBadge.value = (res?.pending || 0) + (res?.processing || 0)
   } catch (err) {
     console.error('Failed to get queue status:', err)
   }
@@ -158,26 +251,16 @@ onUnmounted(() => {
 
 const menuItems = computed(() => {
   if (Array.isArray(userStore.menuConfig) && userStore.menuConfig.length > 0) {
-    return userStore.menuConfig
+    return normalizeMenuItems(userStore.menuConfig)
   }
-  return defaultMenuItems
+  return normalizeMenuItems(defaultMenuItems)
 })
 
-const menuOptions = computed(() => {
-  return menuItems.value.map((item) => {
-    if (item.type === 'divider') return item
-    const iconComponent = iconMap[item.icon]
-    return {
-      label: item.label,
-      key: item.key,
-      icon: iconComponent ? () => h(NIcon, null, { default: () => h(iconComponent) }) : undefined
-    }
-  })
-})
+const menuOptions = computed(() => menuItems.value.map(renderMenuOption))
 
 const activeMenu = computed(() => {
   const currentRouteName = route.name
-  // 匹配子级路由到父级菜单项
+
   if (['ClientContents', 'ClientContent'].includes(currentRouteName)) {
     return 'ClientContents'
   }
@@ -187,20 +270,14 @@ const activeMenu = computed(() => {
   if (['ClientAssignments'].includes(currentRouteName)) {
     return 'ClientAssignments'
   }
-  
-  // 管理端路由匹配
-  const found = menuItems.value.find(item => item.key === currentRouteName)
+
+  const found = findMenuItemByKey(menuItems.value, currentRouteName)
   if (found) return found.key
 
   return 'ClientHome'
 })
 
-const userMenuOptions = [
-  // { label: 'Profile', key: 'profile' },
-  // { label: 'Settings', key: 'settings' },
-  // { type: 'divider', key: 'd1' },
-  { label: 'Logout', key: 'logout' }
-]
+const userMenuOptions = [{ label: 'Logout', key: 'logout' }]
 
 async function handleUserMenu(key) {
   switch (key) {
@@ -219,8 +296,8 @@ async function handleUserMenu(key) {
 }
 
 function handleMenuSelect(key) {
-  const target = menuItems.value.find((item) => item.key === key)
-  if (target && route.path !== target.path) {
+  const target = findMenuItemByKey(menuItems.value, key)
+  if (target?.path && route.path !== target.path) {
     router.push(target.path)
   }
 }
@@ -234,14 +311,14 @@ function toggleSidebar() {
 .layout-container {
   display: flex;
   flex-direction: column;
-  height: 100vh; 
-  overflow: hidden; /* 切断边缘溢出，保持画幅纯粹 */
+  height: 100vh;
+  overflow: hidden;
   background-color: #ffffff;
 }
 
 .header {
   height: 64px;
-  flex-shrink: 0; /* 关键：拒绝被压缩 */
+  flex-shrink: 0;
   background: white;
   border-bottom: 1px solid #e0e0e6;
   display: flex;
@@ -271,36 +348,30 @@ function toggleSidebar() {
   color: #36ad6a;
 }
 
-/* 3. 画面的下半部分（主体承载区） */
-/* 占据 Header 剩下的所有空间，同时锁死不让内容撑破这个区域 */
 .layout-body {
   flex: 1;
   display: flex;
-  overflow: hidden; /* 关键：这就像遮罩层，确保 Sidebar 和 Main 都在此高度内 */
+  overflow: hidden;
 }
 
-/* 4. 左侧前景框架（Sidebar） */
-/* 它的高度会自动撑满 layout-body，达到完美的 100% 占比 */
 .sidebar {
   width: 220px;
-  height: 100%; /* 严丝合缝地填满高度 */
+  height: 100%;
   border-right: 1px solid #e0e0e6;
   background: #fff;
   display: flex;
   flex-direction: column;
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  /* overflow: hidden; 这里移除，交给内部的 sidebar-menu 去处理滚动 */
 }
 
 .sidebar.collapsed {
   width: 64px;
 }
 
-/* 如果菜单项极多，允许左侧这部分区域自己拥有微小的内部滚动，不破坏框架 */
 .sidebar-menu {
   flex: 1;
   padding: 16px 0;
-  overflow-y: auto; 
+  overflow-y: auto;
 }
 
 .sidebar-footer {
@@ -336,16 +407,14 @@ function toggleSidebar() {
   color: #333;
 }
 
-/* 5. 核心流动主体（Main Content） */
-/* 让右侧内容像胶卷一样，在固定的画框中自由上下滑动 */
 .main-content {
   flex: 1;
   min-width: 0;
-  height: 100%; /* 高度强制约束在父级框架内 */
+  height: 100%;
   display: flex;
   flex-direction: column;
   padding: 24px;
-  overflow-y: auto; /* 关键：开启右侧独立的垂直滚动条！ */
+  overflow-y: auto;
 }
 
 .main-content:has(.fullscreen-page) {

@@ -258,7 +258,7 @@ export const instanceApi = {
     return request.get('/instances/me')
   },
   getQueueStatus() {
-    return request.get('/instances/queue/status')
+    // return request.get('/instances/queue/status')
   },
   getQueueTasks() {
     return request.get('/instances/queue/tasks')
@@ -370,6 +370,27 @@ export const assignmentApi = {
   }
 }
 
+export const practiceApi = {
+  getList(params) {
+    return request.get('/practices/', { params })
+  },
+  getDetail(id) {
+    return request.get(`/practices/${id}`)
+  },
+  create(data) {
+    return request.post('/practices/', data)
+  },
+  update(id, data) {
+    return request.put(`/practices/${id}`, data)
+  },
+  delete(id) {
+    return request.delete(`/practices/${id}`)
+  },
+  autoGenerate(data) {
+    return request.post('/practices/auto-generate', data)
+  }
+}
+
 export const questionApi = {
   getList(params) {
     return request.get('/questions/', { params })
@@ -382,6 +403,9 @@ export const questionApi = {
   },
   update(id, data) {
     return request.put(`/questions/${id}`, data)
+  },
+  review(id, data) {
+    return request.post(`/questions/${id}/review`, data)
   },
   delete(id) {
     return request.delete(`/questions/${id}`)
