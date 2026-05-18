@@ -45,6 +45,16 @@ class Question(Base):
         Boolean, default=False, comment="是否AI生成"
     )
     created_by = Column(String(36), nullable=True, comment="创建者ID")
+    review_status = Column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+        index=True,
+        comment="review status: pending/approved/rejected",
+    )
+    reviewed_by = Column(String(36), nullable=True, comment="reviewer id")
+    reviewed_at = Column(DateTime(timezone=True), nullable=True, comment="reviewed at")
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), comment="创建时间"
     )

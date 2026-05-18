@@ -74,7 +74,7 @@ const categoryOptions = computed(() => {
 })
 
 const columns = [
-  { title: 'ID', key: 'id', width: 60 },
+  { title: '序号', key: 'index', width: 70, render: (_, index) => index + 1 },
   { title: '内容ID', key: 'content_id', width: 80 },
   { title: '分类ID', key: 'category_id', width: 80 },
   { title: '内容类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },

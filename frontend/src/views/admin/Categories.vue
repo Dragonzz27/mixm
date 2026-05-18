@@ -258,9 +258,15 @@ const isStreaming = ref(false)
 const showJsonModal = ref(false)
 const originalJson = ref('')
 
+function getRowNumber(pagination, index) {
+  const page = pagination?.page || 1
+  const pageSize = pagination?.pageSize || 10
+  return (page - 1) * pageSize + index + 1
+}
+
 const unboundColumns = [
   { type: 'selection', width: 50 },
-  { title: 'ID', key: 'id', width: 60 },
+  { title: '序号', key: 'index', width: 70, render: (_, index) => getRowNumber(unboundPagination.value, index) },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { title: '类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },
   { title: '状态', key: 'status', width: 80, render: (row) => h('span', row.status === 'published' ? '已发布' : row.status === 'archived' ? '已归档' : '草稿') }
@@ -268,7 +274,7 @@ const unboundColumns = [
 
 const boundColumns = [
   { type: 'selection', width: 50 },
-  { title: 'ID', key: 'id', width: 60 },
+  { title: '序号', key: 'index', width: 70, render: (_, index) => index + 1 },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { title: '类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },
   { title: '状态', key: 'status', width: 80, render: (row) => h('span', row.status === 'published' ? '已发布' : row.status === 'archived' ? '已归档' : '草稿') }

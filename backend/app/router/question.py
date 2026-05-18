@@ -8,6 +8,7 @@ from app.models.user import User
 from app.schema.question import (
     QuestionCreate,
     QuestionUpdate,
+    QuestionReviewRequest,
     QuestionResponse,
     QuestionListResponse,
     QuestionCategoryCreate,
@@ -25,6 +26,11 @@ router = APIRouter()
 get_current_user = auth_service.get_current_user
 
 
+def ensure_review_permission(current_user: User) -> None:
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Only superuser can review questions")
+
+
 def question_to_response(question) -> dict:
     return {
         "id": question.id,
@@ -37,6 +43,9 @@ def question_to_response(question) -> dict:
         "tags": question.tags or [],
         "source": question.source,
         "is_ai_generated": question.is_ai_generated,
+        "review_status": question.review_status,
+        "reviewed_by": question.reviewed_by,
+        "reviewed_at": question.reviewed_at,
         "visible_roles": [role.id for role in question.visible_roles]
         if question.visible_roles
         else [],
@@ -95,6 +104,7 @@ def get_questions(
     keyword: Optional[str] = None,
     is_ai_generated: Optional[bool] = None,
     knowledge_tag_id: Optional[str] = None,
+    review_status: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -114,6 +124,7 @@ def get_questions(
         keyword=keyword,
         is_ai_generated=is_ai_generated,
         knowledge_tag_id=knowledge_tag_id,
+        review_status=review_status,
         user_roles=role_list,
         is_superuser=current_user.is_superuser,
     )
@@ -160,6 +171,11 @@ def get_question(
     question = question_service.get(db, question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
+    if (
+        not current_user.is_superuser
+        and question.review_status != question_service.REVIEW_APPROVED
+    ):
+        raise HTTPException(status_code=404, detail="Question not found")
     return question_to_response(question)
 
 
@@ -171,6 +187,29 @@ def update_question(
     current_user: User = Depends(get_current_user),
 ):
     db_question = question_service.update(db, question_id, question)
+    if not db_question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    return question_to_response(db_question)
+
+
+@router.post("/{question_id}/review", response_model=QuestionResponse)
+def review_question(
+    question_id: str,
+    payload: QuestionReviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ensure_review_permission(current_user)
+    try:
+        db_question = question_service.review(
+            db,
+            question_id,
+            payload.review_status,
+            current_user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     if not db_question:
         raise HTTPException(status_code=404, detail="Question not found")
     return question_to_response(db_question)
