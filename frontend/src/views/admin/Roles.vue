@@ -67,7 +67,6 @@ import {
   NInput,
   NModal,
   NSpace,
-  NTooltip,
   useDialog,
   useMessage
 } from 'naive-ui'
@@ -111,30 +110,18 @@ const rules = {
   name: [{ required: true, message: '请输入角色名' }]
 }
 
-function renderShortId(id) {
-  const fullId = String(id || '')
-  const shortId = fullId.slice(0, 4)
-
-  if (!fullId) {
-    return '-'
-  }
-
-  return h(
-    NTooltip,
-    { placement: 'top' },
-    {
-      trigger: () => h('span', { style: 'cursor: help;' }, shortId),
-      default: () => h('span', { style: 'white-space: nowrap;' }, fullId)
-    }
-  )
+function getRowNumber(index) {
+  const page = pagination.value.page || 1
+  const pageSize = pagination.value.pageSize || 10
+  return (page - 1) * pageSize + index + 1
 }
 
 const columns = [
   {
-    title: 'ID',
-    key: 'id',
-    width: 100,
-    render: (row) => renderShortId(row.id)
+    title: '序号',
+    key: 'index',
+    width: 80,
+    render: (_, index) => getRowNumber(index)
   },
   { title: '角色名', key: 'name', width: 180 },
   {

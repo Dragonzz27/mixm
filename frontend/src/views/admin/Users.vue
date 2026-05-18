@@ -174,8 +174,14 @@ const pwdRules = {
   ]
 }
 
+function getRowNumber(index) {
+  const page = pagination.value.page || 1
+  const pageSize = pagination.value.pageSize || 10
+  return (page - 1) * pageSize + index + 1
+}
+
 const columns = [
-  { title: 'ID', key: 'id', width: 300 },
+  { title: '序号', key: 'index', width: 80, render: (_, index) => getRowNumber(index) },
   { title: '用户名', key: 'username', width: 120 },
   { title: '邮箱', key: 'email', width: 180 },
   { title: '手机号', key: 'phone', width: 120 },

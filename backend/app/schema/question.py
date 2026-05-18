@@ -81,6 +81,10 @@ class QuestionUpdate(BaseModel):
     attachments: Optional[List[QuestionAttachmentCreate]] = Field(None, description="附件列表")
 
 
+class QuestionReviewRequest(BaseModel):
+    review_status: str = Field(..., description="pending/approved/rejected")
+
+
 class KnowledgeTagResponse(BaseModel):
     id: str
     name: str
@@ -92,6 +96,9 @@ class KnowledgeTagResponse(BaseModel):
 class QuestionResponse(QuestionBase):
     id: str
     is_ai_generated: bool
+    review_status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

@@ -111,8 +111,14 @@ const statusOptions = [
   { label: '已归档', value: 'archived' }
 ]
 
+function getRowNumber(index) {
+  const page = pagination.value.page || 1
+  const pageSize = pagination.value.pageSize || 10
+  return (page - 1) * pageSize + index + 1
+}
+
 const columns = [
-  { title: 'ID', key: 'id', width: 360 },
+  { title: '序号', key: 'index', width: 80, render: (_, index) => getRowNumber(index) },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { title: '类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },
   { title: '模板ID', key: 'template_id', width: 80, render: (row) => row.template_id || '-' },
