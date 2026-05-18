@@ -17,3 +17,4 @@ botocore
 openpyxl
 celery[redis]
 redis
+httpx

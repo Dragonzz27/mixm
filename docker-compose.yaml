@@ -37,8 +37,8 @@ services:
       dockerfile: Dockerfile
     container_name: backend_app
     restart: unless-stopped
-    # ports:
-    #   - "8002:8002"
+    ports:
+      - "8002:8002"
     volumes:
       - ./backend:/app
       - ./backend/static:/app/static
@@ -50,7 +50,11 @@ services:
       - SECRET_KEY=your-secret-key-here
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=180
-    network_mode: host
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - QUEUE_REDIS_URL=redis://redis:6379/2
+      - RUSTFS_ENDPOINT=http://rustfs:9000
 
   celery:
     build:
@@ -67,24 +71,30 @@ services:
       - CELERY_WORKER_POOL=solo
       - CELERY_WORKER_LOGLEVEL=info
       - CELERY_WORKER_QUEUE=instance_create
-    network_mode: host
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - DATABASE_URL=sqlite:///./app.db
+      - SECRET_KEY=your-secret-key-here
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=180
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - QUEUE_REDIS_URL=redis://redis:6379/2
 
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: frontend_app
-  #   restart: unless-stopped
-  #   # ports:
-  #   #   - "3000:3000"
-  #   volumes:
-  #     - ./frontend/src:/app/src
-  #     - ./frontend/public:/app/public
-  #     - ./frontend/index.html:/app/index.html
-  #     - ./frontend/vite.config.js:/app/vite.config.js
-  #     - ./frontend/.env:/app/.env
-  #   working_dir: /app
-  #   command: pnpm dev
-  #   environment:
-  #     - VITE_API_BASE_URL=http://localhost:8002/api
-  #   network_mode: host
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend_app
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.js:/app/vite.config.js
+      - ./frontend/.env:/app/.env
+    working_dir: /app
+    command: pnpm dev --host 0.0.0.0 --port 5173
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8002/api

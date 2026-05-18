@@ -64,6 +64,12 @@ const routes = [
         name: 'ClientAssignments',
         meta: { title: '我的作业' },
         component: () => import('@/views/client/Assignments.vue')
+      },
+      {
+        path: 'simulation-test',
+        name: 'ClientSimulationTest',
+        meta: { title: '模拟测试' },
+        component: () => import('@/views/client/SimulationTest.vue')
       }
     ]
   },

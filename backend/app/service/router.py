@@ -12,12 +12,14 @@ class RouterService:
             "ClientContents",
             "ClientMyInstances",
             "ClientAssignments",
+            "ClientSimulationTest",
         ]
         self._menu_key_route_names = {
             "ClientHome": ["ClientHome", "ClientLevels", "ClientLevelDetail"],
             "ClientContents": ["ClientContents", "ClientContent"],
             "ClientMyInstances": ["ClientMyInstances", "ClientInstanceDetail"],
             "ClientAssignments": ["ClientAssignments"],
+            "ClientSimulationTest": ["ClientSimulationTest"],
             "Dashboard": ["Dashboard"],
             "Users": ["Users"],
             "Roles": ["Roles"],
@@ -93,6 +95,12 @@ class RouterService:
                         "component": "views/client/Assignments.vue",
                         "meta": {"title": "我的作业"},
                     },
+                    {
+                        "path": "simulation-test",
+                        "name": "ClientSimulationTest",
+                        "component": "views/client/SimulationTest.vue",
+                        "meta": {"title": "模拟测试"},
+                    },
                 ],
             },
             {
@@ -109,6 +117,12 @@ class RouterService:
                         "path": "users",
                         "name": "Users",
                         "component": "views/admin/Users.vue",
+                    },
+                    {
+                        "key": "ClientSimulationTest",
+                        "label": "模拟测试",
+                        "path": "/app/simulation-test",
+                        "icon": "DocumentTextOutline",
                     },
                     {
                         "path": "roles",
