@@ -39,6 +39,7 @@ class Assignment(Base):
     )
     title = Column(String(200), nullable=False, index=True, comment="作业标题")
     description = Column(Text, nullable=True, comment="作业描述")
+    attachments = Column(Text, nullable=True, comment="作业附件 JSON 列表")
     content_id = Column(
         String(36),
         ForeignKey("contents.id"),

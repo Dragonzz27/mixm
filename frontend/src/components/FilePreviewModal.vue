@@ -14,14 +14,8 @@
             <template #icon>
               <n-icon><DownloadOutline /></n-icon>
             </template>
-            下载文件 {{ fileData?.file_name }}
+            下载文件
           </n-button>
-          <!-- <n-button @click="handleOpenInNewTab">
-            <template #icon>
-              <n-icon><OpenOutline /></n-icon>
-            </template>
-            新窗口打开 
-          </n-button> -->
           <n-button-group v-if="isWordFile">
             <n-button @click="handleZoomOut">缩小</n-button>
             <n-button @click="handleZoomReset">{{ zoomPercent }}%</n-button>
@@ -33,7 +27,7 @@
       <div class="preview-content">
         <div
           v-if="isWordFile && !wordPreviewFailed"
-          ref="previewContainerRef" 
+          ref="previewContainerRef"
           :style="docxPreviewStyle"
           class="preview-frame docx-preview"
         />
@@ -43,8 +37,23 @@
           frameborder="0"
           class="preview-frame"
         />
+        <video
+          v-else-if="fileUrl && isVideoFile"
+          :src="fileUrl"
+          controls
+          class="preview-frame preview-video"
+        />
+        <div
+          v-else-if="isMarkdownFile"
+          class="preview-frame preview-text markdown-body"
+          v-html="markdownContent"
+        />
+        <pre
+          v-else-if="isTextFile"
+          class="preview-frame preview-text plain-text"
+        >{{ textContent }}</pre>
         <div v-else class="preview-not-supported">
-          <n-empty description="此文件格式不支持在线预览">
+          <n-empty description="此文件格式暂不支持在线预览">
             <template #icon>
               <n-icon><DocumentTextOutline /></n-icon>
             </template>
@@ -63,8 +72,9 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
+import { marked } from 'marked'
 import { NModal, NButton, NButtonGroup, NSpace, NIcon, NSpin, NEmpty } from 'naive-ui'
-import { DocumentTextOutline, DownloadOutline, OpenOutline } from '@vicons/ionicons5'
+import { DocumentTextOutline, DownloadOutline } from '@vicons/ionicons5'
 import { renderAsync } from 'docx-preview'
 
 const props = defineProps({
@@ -84,41 +94,35 @@ const showModal = ref(false)
 const fileUrl = ref('')
 const fileData = ref(null)
 const loading = ref(false)
-const loadingText = ref('正在加载文档...')
+const loadingText = ref('正在加载文件...')
 const previewContainerRef = ref(null)
 const fileExt = ref('')
 const wordPreviewFailed = ref(false)
 const zoomScale = ref(1)
+const markdownContent = ref('')
+const textContent = ref('')
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2
 const ZOOM_STEP = 0.1
+const iframePreviewTypes = ['pdf']
+const textPreviewTypes = ['txt']
+const markdownPreviewTypes = ['md']
+const videoPreviewTypes = ['mp4', 'webm', 'ogg', 'mov', 'm4v']
 
-const isWordFile = computed(() => {
-  return fileExt.value === 'docx' || fileExt.value === 'doc'
-})
-
-const iframePreviewTypes = ['pdf', 'txt', 'jpg', 'jpeg', 'png', 'gif']
-
-const isIframePreviewable = computed(() => {
-  return iframePreviewTypes.includes(fileExt.value)
-})
-
+const isWordFile = computed(() => ['doc', 'docx'].includes(fileExt.value))
+const isIframePreviewable = computed(() => iframePreviewTypes.includes(fileExt.value))
+const isTextFile = computed(() => textPreviewTypes.includes(fileExt.value))
+const isMarkdownFile = computed(() => markdownPreviewTypes.includes(fileExt.value))
+const isVideoFile = computed(() => videoPreviewTypes.includes(fileExt.value))
 const zoomPercent = computed(() => Math.round(zoomScale.value * 100))
-
-const docxPreviewStyle = computed(() => ({
-  zoom: zoomScale.value
-}))
+const docxPreviewStyle = computed(() => ({ zoom: zoomScale.value }))
 
 watch(() => props.show, (newVal) => {
   showModal.value = newVal
-
-  if (newVal && isWordFile.value) {
-    loadWordPreview()
-  }
-
-  // 当弹窗关闭时，重置状态
-  if (!newVal) {
+  if (newVal) {
+    loadCurrentPreview()
+  } else {
     resetPreview()
   }
 })
@@ -126,6 +130,9 @@ watch(() => props.show, (newVal) => {
 watch(() => props.fileData, (newVal) => {
   if (newVal) {
     initPreview(newVal)
+    if (showModal.value) {
+      loadCurrentPreview()
+    }
   }
 }, { immediate: true })
 
@@ -133,30 +140,31 @@ function initPreview(data) {
   fileData.value = data
   wordPreviewFailed.value = false
   zoomScale.value = 1
-  
-  // 处理文件 URL
-  let url = data.file_url 
-  
-  fileUrl.value = url
-  
-  if (!url || !data.file_name) {
+  markdownContent.value = ''
+  textContent.value = ''
+  fileUrl.value = data?.file_url || ''
+
+  const fileName = data?.file_name || ''
+  fileExt.value = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
+}
+
+async function loadCurrentPreview() {
+  if (!fileUrl.value) return
+
+  if (isWordFile.value) {
+    await loadWordPreview()
     return
   }
-  
-  const fileName = data.file_name || ''
-  fileExt.value = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
 
-  // 如果是 Word 文件且弹窗已打开，立即加载预览
-  if (isWordFile.value && showModal.value) {
-    loadWordPreview()
+  if (isMarkdownFile.value || isTextFile.value) {
+    await loadTextPreview()
   }
 }
 
 async function loadWordPreview() {
-  if (!fileUrl.value || !isWordFile.value) return
+  if (!fileUrl.value) return
 
   wordPreviewFailed.value = false
-
   await nextTick()
 
   if (!previewContainerRef.value) {
@@ -165,18 +173,12 @@ async function loadWordPreview() {
   }
 
   loading.value = true
+  loadingText.value = '正在加载 Word 预览...'
 
   try {
     const res = await fetch(fileUrl.value)
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status)
-    }
-
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const blob = await res.blob()
-    if (!blob || blob.size === 0) {
-      throw new Error('Empty file')
-    }
-
     previewContainerRef.value.innerHTML = ''
     await renderAsync(blob, previewContainerRef.value)
   } catch (err) {
@@ -187,22 +189,47 @@ async function loadWordPreview() {
   }
 }
 
-function handleClose() {
-  emit('update:show', false)
-  emit('close')
-  resetPreview()
+async function loadTextPreview() {
+  loading.value = true
+  loadingText.value = isMarkdownFile.value ? '正在加载 Markdown 预览...' : '正在加载文本预览...'
+
+  try {
+    const res = await fetch(fileUrl.value)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const text = await res.text()
+    if (isMarkdownFile.value) {
+      markdownContent.value = marked.parse(text)
+    } else {
+      textContent.value = text
+    }
+  } catch (err) {
+    console.error('Text preview error:', err)
+    markdownContent.value = ''
+    textContent.value = '预览加载失败，请下载后查看。'
+  } finally {
+    loading.value = false
+  }
 }
 
 function resetPreview() {
   fileData.value = null
   fileUrl.value = ''
   loading.value = false
+  loadingText.value = '正在加载文件...'
   fileExt.value = ''
   wordPreviewFailed.value = false
   zoomScale.value = 1
+  markdownContent.value = ''
+  textContent.value = ''
   if (previewContainerRef.value) {
     previewContainerRef.value.innerHTML = ''
   }
+}
+
+function handleClose() {
+  emit('update:show', false)
+  emit('close')
+  resetPreview()
 }
 
 function handleZoomIn() {
@@ -219,29 +246,14 @@ function handleZoomReset() {
 
 function handleDownload() {
   if (!fileUrl.value || !fileData.value?.file_name) return
-  
-  // 获取完整 URL 进行下载
-  let downloadUrl = fileUrl.value
-  if (!downloadUrl.startsWith('http')) {
-    downloadUrl = window.location.origin + downloadUrl
-  }
-  
+
   const link = document.createElement('a')
-  link.href = downloadUrl
+  link.href = fileUrl.value
   link.download = fileData.value.file_name
   link.target = '_blank'
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-}
-
-function handleOpenInNewTab() {
-  if (!fileUrl.value) return
-  let openUrl = fileUrl.value
-  if (!openUrl.startsWith('http')) {
-    openUrl = window.location.origin + openUrl
-  }
-  window.open(openUrl, '_blank')
 }
 </script>
 
@@ -285,17 +297,39 @@ function handleOpenInNewTab() {
   background: white;
 }
 
-.docx-preview-container {
-  padding: 20px;
+.preview-video {
+  background: #000;
 }
 
-.docx-preview-container table {
-  border-collapse: collapse;
-  width: 100%;
+.preview-text {
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 24px;
+  background: #fff;
 }
 
-.docx-preview-container p {
-  margin: 10px 0;
+.plain-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Consolas, Monaco, monospace;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+  margin-top: 0;
+}
+
+.markdown-body :deep(pre) {
+  padding: 12px;
+  overflow: auto;
+  background: #f6f8fa;
+  border-radius: 6px;
+}
+
+.markdown-body :deep(code) {
+  font-family: Consolas, Monaco, monospace;
 }
 
 .preview-loading {

@@ -288,3 +288,4 @@ alembic/versions/*.py
 
 # Export files
 backend/static/export/
+backend/uploads/

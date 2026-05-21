@@ -1,5 +1,6 @@
 import os
 import uuid
+import json
 from datetime import datetime
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
@@ -19,12 +20,40 @@ UPLOAD_DIR = "uploads/submissions"
 
 
 class AssignmentService:
+    @staticmethod
+    def _serialize_attachments(attachments) -> Optional[str]:
+        if attachments is None:
+            return None
+
+        normalized = []
+        for item in attachments:
+            if hasattr(item, "model_dump"):
+                item = item.model_dump()
+            if not isinstance(item, dict):
+                continue
+
+            name = (item.get("name") or "").strip()
+            if not name:
+                continue
+
+            normalized.append(
+                {
+                    "name": name,
+                    "file_path": item.get("file_path"),
+                    "file_name": item.get("file_name"),
+                    "file_size": item.get("file_size"),
+                }
+            )
+
+        return json.dumps(normalized, ensure_ascii=False)
+
     def create(
         self, db: Session, assignment: AssignmentCreate, created_by: str
     ) -> Assignment:
         db_assignment = Assignment(
             title=assignment.title,
             description=assignment.description,
+            attachments=self._serialize_attachments(assignment.attachments),
             content_id=assignment.content_id,
             deadline=assignment.deadline,
             created_by=created_by,
@@ -142,9 +171,13 @@ class AssignmentService:
 
         update_data = assignment.model_dump(exclude_unset=True)
         visible_roles = update_data.pop("visible_roles", None)
+        attachments = update_data.pop("attachments", None)
 
         for field, value in update_data.items():
             setattr(db_assignment, field, value)
+
+        if attachments is not None:
+            db_assignment.attachments = self._serialize_attachments(attachments)
 
         if visible_roles is not None:
             db_assignment.visible_roles = []

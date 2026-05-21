@@ -3,9 +3,20 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
 
 
+class AssignmentAttachment(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="附件名称")
+    file_path: Optional[str] = Field(None, description="附件存储路径")
+    file_name: Optional[str] = Field(None, description="附件文件名")
+    file_size: Optional[int] = Field(None, description="附件文件大小 (bytes)")
+    file_url: Optional[str] = Field(None, description="附件访问地址")
+
+
 class AssignmentBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200, description="作业标题")
     description: Optional[str] = Field(None, description="作业描述")
+    attachments: Optional[List[AssignmentAttachment]] = Field(
+        None, description="附件列表"
+    )
     content_id: Optional[str] = Field(None, description="关联内容 ID")
     deadline: datetime = Field(..., description="截止时间")
     visible_roles: Optional[List[str]] = Field(
@@ -22,6 +33,9 @@ class AssignmentUpdate(BaseModel):
         None, min_length=1, max_length=200, description="作业标题"
     )
     description: Optional[str] = Field(None, description="作业描述")
+    attachments: Optional[List[AssignmentAttachment]] = Field(
+        None, description="附件列表"
+    )
     content_id: Optional[str] = Field(None, description="关联内容 ID")
     deadline: Optional[datetime] = Field(None, description="截止时间")
     status: Optional[str] = Field(
