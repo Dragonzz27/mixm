@@ -1,15 +1,17 @@
-import json
+﻿import json
 import random
 import uuid
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.category import Category
 from app.models.content import Content
 from app.models.content_category import ContentCategory
+from app.models.practice import Practice, PracticeQuestion
+from app.models.question import Question
 from app.schema.simulation import (
     SimulationGenerateRequest,
     SimulationGenerateResponse,
@@ -19,6 +21,7 @@ from app.schema.simulation import (
 )
 from app.service.auth import AuthService
 from app.service.knowledge_tracing import TraceItem, knowledge_tracing_service
+from app.service.question_bank import question_bank_service
 from app.service.question_generate import question_generate_service
 
 router = APIRouter()
@@ -65,6 +68,29 @@ def _pick_question_type(question_types: Optional[List[str]], index: int) -> str:
     if not normalized:
         return "single_choice"
     return normalized[index % len(normalized)]
+
+
+def _map_question_type_from_bank(question_type: str) -> str:
+    mapping = {
+        "blank": "fill_blank",
+        "essay": "short_answer",
+    }
+    return mapping.get(question_type, question_type)
+
+
+def _map_question_type_to_bank(question_type: str) -> str:
+    mapping = {
+        "fill_blank": "blank",
+        "short_answer": "essay",
+    }
+    return mapping.get(question_type, question_type)
+
+
+def _map_question_types_to_bank(question_types: Optional[List[str]]) -> Optional[List[str]]:
+    if not question_types:
+        return None
+    mapped = [_map_question_type_to_bank(item) for item in question_types if item]
+    return list(dict.fromkeys(mapped)) if mapped else None
 
 
 def _fallback_knowledge_tags(content: Content, category: Optional[Category]) -> List[str]:
@@ -152,13 +178,13 @@ def _build_random_questions(
         correct_text = content.title
         distractors = [title for title in titles if title != correct_text]
         if len(distractors) < 3:
-            distractors.extend(["干扰项A", "干扰项B", "干扰项C"])
+            distractors.extend(["骞叉壈椤笰", "骞叉壈椤笲", "骞叉壈椤笴"])
         distractors = distractors[:3]
         question_type = _pick_question_type(payload.question_types, idx)
         if question_type == "true_false":
-            options = ["正确", "错误"]
+            options = ["姝ｇ‘", "閿欒"]
             correct_index = 0
-            correct_answer = "正确"
+            correct_answer = "姝ｇ‘"
         elif question_type in {"fill_blank", "short_answer"}:
             options = []
             correct_index = 0
@@ -168,11 +194,11 @@ def _build_random_questions(
             correct_index = options.index(correct_text)
             correct_answer = None
         knowledge_tags = knowledge_map.get(content.id) or _fallback_knowledge_tags(content, category)
-        stem = f"以下哪一项最符合《{correct_text}》？"
+        stem = f"以下哪一项最符合“{correct_text}”？"
         if payload.difficulty:
-            stem = f"(难度{payload.difficulty}) {stem}"
+            stem = f"(闅惧害{payload.difficulty}) {stem}"
         if question_type in {"fill_blank", "short_answer"}:
-            stem = stem.replace("哪一项最符合", "请填写").replace("？", "：")
+            stem = f"请填写与“{correct_text}”相关的关键内容。"
         questions.append(
             SimulationQuestion(
                 id=str(uuid.uuid4()),
@@ -225,21 +251,21 @@ async def _build_ai_questions(
                     break
         if not options:
             if question_type == "true_false":
-                options = ["正确", "错误"]
+                options = ["姝ｇ‘", "閿欒"]
                 correct_index = 0
             elif question_type in {"fill_blank", "short_answer"}:
                 options = []
                 correct_index = 0
             else:
                 answer_text = generated.answer or "正确答案"
-                options = _build_options(answer_text, ["干扰项1", "干扰项2", "干扰项3"])
+                options = _build_options(answer_text, ["干扰项A", "干扰项B", "干扰项C"])
                 correct_index = options.index(answer_text)
 
         correct_answer = None
         if question_type in {"fill_blank", "short_answer"}:
             correct_answer = generated.answer or content.title or "参考答案"
 
-        stem = generated.title or f"请回答与《{content.title}》相关的问题"
+        stem = generated.title or f"请回答与“{content.title}”相关的问题"
         questions.append(
             SimulationQuestion(
                 id=str(uuid.uuid4()),
@@ -255,6 +281,115 @@ async def _build_ai_questions(
     return questions
 
 
+def _build_bank_questions(
+    payload: SimulationGenerateRequest,
+    db: Session,
+    category: Optional[Category],
+    current_user,
+) -> List[SimulationQuestion]:
+    if payload.type_counts:
+        type_counts_bank: Dict[str, int] = {}
+        for q_type, count in payload.type_counts.items():
+            if not q_type:
+                continue
+            mapped = _map_question_type_to_bank(q_type)
+            type_counts_bank[mapped] = type_counts_bank.get(mapped, 0) + max(int(count or 0), 0)
+        category_ids = _collect_descendant_ids(db, category.id) if category else None
+        selected, shortages = question_bank_service.generate_by_type_counts(
+            db=db,
+            type_counts=type_counts_bank,
+            knowledge_tag_ids=category_ids,
+            difficulty=payload.difficulty,
+            is_superuser=bool(getattr(current_user, "is_superuser", False)),
+        )
+        if not selected:
+            raise HTTPException(status_code=400, detail="题库中暂无符合条件的题目")
+        if shortages:
+            shortage_text = "，".join([f"{k}:缺{v}" for k, v in shortages.items()])
+            raise HTTPException(status_code=400, detail=f"题目数量不足：{shortage_text}")
+        return [_to_simulation_question(item) for item in selected]
+
+    question_count = payload.question_count or 10
+    bank_types = _map_question_types_to_bank(payload.question_types)
+    category_ids = _collect_descendant_ids(db, category.id) if category else None
+    selected = question_bank_service.generate(
+        db=db,
+        question_count=question_count,
+        difficulty=payload.difficulty,
+        question_types=bank_types,
+        category_id=category.id if category else None,
+        category_ids=category_ids,
+        is_superuser=bool(getattr(current_user, "is_superuser", False)),
+    )
+    if not selected:
+        raise HTTPException(status_code=400, detail="题库中暂无符合条件的题目")
+    return [_to_simulation_question(item) for item in selected]
+
+
+def _to_simulation_question(question: Question) -> SimulationQuestion:
+    question_type = _map_question_type_from_bank(question.type)
+    options = []
+    correct_indices: List[int] = []
+    correct_index = 0
+
+    if question.options:
+        sorted_options = sorted(question.options, key=lambda opt: opt.option_key)
+        options = [opt.content for opt in sorted_options]
+        correct_indices = [idx for idx, opt in enumerate(sorted_options) if opt.is_correct]
+        if correct_indices:
+            correct_index = correct_indices[0]
+
+    knowledge_tags = [tag.name for tag in (question.knowledge_tags or []) if tag.name]
+    if not knowledge_tags and question.tags:
+        knowledge_tags = list(question.tags)
+    if not knowledge_tags:
+        knowledge_tags = ["未分类"]
+
+    return SimulationQuestion(
+        id=question.id,
+        stem=question.title,
+        options=options,
+        correct_index=correct_index,
+        correct_indices=correct_indices or None,
+        correct_answer=question.answer if question_type in {"fill_blank", "short_answer"} else None,
+        knowledge_tag=" / ".join(knowledge_tags[:3]),
+        knowledge_tags=knowledge_tags,
+        question_type=question_type,
+    )
+
+
+def _build_practice_questions(
+    payload: SimulationGenerateRequest,
+    db: Session,
+    current_user,
+) -> List[SimulationQuestion]:
+    if not payload.practice_id:
+        raise HTTPException(status_code=400, detail="practice 模式需要 practice_id")
+
+    practice = (
+        db.query(Practice)
+        .options(joinedload(Practice.practice_questions).joinedload(PracticeQuestion.question))
+        .filter(Practice.id == payload.practice_id)
+        .first()
+    )
+    if not practice:
+        raise HTTPException(status_code=404, detail="练习不存在")
+
+    question_ids = [item.question_id for item in (practice.practice_questions or []) if item.question_id]
+    if not question_ids:
+        raise HTTPException(status_code=400, detail="该练习还没有题目")
+
+    selected = question_bank_service.generate(
+        db=db,
+        question_count=payload.question_count or len(question_ids),
+        is_superuser=bool(getattr(current_user, "is_superuser", False)),
+        fixed_question_ids=question_ids,
+    )
+    if payload.question_count:
+        selected = selected[: payload.question_count]
+    if not selected:
+        raise HTTPException(status_code=400, detail="该练习下暂无可作答题目")
+    return [_to_simulation_question(item) for item in selected]
 @router.post("/generate", response_model=SimulationGenerateResponse)
 async def generate_simulation(
     payload: SimulationGenerateRequest,
@@ -271,43 +406,44 @@ async def generate_simulation(
         if not category:
             raise HTTPException(status_code=404, detail="Course category not found")
 
-    category_ids = _collect_descendant_ids(db, category.id) if category else []
-    contents: List[Content] = []
-    knowledge_map: Dict[str, List[str]] = {}
-
-    if category_ids:
-        rows = (
-            db.query(Content, ContentCategory.category_id)
-            .join(ContentCategory, Content.id == ContentCategory.content_id)
-            .filter(
-                ContentCategory.category_id.in_(category_ids),
-                Content.is_active == True,
-                Content.status == "published",
-            )
-            .all()
-        )
-        contents = [content for content, _ in rows]
-        knowledge_map = _build_content_knowledge_map(db, rows)
-
-    if not contents:
-        contents = (
-            db.query(Content)
-            .filter(Content.is_active == True, Content.status == "published")
-            .limit(100)
-            .all()
-        )
-
-    if not contents:
-        raise HTTPException(status_code=400, detail="No published content available")
-
     mode = (payload.generation_mode or "random").lower()
     if mode == "ai":
+        category_ids = _collect_descendant_ids(db, category.id) if category else []
+        contents: List[Content] = []
+        knowledge_map: Dict[str, List[str]] = {}
+
+        if category_ids:
+            rows = (
+                db.query(Content, ContentCategory.category_id)
+                .join(ContentCategory, Content.id == ContentCategory.content_id)
+                .filter(
+                    ContentCategory.category_id.in_(category_ids),
+                    Content.is_active == True,
+                    Content.status == "published",
+                )
+                .all()
+            )
+            contents = [content for content, _ in rows]
+            knowledge_map = _build_content_knowledge_map(db, rows)
+
+        if not contents:
+            contents = (
+                db.query(Content)
+                .filter(Content.is_active == True, Content.status == "published")
+                .limit(100)
+                .all()
+            )
+
+        if not contents:
+            raise HTTPException(status_code=400, detail="No published content available")
         try:
             questions = await _build_ai_questions(payload, contents, category, knowledge_map)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"智能体生成失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"鏅鸿兘浣撶敓鎴愬け璐? {str(e)}")
+    elif mode == "practice":
+        questions = _build_practice_questions(payload, db, current_user)
     else:
-        questions = _build_random_questions(payload, contents, category, knowledge_map)
+        questions = _build_bank_questions(payload, db, category, current_user)
 
     return SimulationGenerateResponse(settings=payload, questions=questions)
 
@@ -356,7 +492,8 @@ def submit_simulation(
                 picks = [selected]
             if picks:
                 answered += 1
-            is_correct = set(picks) == {question.correct_index}
+            expected_indices = set(question.correct_indices or [question.correct_index])
+            is_correct = set(picks) == expected_indices
         else:
             if selected is not None:
                 answered += 1
