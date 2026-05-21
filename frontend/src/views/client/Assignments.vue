@@ -7,7 +7,7 @@
     <n-tabs type="line" animated>
       <n-tab-pane name="available" tab="可提交作业">
         <div class="assignment-list">
-          <n-grid :cols="2" :x-gap="20" :y-gap="20" v-if="availableAssignments.length > 0">
+          <n-grid v-if="availableAssignments.length > 0" :cols="2" :x-gap="20" :y-gap="20">
             <n-gi v-for="assignment in availableAssignments" :key="assignment.id">
               <n-card class="assignment-card" :class="{ overdue: isOverdue(assignment.deadline) }">
                 <template #header>
@@ -34,8 +34,12 @@
                 </div>
                 <template #action>
                   <n-space justify="end">
-                    <n-button type="primary" @click="viewDetail(assignment)" :disabled="isOverdue(assignment.deadline) && !userSubmissionMap[assignment.id]">
-                      {{ userSubmissionMap[assignment.id] ? '查看提交' : '提交作业' }}
+                    <n-button
+                      type="primary"
+                      @click="viewDetail(assignment)"
+                      :disabled="isOverdue(assignment.deadline) && !userSubmissionMap[assignment.id]"
+                    >
+                      {{ userSubmissionMap[assignment.id] ? '查看提交' : '查看附件和提交作业' }}
                     </n-button>
                   </n-space>
                 </template>
@@ -61,7 +65,12 @@
       :file-data="previewFileData"
     />
 
-    <n-modal v-model:show="showSubmitModal" preset="card" :title="currentAssignment?.title || '提交作业'" style="width: 600px;">
+    <n-modal
+      v-model:show="showSubmitModal"
+      preset="card"
+      :title="currentAssignment?.title || '提交作业'"
+      style="width: 760px;"
+    >
       <div v-if="currentAssignment" class="submit-form">
         <n-descriptions :column="1" label-placement="left" bordered>
           <n-descriptions-item label="作业描述">{{ currentAssignment.description || '暂无描述' }}</n-descriptions-item>
@@ -70,16 +79,35 @@
 
         <n-divider />
 
+        <div v-if="currentAttachments.length" class="attachment-panel">
+          <div class="section-title">作业附件</div>
+          <div class="attachment-list">
+            <n-card v-for="(attachment, index) in currentAttachments" :key="index" size="small" class="attachment-card">
+              <div class="attachment-row">
+                <div class="attachment-meta">
+                  <div class="attachment-name">{{ attachment.name }}</div>
+                  <div class="attachment-file">
+                    {{ attachment.file_name }}
+                    <span v-if="attachment.file_size" class="attachment-size">({{ formatAttachmentSize(attachment.file_size) }})</span>
+                  </div>
+                </div>
+                <n-button size="small" @click="previewFile(attachment)">预览</n-button>
+              </div>
+            </n-card>
+          </div>
+          <n-divider />
+        </div>
+
         <div v-if="userSubmission && allowResubmit" class="current-submission-resubmit">
           <n-alert type="info" title="您已提交过此作业">
             <template #default>
               <div><strong>文件名：</strong>{{ userSubmission.file_name || '文本内容' }}</div>
               <div><strong>提交时间：</strong>{{ formatDate(userSubmission.submitted_at) }}</div>
-              <div v-if="userSubmission.grade !== null"><strong>评分：</strong>{{ userSubmission.grade }}分</div>
+              <div v-if="userSubmission.grade !== null"><strong>评分：</strong>{{ userSubmission.grade }} 分</div>
               <div v-if="userSubmission.feedback"><strong>反馈：</strong>{{ userSubmission.feedback }}</div>
             </template>
           </n-alert>
-          
+
           <n-space style="margin-top: 16px;">
             <n-button v-if="userSubmission.file_path || userSubmission.file_url" @click="previewFile(userSubmission)">预览文件</n-button>
             <n-button type="warning" @click="deleteAndResubmit">删除并重新提交</n-button>
@@ -113,17 +141,17 @@
               <div class="upload-dragger">
                 <n-icon :size="40"><CloudUploadOutline /></n-icon>
                 <div class="upload-text">点击或拖拽文件到此处上传</div>
-                <div class="upload-hint">支持 .doc, .docx, .pdf, .ppt, .pptx, .txt 格式，限 1 个文件</div>
+                <div class="upload-hint">支持 .doc、.docx、.pdf、.ppt、.pptx、.txt，限 1 个文件</div>
               </div>
             </n-upload>
           </div>
 
           <n-space justify="end" style="margin-top: 16px;">
             <n-button @click="showSubmitModal = false">取消</n-button>
-            <n-button 
-              type="primary" 
-              :loading="submitting" 
-              :disabled="!uploadResult" 
+            <n-button
+              type="primary"
+              :loading="submitting"
+              :disabled="!uploadResult"
               @click="handleSubmit"
             >
               提交作业
@@ -137,10 +165,29 @@
 
 <script setup>
 import { ref, computed, onMounted, h } from 'vue'
-import { NCard, NButton, NSpace, NTag, NGrid, NGi, NTabs, NTabPane, NEmpty, NDescriptions, NDescriptionsItem, NDivider, NAlert, NUpload, NDataTable, NIcon, useMessage } from 'naive-ui'
+import {
+  NCard,
+  NButton,
+  NSpace,
+  NTag,
+  NGrid,
+  NGi,
+  NTabs,
+  NTabPane,
+  NEmpty,
+  NDescriptions,
+  NDescriptionsItem,
+  NDivider,
+  NAlert,
+  NUpload,
+  NDataTable,
+  NIcon,
+  useMessage
+} from 'naive-ui'
 import { DocumentTextOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
 import { assignmentApi } from '@/api'
+import { formatAttachmentSize, normalizeAssignmentAttachments } from '@/utils/assignmentAttachments'
 
 const message = useMessage()
 const availableAssignments = ref([])
@@ -169,28 +216,43 @@ function isOverdue(deadline) {
 
 function formatFileSize(bytes) {
   if (!bytes) return ''
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
+const currentAttachments = computed(() => normalizeAssignmentAttachments(currentAssignment.value?.attachments, { keepEmpty: false }))
+
 const historyColumns = [
-  { title: '作业', key: 'assignment_id', render: (row) => {
-    const assignment = availableAssignments.value.find(a => a.id === row.assignment_id)
-    return assignment?.title || `作业 #${row.assignment_id}`
-  }},
-  { title: '文件名', key: 'file_name', ellipsis: { tooltip: true }, render: (row) => row.file_name || (row.content ? '文本内容' : '-') },
-  { title: '提交时间', key: 'submitted_at', render: (row) => formatDate(row.submitted_at) },
-  { 
-    title: '状态', 
-    key: 'status',
+  {
+    title: '作业',
+    key: 'assignment_id',
     render: (row) => {
-      const statusMap = { submitted: { type: 'warning', text: '待审核' }, reviewed: { type: 'info', text: '已审核' }, completed: { type: 'success', text: '已完成' } }
-      const s = statusMap[row.status] || { type: 'default', text: row.status }
-      return h(NTag, { type: s.type }, () => s.text)
+      const assignment = availableAssignments.value.find(item => item.id === row.assignment_id)
+      return assignment?.title || `作业 #${row.assignment_id}`
     }
   },
-  { title: '评分', key: 'grade', render: (row) => row.grade !== null ? `${row.grade}分` : '-' },
+  {
+    title: '文件名',
+    key: 'file_name',
+    ellipsis: { tooltip: true },
+    render: (row) => row.file_name || (row.content ? '文本内容' : '-')
+  },
+  { title: '提交时间', key: 'submitted_at', render: (row) => formatDate(row.submitted_at) },
+  {
+    title: '状态',
+    key: 'status',
+    render: (row) => {
+      const statusMap = {
+        submitted: { type: 'warning', text: '待审核' },
+        reviewed: { type: 'info', text: '已审核' },
+        completed: { type: 'success', text: '已完成' }
+      }
+      const current = statusMap[row.status] || { type: 'default', text: row.status }
+      return h(NTag, { type: current.type }, () => current.text)
+    }
+  },
+  { title: '评分', key: 'grade', render: (row) => row.grade !== null ? `${row.grade} 分` : '-' },
   {
     title: '操作',
     key: 'actions',
@@ -216,10 +278,9 @@ async function loadMySubmissions() {
   try {
     const res = await assignmentApi.getMySubmissions({})
     mySubmissions.value = res || []
-    
     userSubmissionMap.value = {}
-    for (const sub of res || []) {
-      userSubmissionMap.value[sub.assignment_id] = sub
+    for (const item of res || []) {
+      userSubmissionMap.value[item.assignment_id] = item
     }
   } catch (err) {
     console.error(err)
@@ -237,7 +298,7 @@ function viewDetail(assignment) {
 
 async function deleteAndResubmit() {
   if (!userSubmission.value) return
-  
+
   try {
     await assignmentApi.deleteSubmission(userSubmission.value.id)
     message.success('已删除原提交，现在可以重新提交')
@@ -253,9 +314,9 @@ async function deleteAndResubmit() {
 
 function beforeUpload({ file }) {
   const validTypes = ['.doc', '.docx', '.pdf', '.ppt', '.pptx', '.txt']
-  const fileExt = '.' + file.name.split('.').pop().toLowerCase()
+  const fileExt = `.${file.name.split('.').pop().toLowerCase()}`
   if (!validTypes.includes(fileExt)) {
-    message.error('不支持的文件格式，请上传 .doc, .docx, .pdf, .ppt, .pptx, .txt 文件')
+    message.error('请上传 .doc、.docx、.pdf、.ppt、.pptx、.txt 文件')
     return false
   }
   return true
@@ -267,7 +328,7 @@ function customRequest({ file, onFinish, onError }) {
     size: file.file?.size || 0,
     file: file.file
   }
-  
+
   assignmentApi.uploadFile(file.file).then(res => {
     uploadResult.value = res
     message.success('文件上传成功')
@@ -275,7 +336,7 @@ function customRequest({ file, onFinish, onError }) {
   }).catch(err => {
     console.error(err)
     uploadFile.value = null
-    message.error('文件上传失败')
+    message.error(err.response?.data?.detail || '文件上传失败')
     onError()
   })
 }
@@ -286,32 +347,25 @@ function removeFile() {
 }
 
 function viewUploadedFile() {
-  if (uploadResult.value?.file_url) {
-    window.open(uploadResult.value.file_url, '_blank')
-  } else if (uploadFile.value?.file) {
-    const url = URL.createObjectURL(uploadFile.value.file)
-    window.open(url, '_blank')
-  }
+  if (!uploadResult.value) return
+  previewFile(uploadResult.value)
 }
 
 async function handleSubmit() {
   if (!uploadResult.value) {
-    message.warning('请上传文件')
+    message.warning('请先上传文件')
     return
   }
 
   submitting.value = true
   try {
-    const payload = {
+    await assignmentApi.submit({
       assignment_id: currentAssignment.value.id,
       file_path: uploadResult.value.file_path,
       file_name: uploadResult.value.file_name,
       file_size: uploadResult.value.file_size
-    }
-
-    await assignmentApi.submit(payload)
+    })
     message.success('提交成功')
-    
     showSubmitModal.value = false
     loadMySubmissions()
     loadAssignments()
@@ -323,18 +377,13 @@ async function handleSubmit() {
   }
 }
 
-function previewFile(submission) {
-  const fileData = {
-    file_name: submission.file_name,
-    file_path: submission.file_path,
-    file_url: submission.file_url
+function previewFile(file) {
+  previewFileData.value = {
+    file_name: file.file_name,
+    file_path: file.file_path,
+    file_url: file.file_url
   }
-  previewFileData.value = fileData
   showPreviewModal.value = true
-}
-
-function viewFile(submission) {
-  previewFile(submission)
 }
 
 onMounted(() => {
@@ -419,6 +468,53 @@ onMounted(() => {
   color: #999;
 }
 
+.submit-form {
+  padding: 8px 0;
+}
+
+.section-title {
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #333;
+}
+
+.attachment-panel {
+  margin-bottom: 16px;
+}
+
+.attachment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.attachment-card {
+  background: #fafafc;
+}
+
+.attachment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.attachment-meta {
+  min-width: 0;
+}
+
+.attachment-name {
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.attachment-file,
+.attachment-size {
+  color: #666;
+  font-size: 12px;
+  word-break: break-all;
+}
+
 .upload-section {
   padding: 8px 0;
 }
@@ -473,76 +569,5 @@ onMounted(() => {
 
 .current-submission-resubmit {
   margin-bottom: 16px;
-}
-
-.submit-form {
-  padding: 8px 0;
-}
-
-.preview-card {
-  transition: all 0.2s;
-}
-
-.preview-card.overdue {
-  opacity: 0.8;
-}
-
-.preview-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e6;
-  margin-bottom: 12px;
-}
-
-.file-info-text {
-  font-size: 13px;
-  color: #666;
-}
-
-.preview-content {
-  flex: 1;
-  overflow: hidden;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.preview-frame {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-.docx-preview {
-  overflow: auto;
-  background: white;
-}
-
-.docx-preview-container {
-  padding: 20px;
-}
-
-.docx-preview-container table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.docx-preview-container p {
-  margin: 10px 0;
-}
-
-.preview-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.preview-not-supported {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
 }
 </style>

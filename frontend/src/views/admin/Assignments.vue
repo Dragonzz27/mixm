@@ -23,8 +23,13 @@
       />
     </n-card>
 
-    <n-modal v-model:show="showAddModal" preset="dialog" :title="isEdit ? '编辑作业' : '发布作业'" style="width: 600px;">
-      <n-form :model="formData" :rules="rules" ref="formRef" label-placement="left" label-width="80">
+    <n-modal
+      v-model:show="showAddModal"
+      preset="dialog"
+      :title="isEdit ? '编辑作业' : '发布作业'"
+      style="width: 760px;"
+    >
+      <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="88">
         <n-form-item label="标题" path="title">
           <n-input v-model:value="formData.title" placeholder="作业标题" />
         </n-form-item>
@@ -43,14 +48,58 @@
           <n-select
             v-model:value="formData.visible_roles"
             :options="roleOptions"
-            placeholder="选择可见角色 (留空表示所有角色可见)"
+            placeholder="留空表示所有角色可见"
             multiple
             clearable
-            style="width: 100%"
           />
         </n-form-item>
         <n-form-item label="状态" path="status">
-          <n-select v-model:value="formData.status" :options="statusOptions.filter(s => s.value)" />
+          <n-select v-model:value="formData.status" :options="statusOptions.filter(item => item.value)" />
+        </n-form-item>
+        <n-form-item label="附件列表">
+          <div class="attachment-editor">
+            <div class="attachment-toolbar">
+              <span class="attachment-tip">默认包含实验指导、实验报告模板、学习视频，可编辑名称、删除或继续新增。</span>
+              <n-button size="small" @click="handleAddAttachment">新增附件项</n-button>
+            </div>
+            <div v-if="formData.attachments.length" class="attachment-list">
+              <n-card
+                v-for="(attachment, index) in formData.attachments"
+                :key="index"
+                size="small"
+                class="attachment-card"
+              >
+                <div class="attachment-card-header">
+                  <n-input
+                    v-model:value="attachment.name"
+                    placeholder="附件名称"
+                    maxlength="100"
+                  />
+                  <n-button quaternary type="error" @click="handleRemoveAttachment(index)">删除</n-button>
+                </div>
+                <div v-if="attachment.file_name" class="attachment-file-row">
+                  <div class="attachment-file-meta">
+                    <span class="attachment-file-name">{{ attachment.file_name }}</span>
+                    <span class="attachment-file-size">{{ formatAttachmentSize(attachment.file_size) }}</span>
+                  </div>
+                  <n-space>
+                    <n-button size="small" @click="previewAttachment(attachment)">预览</n-button>
+                    <n-button size="small" @click="clearAttachmentFile(index)">移除文件</n-button>
+                  </n-space>
+                </div>
+                <n-upload
+                  :max="1"
+                  :show-file-list="false"
+                  :accept="ASSIGNMENT_ATTACHMENT_ACCEPT"
+                  :custom-request="createAttachmentUploadHandler(index)"
+                  @before-upload="beforeAttachmentUpload"
+                >
+                  <n-button dashed block>上传文件</n-button>
+                </n-upload>
+                <div class="attachment-hint">支持视频、PDF、Word、文本、Markdown。每项仅 1 个文件。</div>
+              </n-card>
+            </div>
+          </div>
         </n-form-item>
       </n-form>
       <template #action>
@@ -96,15 +145,37 @@
 
 <script setup>
 import { ref, computed, onMounted, h } from 'vue'
-import { NCard, NButton, NInput, NDataTable, NSpace, NModal, NForm, NFormItem, NSelect, NDatePicker, useMessage, NTag, NInputNumber } from 'naive-ui'
-import { assignmentApi } from '@/api'
-import { roleApi } from '@/api'
+import {
+  NCard,
+  NButton,
+  NInput,
+  NDataTable,
+  NSpace,
+  NModal,
+  NForm,
+  NFormItem,
+  NSelect,
+  NDatePicker,
+  useMessage,
+  NTag,
+  NInputNumber,
+  NUpload
+} from 'naive-ui'
+import { assignmentApi, roleApi } from '@/api'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
+import {
+  ASSIGNMENT_ATTACHMENT_ACCEPT,
+  createDefaultAssignmentAttachments,
+  normalizeAssignmentAttachments,
+  isAssignmentAttachmentFileValid,
+  formatAttachmentSize
+} from '@/utils/assignmentAttachments'
 
 const message = useMessage()
 const formRef = ref(null)
 const assignments = ref([])
 const submissions = ref([])
+const roleOptions = ref([])
 const showAddModal = ref(false)
 const showSubmissionsModal = ref(false)
 const showPreviewModal = ref(false)
@@ -113,6 +184,8 @@ const isEdit = ref(false)
 const loading = ref(false)
 const filterStatus = ref(null)
 const currentAssignmentId = ref(null)
+const gradeModalVisible = ref(false)
+const gradeData = ref({ id: null, grade: null, feedback: '' })
 
 const assignmentPagination = ref({
   page: 1,
@@ -148,13 +221,7 @@ const submissionPagination = ref({
   }
 })
 
-const formData = ref({
-  title: '',
-  description: '',
-  deadline: null,
-  visible_roles: null,
-  status: 'active'
-})
+const formData = ref(createEmptyForm())
 
 const rules = {
   title: [{ required: true, message: '请输入标题' }],
@@ -168,12 +235,21 @@ const statusOptions = [
   { label: '已归档', value: 'archived' }
 ]
 
-const roleOptions = ref([])
+function createEmptyForm() {
+  return {
+    id: '',
+    title: '',
+    description: '',
+    deadline: null,
+    visible_roles: null,
+    status: 'active',
+    attachments: createDefaultAssignmentAttachments()
+  }
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN')
+  return new Date(dateStr).toLocaleString('zh-CN')
 }
 
 function isOverdue(deadline) {
@@ -187,33 +263,43 @@ function getRowNumber(pagination, index) {
 }
 
 const columns = computed(() => [
-  { title: '序号', key: 'index', width: 80, render: (_, index) => getRowNumber(assignmentPagination.value, index) },
+  { title: '序号', key: 'index', width: 70, render: (_, index) => getRowNumber(assignmentPagination.value, index) },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
-  { 
-    title: '截止时间', 
-    key: 'deadline', 
+  {
+    title: '附件数',
+    key: 'attachments',
+    width: 90,
+    render: (row) => normalizeAssignmentAttachments(row.attachments, { keepEmpty: false }).length
+  },
+  {
+    title: '截止时间',
+    key: 'deadline',
     width: 180,
     render: (row) => {
       const overdue = isOverdue(row.deadline) && row.status === 'active'
       return h('span', { style: { color: overdue ? '#d03050' : 'inherit' } }, formatDate(row.deadline))
     }
   },
-  { 
-    title: '状态', 
-    key: 'status', 
+  {
+    title: '状态',
+    key: 'status',
     width: 100,
     render: (row) => {
-      const statusMap = { active: { type: 'success', text: '进行中' }, completed: { type: 'info', text: '已完成' }, archived: { type: 'default', text: '已归档' } }
-      const s = statusMap[row.status] || { type: 'default', text: row.status }
-      return h(NTag, { type: s.type }, () => s.text)
+      const statusMap = {
+        active: { type: 'success', text: '进行中' },
+        completed: { type: 'info', text: '已完成' },
+        archived: { type: 'default', text: '已归档' }
+      }
+      const current = statusMap[row.status] || { type: 'default', text: row.status }
+      return h(NTag, { type: current.type }, () => current.text)
     }
   },
   { title: '提交数', key: 'submission_count', width: 80 },
-  { title: '创建时间', key: 'created_at', width: 180 },
+  { title: '创建时间', key: 'created_at', width: 180, render: (row) => formatDate(row.created_at) },
   {
     title: '操作',
     key: 'actions',
-    width: 400,
+    width: 260,
     render: (row) => h(NSpace, {}, () => [
       h(NButton, { size: 'small', onClick: () => viewSubmissions(row) }, () => '查看提交'),
       h(NButton, { size: 'small', onClick: () => handleEdit(row) }, () => '编辑'),
@@ -223,25 +309,30 @@ const columns = computed(() => [
 ])
 
 const submissionColumns = computed(() => [
-  // { title: 'ID', key: 'id', width: 360 },
   { title: '用户', key: 'username', width: 120 },
   { title: '文件名', key: 'file_name', ellipsis: { tooltip: true } },
   { title: '提交时间', key: 'submitted_at', width: 180, render: (row) => formatDate(row.submitted_at) },
-  { 
-    title: '状态', 
-    key: 'status', 
+  {
+    title: '状态',
+    key: 'status',
     width: 100,
     render: (row) => {
-      const statusMap = { submitted: { type: 'warning', text: '待审核' }, reviewed: { type: 'info', text: '已审核' }, completed: { type: 'success', text: '已完成' } }
-      const s = statusMap[row.status] || { type: 'default', text: row.status }
-      return h(NTag, { type: s.type }, () => s.text)
+      const statusMap = {
+        submitted: { type: 'warning', text: '待审核' },
+        reviewed: { type: 'info', text: '已审核' },
+        completed: { type: 'success', text: '已完成' }
+      }
+      const current = statusMap[row.status] || { type: 'default', text: row.status }
+      return h(NTag, { type: current.type }, () => current.text)
     }
   },
-  { 
-    title: '评分', 
-    key: 'grade', 
+  {
+    title: '评分',
+    key: 'grade',
     width: 80,
-    render: (row) => row.grade != null ? h('span', { style: { color: row.grade >= 60 ? '#18a058' : '#d03050', fontWeight: 'bold' } }, row.grade) : '-'
+    render: (row) => row.grade != null
+      ? h('span', { style: { color: row.grade >= 60 ? '#18a058' : '#d03050', fontWeight: 'bold' } }, row.grade)
+      : '-'
   },
   {
     title: '操作',
@@ -280,12 +371,6 @@ async function loadAssignments() {
     const res = await assignmentApi.getList(params)
     assignments.value = res.assignments || []
     assignmentPagination.value.itemCount = res.total || 0
-
-    const maxPage = Math.max(1, Math.ceil((assignmentPagination.value.itemCount || 0) / pageSize))
-    if (assignmentPagination.value.page > maxPage) {
-      assignmentPagination.value.page = maxPage
-      return loadAssignments()
-    }
   } catch (err) {
     console.error(err)
   }
@@ -301,6 +386,7 @@ async function loadSubmissions(assignmentId = currentAssignmentId.value) {
 
   const page = submissionPagination.value.page || 1
   const pageSize = submissionPagination.value.pageSize || 10
+
   try {
     const res = await assignmentApi.getSubmissions(assignmentId, {
       skip: (page - 1) * pageSize,
@@ -308,12 +394,6 @@ async function loadSubmissions(assignmentId = currentAssignmentId.value) {
     })
     submissions.value = res.submissions || []
     submissionPagination.value.itemCount = res.total || 0
-
-    const maxPage = Math.max(1, Math.ceil((submissionPagination.value.itemCount || 0) / pageSize))
-    if (submissionPagination.value.page > maxPage) {
-      submissionPagination.value.page = maxPage
-      return loadSubmissions(assignmentId)
-    }
   } catch (err) {
     console.error(err)
     message.error('加载提交列表失败')
@@ -322,18 +402,33 @@ async function loadSubmissions(assignmentId = currentAssignmentId.value) {
 
 function handleAddClick() {
   isEdit.value = false
-  formData.value = { title: '', description: '', deadline: null, visible_roles: null, status: 'active' }
+  formData.value = createEmptyForm()
   showAddModal.value = true
 }
 
-async function handleEdit(row) {
+function handleEdit(row) {
   isEdit.value = true
   formData.value = {
-    ...row,
+    id: row.id,
+    title: row.title || '',
+    description: row.description || '',
     deadline: row.deadline ? new Date(row.deadline).getTime() : null,
-    visible_roles: row.visible_roles || null
+    visible_roles: row.visible_roles?.length ? [...row.visible_roles] : null,
+    status: row.status || 'active',
+    attachments: normalizeAssignmentAttachments(
+      row.attachments?.length ? row.attachments : createDefaultAssignmentAttachments()
+    )
   }
   showAddModal.value = true
+}
+
+function buildAssignmentPayload() {
+  return {
+    ...formData.value,
+    deadline: new Date(formData.value.deadline).toISOString(),
+    visible_roles: formData.value.visible_roles?.length ? formData.value.visible_roles : null,
+    attachments: normalizeAssignmentAttachments(formData.value.attachments)
+  }
 }
 
 async function handleSubmit() {
@@ -342,21 +437,20 @@ async function handleSubmit() {
   } catch {
     return
   }
-  
+
+  if (formData.value.attachments.some(item => !item.name.trim())) {
+    message.warning('附件名称不能为空')
+    return
+  }
+
   loading.value = true
   try {
-    const data = {
-      ...formData.value,
-      deadline: new Date(formData.value.deadline).toISOString(),
-      visible_roles: formData.value.visible_roles && formData.value.visible_roles.length > 0 
-        ? formData.value.visible_roles 
-        : null
-    }
+    const payload = buildAssignmentPayload()
     if (isEdit.value) {
-      await assignmentApi.update(formData.value.id, data)
+      await assignmentApi.update(formData.value.id, payload)
       message.success('更新成功')
     } else {
-      await assignmentApi.create(data)
+      await assignmentApi.create(payload)
       message.success('发布成功')
     }
     showAddModal.value = false
@@ -384,16 +478,12 @@ async function viewSubmissions(row) {
   currentAssignmentId.value = row.id
   submissionPagination.value.page = 1
   showSubmissionsModal.value = true
-  try {
-    await loadSubmissions(row.id)
-  } catch (err) {
-    console.error(err)
-    message.error('加载提交列表失败')
-  }
+  await loadSubmissions(row.id)
 }
 
 async function exportSubmissions() {
   if (!currentAssignmentId.value) return
+
   try {
     const res = await assignmentApi.exportSubmissions(currentAssignmentId.value)
     const fileUrl = `${import.meta.env.VITE_API_BASE_URL.replace('/api', '')}${res.file_url}`
@@ -410,21 +500,78 @@ async function exportSubmissions() {
   }
 }
 
-function previewFile(row) {
-  const fileData = {
-    file_name: row.file_name,
-    file_path: row.file_path,
-    file_url: row.file_url
+function previewFile(file) {
+  previewFileData.value = {
+    file_name: file.file_name,
+    file_path: file.file_path,
+    file_url: file.file_url
   }
-  previewFileData.value = fileData
   showPreviewModal.value = true
 }
 
-const gradeModalVisible = ref(false)
-const gradeData = ref({ id: null, grade: null, feedback: '' })
+function previewAttachment(attachment) {
+  if (!attachment.file_url && !attachment.file_path) {
+    message.warning('当前附件还未上传文件')
+    return
+  }
+  previewFile(attachment)
+}
+
+function handleAddAttachment() {
+  formData.value.attachments.push({
+    name: '',
+    file_path: '',
+    file_name: '',
+    file_size: null,
+    file_url: ''
+  })
+}
+
+function handleRemoveAttachment(index) {
+  formData.value.attachments.splice(index, 1)
+}
+
+function clearAttachmentFile(index) {
+  formData.value.attachments[index] = {
+    ...formData.value.attachments[index],
+    file_path: '',
+    file_name: '',
+    file_size: null,
+    file_url: ''
+  }
+}
+
+function beforeAttachmentUpload({ file }) {
+  if (!isAssignmentAttachmentFileValid(file.name)) {
+    message.error('仅支持视频、PDF、Word、文本和 Markdown 文件')
+    return false
+  }
+  return true
+}
+
+function createAttachmentUploadHandler(index) {
+  return async ({ file, onFinish, onError }) => {
+    try {
+      const res = await assignmentApi.uploadFile(file.file)
+      formData.value.attachments[index] = {
+        ...formData.value.attachments[index],
+        file_path: res.file_path,
+        file_name: res.file_name,
+        file_size: res.file_size,
+        file_url: res.file_url
+      }
+      message.success('附件上传成功')
+      onFinish()
+    } catch (err) {
+      console.error(err)
+      message.error('附件上传失败')
+      onError()
+    }
+  }
+}
 
 function handleGrade(row) {
-  gradeData.value = { id: row.id, grade: row.grade || null, feedback: row.feedback || '' }
+  gradeData.value = { id: row.id, grade: row.grade ?? null, feedback: row.feedback || '' }
   gradeModalVisible.value = true
 }
 
@@ -464,5 +611,65 @@ onMounted(() => {
 <style scoped>
 .assignments {
   padding: 20px 0;
+}
+
+.attachment-editor {
+  width: 100%;
+}
+
+.attachment-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.attachment-tip {
+  color: #666;
+  font-size: 12px;
+}
+
+.attachment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.attachment-card {
+  background: #fafafc;
+}
+
+.attachment-card-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.attachment-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.attachment-file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.attachment-file-name {
+  color: #333;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.attachment-file-size,
+.attachment-hint {
+  color: #999;
+  font-size: 12px;
 }
 </style>

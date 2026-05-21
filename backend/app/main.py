@@ -74,6 +74,19 @@ def ensure_question_review_columns():
                 conn.execute(text(statement))
 
 
+def ensure_assignment_attachment_column():
+    inspector = inspect(engine)
+    if "assignments" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("assignments")}
+    if "attachments" in existing_columns:
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE assignments ADD COLUMN attachments TEXT"))
+
+
 user.Base.metadata.create_all(bind=engine)
 CategoryModel.__table__.create(bind=engine, checkfirst=True)
 ContentModel.__table__.create(bind=engine, checkfirst=True)
@@ -98,6 +111,7 @@ QuestionCategory.__table__.create(bind=engine, checkfirst=True)
 QuestionOption.__table__.create(bind=engine, checkfirst=True)
 QuestionAttachment.__table__.create(bind=engine, checkfirst=True)
 ensure_question_review_columns()
+ensure_assignment_attachment_column()
 
 ssh_gateway_service = SSHGatewayService()
 
