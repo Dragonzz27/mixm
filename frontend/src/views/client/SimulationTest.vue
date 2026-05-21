@@ -4,12 +4,12 @@
       <div class="hero-main">
         <div class="eyebrow">Student</div>
         <h1>模拟测试</h1>
-        <p>支持题库随机出题，也可尝试智能体生成。</p>
+  <p>支持题库随机出题，也可尝试智能体生成。</p>
       </div>
       <div class="hero-stats">
         <div class="stat-item">
           <span class="stat-label">题型</span>
-          <strong>{{ form.question_types?.length || 0 }}</strong>
+          <strong>{{ effectiveTypeCount }}</strong>
         </div>
         <div class="stat-item">
           <span class="stat-label">难度</span>
@@ -59,6 +59,17 @@
               <n-select v-model:value="form.generation_mode" :options="generationOptions" />
             </n-form-item>
           </n-gi>
+          <n-gi v-if="form.generation_mode === 'practice'">
+            <n-form-item label="练习卷">
+              <n-select
+                v-model:value="form.practice_id"
+                :options="practiceOptions"
+                filterable
+                clearable
+                placeholder="请选择练习卷"
+              />
+            </n-form-item>
+          </n-gi>
         </n-grid>
 
         <n-form-item label="题型">
@@ -72,6 +83,42 @@
             </n-space>
           </n-checkbox-group>
         </n-form-item>
+
+        <n-card
+          v-if="form.generation_mode === 'random'"
+          size="small"
+          title="按题型数量出题（可选）"
+          style="margin-top: 8px"
+        >
+          <n-grid :cols="5" :x-gap="12" :y-gap="12">
+            <n-gi>
+              <n-form-item label="单选题">
+                <n-input-number v-model:value="form.type_counts.single_choice" :min="0" :max="50" style="width: 100%" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="多选题">
+                <n-input-number v-model:value="form.type_counts.multi_choice" :min="0" :max="50" style="width: 100%" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="判断题">
+                <n-input-number v-model:value="form.type_counts.true_false" :min="0" :max="50" style="width: 100%" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="填空题">
+                <n-input-number v-model:value="form.type_counts.fill_blank" :min="0" :max="50" style="width: 100%" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="简答题">
+                <n-input-number v-model:value="form.type_counts.short_answer" :min="0" :max="50" style="width: 100%" />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+          <div class="count-tip">已配置总题数：{{ typeCountTotal }}</div>
+        </n-card>
       </n-form>
     </n-card>
 
@@ -258,7 +305,7 @@ import {
   NTag,
   useMessage
 } from 'naive-ui'
-import { simulationApi, categoryApi } from '@/api'
+import { simulationApi, categoryApi, practiceApi } from '@/api'
 
 const message = useMessage()
 const loading = ref(false)
@@ -274,12 +321,21 @@ const timer = ref(null)
 const timeLeft = ref(0)
 const courseOptions = ref([])
 const courseTree = ref([])
+const practiceOptions = ref([])
 
 const form = ref({
   course_id: '',
+  practice_id: '',
   question_count: 10,
   difficulty: null,
   question_types: [],
+  type_counts: {
+    single_choice: 0,
+    multi_choice: 0,
+    true_false: 0,
+    fill_blank: 0,
+    short_answer: 0
+  },
   time_limit_minutes: null,
   generation_mode: 'random'
 })
@@ -293,7 +349,8 @@ const difficultyOptions = [
 ]
 
 const generationOptions = [
-  { label: '内容随机出题', value: 'random' },
+  { label: '题库抽题', value: 'random' },
+  { label: '练习卷', value: 'practice' },
   { label: '智能体生成', value: 'ai' }
 ]
 
@@ -304,6 +361,18 @@ const questionTypeLabelMap = {
   fill_blank: '填空题',
   short_answer: '简答题'
 }
+
+const typeCountTotal = computed(() => {
+  const counts = form.value.type_counts || {}
+  return Object.values(counts).reduce((sum, item) => sum + (Number(item) || 0), 0)
+})
+
+const effectiveTypeCount = computed(() => {
+  if (form.value.generation_mode === 'random' && typeCountTotal.value > 0) {
+    return Object.values(form.value.type_counts || {}).filter((v) => Number(v) > 0).length
+  }
+  return form.value.question_types?.length || 0
+})
 
 const answeredCount = computed(() => {
   return questions.value.filter((q) => {
@@ -370,6 +439,18 @@ async function loadCourses() {
   }
 }
 
+async function loadPractices() {
+  try {
+    const res = await practiceApi.getList({ skip: 0, limit: 200 })
+    practiceOptions.value = (res.practices || []).map((item) => ({
+      label: `${item.title}（${item.question_count || 0}题）`,
+      value: item.id
+    }))
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 function clearTimer() {
   if (timer.value) {
     clearInterval(timer.value)
@@ -380,13 +461,27 @@ function clearTimer() {
 async function startTest() {
   loading.value = true
   try {
+    if (form.value.generation_mode === 'practice' && !form.value.practice_id) {
+      message.warning('请选择练习卷')
+      return
+    }
     const payload = {
       ...form.value,
       question_types: form.value.question_types.length ? form.value.question_types : null,
+      type_counts:
+        form.value.generation_mode === 'random' && typeCountTotal.value > 0
+          ? Object.fromEntries(
+              Object.entries(form.value.type_counts || {}).filter(([, v]) => Number(v) > 0)
+            )
+          : null,
+      practice_id: form.value.generation_mode === 'practice' ? (form.value.practice_id || null) : null,
       course_id: form.value.course_id || null,
       difficulty: form.value.difficulty || null,
       time_limit_minutes: form.value.time_limit_minutes || null,
-      question_count: form.value.question_count || 10
+      question_count:
+        form.value.generation_mode === 'random' && typeCountTotal.value > 0
+          ? typeCountTotal.value
+          : (form.value.question_count || 10)
     }
     const res = await simulationApi.generate(payload)
     questions.value = res.questions || []
@@ -472,6 +567,7 @@ function resetAll() {
 
 onBeforeUnmount(() => clearTimer())
 loadCourses()
+loadPractices()
 </script>
 
 <style scoped>
@@ -634,6 +730,11 @@ loadCourses()
 }
 .timer {
   margin-bottom: 16px;
+}
+.count-tip {
+  color: #35587d;
+  font-size: 13px;
+  margin-top: 4px;
 }
 .type-pills :deep(.n-checkbox) {
   padding: 8px 12px;

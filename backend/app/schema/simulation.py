@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+﻿from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -8,11 +8,13 @@ class SimulationGenerateRequest(BaseModel):
     question_count: Optional[int] = Field(default=None, ge=1, le=50)
     difficulty: Optional[int] = Field(default=None, ge=1, le=5, description="难度等级1-5")
     question_types: Optional[List[str]] = Field(default=None, description="题型")
+    type_counts: Optional[Dict[str, int]] = Field(default=None, description="按题型配置数量")
     time_limit_minutes: Optional[int] = Field(default=None, ge=1, le=180)
     generation_mode: Optional[str] = Field(
         default="random",
-        description="出题方式：random(题库随机) / ai(智能体生成)"
+        description="出题模式：random(题库随机) / ai(智能体生成) / practice(练习卷固定题单)",
     )
+    practice_id: Optional[str] = Field(default=None, description="练习卷ID，仅 practice 模式使用")
 
 
 class SimulationQuestion(BaseModel):
@@ -20,6 +22,7 @@ class SimulationQuestion(BaseModel):
     stem: str
     options: List[str]
     correct_index: int
+    correct_indices: Optional[List[int]] = None
     correct_answer: Optional[str] = None
     knowledge_tag: Optional[str] = None
     knowledge_tags: List[str] = Field(..., min_items=1)

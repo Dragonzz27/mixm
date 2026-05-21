@@ -166,6 +166,7 @@ class QuestionService:
         knowledge_tag_ids = update_data.pop("knowledge_tag_ids", None)
         options = update_data.pop("options", None)
         attachments = update_data.pop("attachments", None)
+        question_type = update_data.get("type", db_question.type)
 
         for field, value in update_data.items():
             if value is not None:
@@ -179,14 +180,18 @@ class QuestionService:
             db.query(QuestionOption).filter(
                 QuestionOption.question_id == question_id
             ).delete()
-            for opt in options:
-                db_option = QuestionOption(
-                    question_id=question_id,
-                    option_key=opt.option_key,
-                    content=opt.content,
-                    is_correct=opt.is_correct,
-                )
-                db.add(db_option)
+            if question_type in {"single_choice", "multi_choice"}:
+                for opt in options:
+                    option_key = opt.get("option_key") if isinstance(opt, dict) else opt.option_key
+                    content = opt.get("content") if isinstance(opt, dict) else opt.content
+                    is_correct = opt.get("is_correct", False) if isinstance(opt, dict) else opt.is_correct
+                    db_option = QuestionOption(
+                        question_id=question_id,
+                        option_key=option_key,
+                        content=content,
+                        is_correct=is_correct,
+                    )
+                    db.add(db_option)
 
         if attachments is not None:
             db.query(QuestionAttachment).filter(
