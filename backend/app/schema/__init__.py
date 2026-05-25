@@ -7,3 +7,10 @@ from app.schema.knowledge_tree import (
     OutlineAnalysisRequest,
     OutlineAnalysisResponse,
 )
+from app.schema.simulation import (
+    SimulationGenerateRequest,
+    SimulationGenerateResponse,
+    SimulationQuestion,
+    SimulationSubmitRequest,
+    SimulationSubmitResponse,
+)

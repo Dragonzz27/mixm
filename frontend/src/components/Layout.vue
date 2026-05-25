@@ -17,7 +17,7 @@
         </n-badge>
         <n-dropdown :options="userMenuOptions" @select="handleUserMenu">
           <div class="user-info">
-            <span>{{ userStore.userInfo?.username || 'User' }}</span>
+            <span>{{ userStore.userInfo?.username || '用户' }}</span>
             <n-icon><ChevronDownOutline /></n-icon>
           </div>
         </n-dropdown>
@@ -63,16 +63,17 @@ import { computed, h, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NBadge, NIcon } from 'naive-ui'
 import {
-  BookOutline,
-  ChevronBackOutline,
+  UnlinkSharp,
   ChevronDownOutline,
+  ChevronBackOutline,
   ChevronForwardOutline,
+  HomeOutline,
+  BookOutline,
   CreateOutline,
   CubeOutline,
   DocumentTextOutline,
   FileTrayFullOutline,
   GridOutline,
-  HomeOutline,
   ImageOutline,
   LayersOutline,
   ListOutline,
@@ -81,7 +82,6 @@ import {
   ServerOutline,
   ShieldCheckmarkOutline,
   SpeedometerOutline,
-  UnlinkSharp,
 } from '@vicons/ionicons5'
 import { useUserStore } from '@/stores/user'
 import { resetRouter } from '@/router'
@@ -109,6 +109,7 @@ const defaultMenuItems = [
   { key: 'ClientHome', label: '首页', path: '/app', icon: 'HomeOutline' },
   { key: 'ClientContents', label: '内容浏览', path: '/app/contents', icon: 'BookOutline' },
   { key: 'ClientAssignments', label: '我的作业', path: '/app/assignments', icon: 'CreateOutline' },
+  { key: 'ClientSimulationTest', label: '模拟测试', path: '/app/simulation-test', icon: 'DocumentTextOutline' },
   { key: 'ClientMyInstances', label: '我的实例', path: '/app/my-instances', icon: 'CubeOutline' },
   { type: 'divider', key: 'd1' },
   { key: 'Dashboard', label: '仪表盘', path: '/admin', icon: 'SpeedometerOutline' },
@@ -125,8 +126,15 @@ const defaultMenuItems = [
   { key: 'Practices', label: '练习管理', path: '/admin/practices', icon: 'CreateOutline' },
 ]
 
+const requiredClientKeys = new Set([
+  'ClientHome',
+  'ClientContents',
+  'ClientAssignments',
+  'ClientSimulationTest',
+  'ClientMyInstances'
+])
 const instanceMenuKeys = new Set(['Templates', 'Instances', 'AdminImageRepositories', 'Clusters'])
-const practiceMenuKeys = new Set(['Assignments', 'Questions', 'Practices'])
+const practiceMenuKeys = new Set(['Assignments', 'Questions', 'Practices', 'ClientSimulationTest'])
 
 const router = useRouter()
 const route = useRoute()
@@ -251,7 +259,14 @@ onUnmounted(() => {
 
 const menuItems = computed(() => {
   if (Array.isArray(userStore.menuConfig) && userStore.menuConfig.length > 0) {
-    return normalizeMenuItems(userStore.menuConfig)
+    const fromStore = [...userStore.menuConfig]
+    const existingKeys = new Set(fromStore.map((item) => item?.key).filter(Boolean))
+    defaultMenuItems.forEach((item) => {
+      if (requiredClientKeys.has(item.key) && !existingKeys.has(item.key)) {
+        fromStore.push(item)
+      }
+    })
+    return normalizeMenuItems(fromStore)
   }
   return normalizeMenuItems(defaultMenuItems)
 })
@@ -260,38 +275,25 @@ const menuOptions = computed(() => menuItems.value.map(renderMenuOption))
 
 const activeMenu = computed(() => {
   const currentRouteName = route.name
+  if (['ClientContents', 'ClientContent'].includes(currentRouteName)) return 'ClientContents'
+  if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) return 'ClientMyInstances'
+  if (['ClientAssignments'].includes(currentRouteName)) return 'ClientAssignments'
+  if (['ClientSimulationTest'].includes(currentRouteName)) return 'ClientSimulationTest'
+  const foundNested = findMenuItemByKey(menuItems.value, currentRouteName)
+  if (foundNested) return foundNested.key
 
-  if (['ClientContents', 'ClientContent'].includes(currentRouteName)) {
-    return 'ClientContents'
-  }
-  if (['ClientMyInstances', 'ClientInstanceDetail'].includes(currentRouteName)) {
-    return 'ClientMyInstances'
-  }
-  if (['ClientAssignments'].includes(currentRouteName)) {
-    return 'ClientAssignments'
-  }
-
-  const found = findMenuItemByKey(menuItems.value, currentRouteName)
+  const found = menuItems.value.find((item) => item.key === currentRouteName)
   if (found) return found.key
-
   return 'ClientHome'
 })
 
-const userMenuOptions = [{ label: 'Logout', key: 'logout' }]
+const userMenuOptions = [{ label: '退出登录', key: 'logout' }]
 
 async function handleUserMenu(key) {
-  switch (key) {
-    case 'logout':
-      userStore.logout()
-      resetRouter()
-      await router.replace('/login')
-      break
-    case 'profile':
-      router.push('/app/profile')
-      break
-    case 'settings':
-      router.push('/app/settings')
-      break
+  if (key === 'logout') {
+    userStore.logout()
+    resetRouter()
+    await router.replace('/login')
   }
 }
 
@@ -319,7 +321,7 @@ function toggleSidebar() {
 .header {
   height: 64px;
   flex-shrink: 0;
-  background: white;
+  background: #ffffff;
   border-bottom: 1px solid #e0e0e6;
   display: flex;
   align-items: center;

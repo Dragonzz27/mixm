@@ -10,6 +10,7 @@ from app.models.question import Question
 from app.models.role import Role
 from app.schema.practice import PracticeCreate, PracticeUpdate
 from app.service.question import question_service
+from app.service.question_bank import question_bank_service
 
 
 class PracticeService:
@@ -124,39 +125,12 @@ class PracticeService:
         knowledge_tag_ids: List[str],
         type_counts: Dict[str, int],
     ) -> Tuple[List[Question], Dict[str, int]]:
-        shortages: Dict[str, int] = {}
-        selected: List[Question] = []
-
-        for question_type, count in (type_counts or {}).items():
-            count = max(int(count or 0), 0)
-            if count <= 0:
-                continue
-
-            query = (
-                db.query(Question)
-                .options(joinedload(Question.knowledge_tags))
-                .filter(
-                    Question.type == question_type,
-                    Question.review_status == question_service.REVIEW_APPROVED,
-                )
-            )
-
-            if knowledge_tag_ids:
-                query = (
-                    query.join(Question.knowledge_tags)
-                    .filter(Category.id.in_(knowledge_tag_ids))
-                    .distinct()
-                )
-
-            pool = query.all()
-            random.shuffle(pool)
-            picked = pool[:count]
-            selected.extend(picked)
-
-            if len(picked) < count:
-                shortages[question_type] = count - len(picked)
-
-        return selected, shortages
+        return question_bank_service.generate_by_type_counts(
+            db=db,
+            type_counts=type_counts,
+            knowledge_tag_ids=knowledge_tag_ids,
+            is_superuser=False,
+        )
 
     def _sync_roles(self, db: Session, practice: Practice, role_ids: Optional[List[str]]) -> None:
         practice.visible_roles = []
