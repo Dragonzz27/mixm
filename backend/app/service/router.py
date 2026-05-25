@@ -12,12 +12,14 @@ class RouterService:
             "ClientContents",
             "ClientMyInstances",
             "ClientAssignments",
+            "ClientSimulationTest",
         ]
         self._menu_key_route_names = {
             "ClientHome": ["ClientHome", "ClientLevels", "ClientLevelDetail"],
             "ClientContents": ["ClientContents", "ClientContent"],
             "ClientMyInstances": ["ClientMyInstances", "ClientInstanceDetail"],
             "ClientAssignments": ["ClientAssignments"],
+            "ClientSimulationTest": ["ClientSimulationTest"],
             "Dashboard": ["Dashboard"],
             "Users": ["Users"],
             "Roles": ["Roles"],
@@ -93,6 +95,12 @@ class RouterService:
                         "name": "ClientAssignments",
                         "component": "views/client/Assignments.vue",
                         "meta": {"title": "我的作业"},
+                    },
+                    {
+                        "path": "simulation-test",
+                        "name": "ClientSimulationTest",
+                        "component": "views/client/SimulationTest.vue",
+                        "meta": {"title": "模拟测试"},
                     },
                 ],
             },
@@ -214,6 +222,12 @@ class RouterService:
             {"key": "Assignments", "label": "作业管理", "path": "/admin/assignments", "icon": "CreateOutline"},
             {"key": "Questions", "label": "题库管理", "path": "/admin/questions", "icon": "DocumentTextOutline"},
             {"key": "Practices", "label": "练习管理", "path": "/admin/practices", "icon": "CreateOutline"},
+            {
+                "key": "ClientSimulationTest",
+                "label": "模拟测试",
+                "path": "/app/simulation-test",
+                "icon": "DocumentTextOutline",
+            },
         ]
 
     def _resolve_menu_keys(

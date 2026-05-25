@@ -24,6 +24,7 @@ from app.router import (
     question,
     knowledge_tree,
     question_generate,
+    simulation,
 )
 from app.database import engine
 from app.models import user
@@ -45,6 +46,7 @@ from app.models.question import (
     QuestionOption,
     QuestionAttachment,
 )
+from app.models.knowledge_tracing import KnowledgeMastery, SimulationAnswerTrace
 from app.service.ssh_gateway import SSHGatewayService
 
 
@@ -110,6 +112,8 @@ Question.__table__.create(bind=engine, checkfirst=True)
 QuestionCategory.__table__.create(bind=engine, checkfirst=True)
 QuestionOption.__table__.create(bind=engine, checkfirst=True)
 QuestionAttachment.__table__.create(bind=engine, checkfirst=True)
+KnowledgeMastery.__table__.create(bind=engine, checkfirst=True)
+SimulationAnswerTrace.__table__.create(bind=engine, checkfirst=True)
 ensure_question_review_columns()
 ensure_assignment_attachment_column()
 
@@ -159,3 +163,4 @@ app.include_router(question.router, prefix="/api/questions", tags=["questions"])
 app.include_router(question.category_router, prefix="/api/question-categories", tags=["question-categories"])
 app.include_router(knowledge_tree.router, prefix="/api/knowledge-tree", tags=["knowledge-tree"])
 app.include_router(question_generate.router, prefix="/api/questions", tags=["questions"])
+app.include_router(simulation.router, prefix="/api/simulation", tags=["simulation"])
