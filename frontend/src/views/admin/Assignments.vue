@@ -295,7 +295,27 @@ const columns = computed(() => [
     }
   },
   { title: '提交数', key: 'submission_count', width: 80 },
-  { title: '创建时间', key: 'created_at', width: 180, render: (row) => formatDate(row.created_at) },
+  {
+    title: '角色',
+    key: 'visible_roles',
+    width: 200,
+    render: (row) => {
+      if (!row.visible_roles?.length) {
+        return h(NTag, { size: 'small', type: 'default' }, () => '全部角色')
+      }
+
+      const roleMap = new Map(roleOptions.value.map(role => [role.value, role.label]))
+      return h(
+        NSpace,
+        { size: 4 },
+        () => row.visible_roles.map(roleId => h(
+          NTag,
+          { key: roleId, size: 'small', type: 'info' },
+          () => roleMap.get(roleId) || roleId
+        ))
+      )
+    }
+  },
   {
     title: '操作',
     key: 'actions',

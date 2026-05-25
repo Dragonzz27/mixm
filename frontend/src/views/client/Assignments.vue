@@ -69,95 +69,109 @@
       v-model:show="showSubmitModal"
       preset="card"
       :title="currentAssignment?.title || '提交作业'"
-      style="width: 760px;"
+      style="width: 96vw; max-width: 1480px;"
     >
       <div v-if="currentAssignment" class="submit-form">
-        <n-descriptions :column="1" label-placement="left" bordered>
-          <n-descriptions-item label="作业描述">{{ currentAssignment.description || '暂无描述' }}</n-descriptions-item>
-          <n-descriptions-item label="截止时间">{{ formatDate(currentAssignment.deadline) }}</n-descriptions-item>
-        </n-descriptions>
+        <div class="detail-top">
+          <section class="detail-panel assignment-info-panel">
+            <div class="section-title">作业信息</div>
+            <div class="assignment-summary">
+              <span class="summary-description" :title="currentAssignment.description || '暂无描述'">
+                {{ currentAssignment.description || '暂无描述' }}
+              </span>
+              <span class="summary-divider">|</span>
+              <span class="summary-deadline">截止：{{ formatDate(currentAssignment.deadline) }}</span>
+            </div>
+          </section>
 
-        <n-divider />
+          <section class="detail-panel submission-panel">
+            <div class="section-title">提交作业</div>
+            <div v-if="userSubmission && allowResubmit" class="current-submission-resubmit">
+              <div class="submission-summary" :title="userSubmission.file_name || '文本内容'">
+                <n-tag type="success" size="small">已提交</n-tag>
+                <span class="submission-file">{{ userSubmission.file_name || '文本内容' }}</span>
+                <span class="summary-deadline">{{ formatDate(userSubmission.submitted_at) }}</span>
+                <span v-if="userSubmission.grade !== null">{{ userSubmission.grade }} 分</span>
+              </div>
+              <n-space size="small">
+                <n-button v-if="userSubmission.file_path || userSubmission.file_url" @click="previewFile(userSubmission)">预览提交文件</n-button>
+                <n-button type="warning" @click="deleteAndResubmit">删除并重新提交</n-button>
+              </n-space>
+            </div>
+
+            <div v-else class="upload-section">
+              <div v-if="uploadFile" class="selected-file">
+                <div class="file-info">
+                  <n-icon :size="18"><DocumentTextOutline /></n-icon>
+                  <span class="file-name">{{ uploadFile.name }}</span>
+                  <span class="file-size">{{ formatFileSize(uploadFile.size) }}</span>
+                  <n-button size="tiny" @click="viewUploadedFile">预览</n-button>
+                  <n-button size="tiny" type="error" @click="removeFile">删除</n-button>
+                </div>
+              </div>
+
+              <div v-else class="upload-area">
+                <n-upload
+                  ref="uploadRef"
+                  :max="1"
+                  :custom-request="customRequest"
+                  :show-file-list="false"
+                  accept=".doc,.docx,.pdf,.ppt,.pptx,.txt"
+                  @before-upload="beforeUpload"
+                >
+                  <div class="upload-dragger">
+                    <n-icon :size="18"><CloudUploadOutline /></n-icon>
+                    <span class="upload-text">上传作业文件</span>
+                    <span class="upload-hint">.doc / .docx / .pdf / .ppt / .pptx / .txt</span>
+                  </div>
+                </n-upload>
+              </div>
+
+              <n-space justify="end" size="small" class="submission-actions">
+                <n-button
+                  type="primary"
+                  size="small"
+                  :loading="submitting"
+                  :disabled="!uploadResult"
+                  @click="handleSubmit"
+                >
+                  提交作业
+                </n-button>
+              </n-space>
+            </div>
+          </section>
+        </div>
+
+        <n-divider v-if="currentAttachments.length" />
 
         <div v-if="currentAttachments.length" class="attachment-panel">
           <div class="section-title">作业附件</div>
-          <div class="attachment-list">
-            <n-card v-for="(attachment, index) in currentAttachments" :key="index" size="small" class="attachment-card">
-              <div class="attachment-row">
-                <div class="attachment-meta">
+          <n-tabs
+            v-model:value="selectedAttachmentTab"
+            type="line"
+            placement="left"
+            class="attachment-tabs"
+          >
+            <n-tab-pane
+              v-for="(attachment, index) in currentAttachments"
+              :key="`${attachment.file_name}-${index}`"
+              :name="String(index)"
+              display-directive="if"
+            >
+              <template #tab>
+                <div class="attachment-tab">
                   <div class="attachment-name">{{ attachment.name }}</div>
-                  <div class="attachment-file">
+                  <!-- <div class="attachment-file">
                     {{ attachment.file_name }}
                     <span v-if="attachment.file_size" class="attachment-size">({{ formatAttachmentSize(attachment.file_size) }})</span>
-                  </div>
+                  </div> -->
                 </div>
-                <n-button size="small" @click="previewFile(attachment)">预览</n-button>
-              </div>
-            </n-card>
-          </div>
-          <n-divider />
+              </template>
+              <FilePreviewPanel :file-data="attachment" class="attachment-preview" />
+            </n-tab-pane>
+          </n-tabs>
         </div>
-
-        <div v-if="userSubmission && allowResubmit" class="current-submission-resubmit">
-          <n-alert type="info" title="您已提交过此作业">
-            <template #default>
-              <div><strong>文件名：</strong>{{ userSubmission.file_name || '文本内容' }}</div>
-              <div><strong>提交时间：</strong>{{ formatDate(userSubmission.submitted_at) }}</div>
-              <div v-if="userSubmission.grade !== null"><strong>评分：</strong>{{ userSubmission.grade }} 分</div>
-              <div v-if="userSubmission.feedback"><strong>反馈：</strong>{{ userSubmission.feedback }}</div>
-            </template>
-          </n-alert>
-
-          <n-space style="margin-top: 16px;">
-            <n-button v-if="userSubmission.file_path || userSubmission.file_url" @click="previewFile(userSubmission)">预览文件</n-button>
-            <n-button type="warning" @click="deleteAndResubmit">删除并重新提交</n-button>
-          </n-space>
-        </div>
-
-        <div v-else class="upload-section">
-          <div v-if="uploadFile" class="selected-file">
-            <n-card size="small">
-              <div class="file-info">
-                <n-icon :size="20"><DocumentTextOutline /></n-icon>
-                <span class="file-name">{{ uploadFile.name }}</span>
-                <span class="file-size">{{ formatFileSize(uploadFile.size) }}</span>
-              </div>
-              <n-space>
-                <n-button size="small" @click="viewUploadedFile">预览</n-button>
-                <n-button size="small" type="error" @click="removeFile">删除</n-button>
-              </n-space>
-            </n-card>
-          </div>
-
-          <div v-else class="upload-area">
-            <n-upload
-              ref="uploadRef"
-              :max="1"
-              :custom-request="customRequest"
-              :show-file-list="false"
-              accept=".doc,.docx,.pdf,.ppt,.pptx,.txt"
-              @before-upload="beforeUpload"
-            >
-              <div class="upload-dragger">
-                <n-icon :size="40"><CloudUploadOutline /></n-icon>
-                <div class="upload-text">点击或拖拽文件到此处上传</div>
-                <div class="upload-hint">支持 .doc、.docx、.pdf、.ppt、.pptx、.txt，限 1 个文件</div>
-              </div>
-            </n-upload>
-          </div>
-
-          <n-space justify="end" style="margin-top: 16px;">
-            <n-button @click="showSubmitModal = false">取消</n-button>
-            <n-button
-              type="primary"
-              :loading="submitting"
-              :disabled="!uploadResult"
-              @click="handleSubmit"
-            >
-              提交作业
-            </n-button>
-          </n-space>
-        </div>
+        <n-empty v-else class="attachment-empty" description="此作业暂无附件" />
       </div>
     </n-modal>
   </div>
@@ -175,10 +189,7 @@ import {
   NTabs,
   NTabPane,
   NEmpty,
-  NDescriptions,
-  NDescriptionsItem,
   NDivider,
-  NAlert,
   NUpload,
   NDataTable,
   NIcon,
@@ -186,6 +197,7 @@ import {
 } from 'naive-ui'
 import { DocumentTextOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import FilePreviewModal from '@/components/FilePreviewModal.vue'
+import FilePreviewPanel from '@/components/FilePreviewPanel.vue'
 import { assignmentApi } from '@/api'
 import { formatAttachmentSize, normalizeAssignmentAttachments } from '@/utils/assignmentAttachments'
 
@@ -204,6 +216,7 @@ const submitting = ref(false)
 const pagination = ref({ pageSize: 10 })
 const showPreviewModal = ref(false)
 const previewFileData = ref(null)
+const selectedAttachmentTab = ref('0')
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -293,6 +306,7 @@ function viewDetail(assignment) {
   allowResubmit.value = !!userSubmission.value
   uploadResult.value = null
   uploadFile.value = null
+  selectedAttachmentTab.value = '0'
   showSubmitModal.value = true
 }
 
@@ -469,43 +483,105 @@ onMounted(() => {
 }
 
 .submit-form {
-  padding: 8px 0;
+  padding: 2px 0;
+}
+
+.detail-top {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.85fr) minmax(430px, 1.15fr);
+  gap: 8px;
+}
+
+.detail-panel {
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid #e0e0e6;
+  border-radius: 8px;
+  background: #fff;
 }
 
 .section-title {
-  margin-bottom: 12px;
+  margin-bottom: 3px;
   font-weight: 600;
   color: #333;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.assignment-summary,
+.submission-summary {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 26px;
+  gap: 8px;
+  color: #666;
+  font-size: 13px;
+}
+
+.summary-description,
+.submission-file {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-description {
+  flex: 1;
+}
+
+.summary-divider {
+  color: #ddd;
+}
+
+.summary-deadline {
+  flex-shrink: 0;
+  color: #888;
 }
 
 .attachment-panel {
-  margin-bottom: 16px;
+  min-height: 596px;
 }
 
-.attachment-list {
-  display: grid;
-  gap: 12px;
+.attachment-tabs {
+  height: 560px;
 }
 
-.attachment-card {
-  background: #fafafc;
+.attachment-tabs :deep(.n-tabs-nav-scroll-wrapper) {
+  width: 176px;
+  padding-right: 12px;
+  border-right: 1px solid #e0e0e6;
 }
 
-.attachment-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+.attachment-tabs :deep(.n-tabs-pane-wrapper) {
+  padding-left: 24px;
 }
 
-.attachment-meta {
-  min-width: 0;
+.attachment-tab {
+  position: relative;
+  box-sizing: border-box;
+  width: 100px;
+  padding: 5px 4px 5px;
+  text-align: left;
+  white-space: normal;
+}
+
+.attachment-tabs :deep(.n-tabs-tab--active .attachment-tab)::after {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  left: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: #18a058;
+  content: '';
 }
 
 .attachment-name {
   color: #333;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .attachment-file,
@@ -515,15 +591,32 @@ onMounted(() => {
   word-break: break-all;
 }
 
+.attachment-preview {
+  height: 560px;
+}
+
+.attachment-empty {
+  padding: 32px 0 16px;
+}
+
 .upload-section {
-  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+.upload-area {
+  flex: 1;
 }
 
 .upload-dragger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border: 2px dashed #d0d0d5;
   border-radius: 8px;
-  padding: 32px;
-  text-align: center;
+  padding: 3px 10px;
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -534,26 +627,23 @@ onMounted(() => {
 }
 
 .upload-text {
-  margin-top: 12px;
   font-size: 14px;
   color: #333;
 }
 
 .upload-hint {
-  margin-top: 8px;
   font-size: 12px;
   color: #999;
 }
 
 .selected-file {
-  margin-bottom: 16px;
+  flex: 1;
 }
 
 .file-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
 }
 
 .file-name {
@@ -567,7 +657,29 @@ onMounted(() => {
   margin-left: auto;
 }
 
+.submission-actions {
+  flex-shrink: 0;
+}
+
 .current-submission-resubmit {
-  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+@media (max-width: 960px) {
+  .detail-top {
+    grid-template-columns: 1fr;
+  }
+
+  .attachment-tabs :deep(.n-tabs-nav-scroll-wrapper) {
+    width: 154px;
+    padding-right: 8px;
+  }
+
+  .attachment-tab {
+    width: 130px;
+  }
 }
 </style>
