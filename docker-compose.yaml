@@ -55,6 +55,9 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
       - QUEUE_REDIS_URL=redis://redis:6379/2
       - RUSTFS_ENDPOINT=http://rustfs:9000
+      - KT_MODEL_BACKEND=kt_service
+      - KT_SERVICE_URL=http://kt-service:8010
+      - KT_SERVICE_TIMEOUT_SECONDS=3
 
   celery:
     build:
@@ -79,6 +82,20 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
       - QUEUE_REDIS_URL=redis://redis:6379/2
+
+  kt-service:
+    build:
+      context: ./kt_service
+      dockerfile: Dockerfile
+    container_name: kt_service
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./kt_service/train/output:/app/train/output
+    environment:
+      - KT_DKT_CHECKPOINT=/app/train/output/dkt_checkpoint.pt
+      - KT_DKT_SKILL_MAP=/app/train/output/skill_map.json
 
   frontend:
     build:

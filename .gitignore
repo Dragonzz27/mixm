@@ -289,3 +289,12 @@ alembic/versions/*.py
 # Export files
 backend/static/export/
 backend/uploads/
+
+# Local-only KT training artifacts
+._local_backup/
+kt_service/train/data/
+kt_service/train/output/
+kt_service/train/**/*.pt
+kt_service/train/**/*.pth
+kt_service/train/**/*.ckpt
+kt_service/train/**/*.onnx

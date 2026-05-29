@@ -46,7 +46,7 @@ from app.models.question import (
     QuestionOption,
     QuestionAttachment,
 )
-from app.models.knowledge_tracing import KnowledgeMastery, SimulationAnswerTrace
+from app.models.knowledge_tracing import KnowledgeMastery, SimulationAnswerTrace, SimulationAttempt
 from app.service.ssh_gateway import SSHGatewayService
 
 
@@ -114,6 +114,7 @@ QuestionOption.__table__.create(bind=engine, checkfirst=True)
 QuestionAttachment.__table__.create(bind=engine, checkfirst=True)
 KnowledgeMastery.__table__.create(bind=engine, checkfirst=True)
 SimulationAnswerTrace.__table__.create(bind=engine, checkfirst=True)
+SimulationAttempt.__table__.create(bind=engine, checkfirst=True)
 ensure_question_review_columns()
 ensure_assignment_attachment_column()
 
