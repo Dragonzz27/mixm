@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     LLM_API_URL: str = "https://api.openai.com/v1"
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "gpt-4o"
+    KT_MODEL_BACKEND: str = "kt_service"
+    KT_AKT_CHECKPOINT: str = ""
+    KT_AKT_DEVICE: str = "cpu"
+    KT_SERVICE_URL: str = "http://kt-service:8010"
+    KT_SERVICE_TIMEOUT_SECONDS: float = 3.0
 
 
     class Config:

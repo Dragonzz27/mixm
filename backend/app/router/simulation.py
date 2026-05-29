@@ -1,8 +1,8 @@
 ﻿import json
 import random
 import uuid
+from datetime import datetime
 from typing import Dict, List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -10,14 +10,19 @@ from app.database import get_db
 from app.models.category import Category
 from app.models.content import Content
 from app.models.content_category import ContentCategory
+from app.models.knowledge_tracing import SimulationAnswerTrace, SimulationAttempt
 from app.models.practice import Practice, PracticeQuestion
 from app.models.question import Question
 from app.schema.simulation import (
+    SimulationAnswerReviewResponse,
+    SimulationAnswerItem,
     SimulationGenerateRequest,
     SimulationGenerateResponse,
     SimulationQuestion,
     SimulationSubmitRequest,
     SimulationSubmitResponse,
+    SimulationTraceItem,
+    SimulationTraceListResponse,
 )
 from app.service.auth import AuthService
 from app.service.knowledge_tracing import TraceItem, knowledge_tracing_service
@@ -26,6 +31,108 @@ from app.service.question_generate import question_generate_service
 
 router = APIRouter()
 get_current_user = AuthService().get_current_user
+
+
+@router.get("/kt-status")
+def get_kt_status(current_user=Depends(get_current_user)):
+    return knowledge_tracing_service.get_backend_status()
+
+
+@router.get("/traces", response_model=SimulationTraceListResponse)
+def get_simulation_traces(
+    limit: int = 50,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    safe_limit = max(1, min(limit, 200))
+    rows = (
+        db.query(SimulationAnswerTrace)
+        .filter(SimulationAnswerTrace.user_id == current_user.id)
+        .order_by(SimulationAnswerTrace.created_at.desc())
+        .limit(safe_limit)
+        .all()
+    )
+    items = [
+        SimulationTraceItem(
+            id=row.id,
+            user_id=row.user_id,
+            question_id=row.question_id,
+            knowledge_tag=row.knowledge_tag,
+            selected_index=row.selected_index,
+            correct_index=row.correct_index,
+            is_correct=row.is_correct,
+            created_at=row.created_at.isoformat() if row.created_at else None,
+        )
+        for row in rows
+    ]
+    return SimulationTraceListResponse(total=len(items), items=items)
+
+
+def _dump_json(data) -> str:
+    return json.dumps(data, ensure_ascii=False)
+
+
+def _load_json(text_value: Optional[str], fallback):
+    if not text_value:
+        return fallback
+    try:
+        return json.loads(text_value)
+    except Exception:
+        return fallback
+
+
+def _find_active_attempt(db: Session, user_id: str) -> Optional[SimulationAttempt]:
+    return (
+        db.query(SimulationAttempt)
+        .filter(
+            SimulationAttempt.user_id == user_id,
+            SimulationAttempt.status == "in_progress",
+        )
+        .order_by(SimulationAttempt.started_at.desc())
+        .first()
+    )
+
+
+@router.get("/attempt/current")
+def get_current_attempt(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    attempt = _find_active_attempt(db, current_user.id)
+    if not attempt:
+        return {"attempt_id": None, "attempt_status": None}
+    return {"attempt_id": attempt.id, "attempt_status": attempt.status}
+
+
+@router.get("/attempt/{attempt_id}/review", response_model=SimulationAnswerReviewResponse)
+def get_attempt_review(
+    attempt_id: str,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    attempt = (
+        db.query(SimulationAttempt)
+        .filter(
+            SimulationAttempt.id == attempt_id,
+            SimulationAttempt.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="作答记录不存在")
+    if attempt.status != "submitted":
+        raise HTTPException(status_code=400, detail="当前试卷尚未交卷")
+
+    q_data = _load_json(attempt.questions_payload, [])
+    a_data = _load_json(attempt.answers_payload, [])
+    r_data = _load_json(attempt.result_payload, None)
+    questions = [SimulationQuestion(**item) for item in q_data]
+    answers = [SimulationAnswerItem(**item) for item in a_data]
+    result = SimulationSubmitResponse(**r_data) if r_data else None
+    return SimulationAnswerReviewResponse(
+        attempt_id=attempt.id,
+        attempt_status=attempt.status,
+        questions=questions,
+        answers=answers,
+        result=result,
+    )
 
 
 def _collect_descendant_ids(db: Session, root_id: str) -> List[str]:
@@ -161,6 +268,32 @@ def _normalize_text_answer(value: Optional[str]) -> str:
     return "".join(value.lower().split())
 
 
+def _assign_question_scores(questions: List[SimulationQuestion]) -> List[SimulationQuestion]:
+    if not questions:
+        return questions
+
+    weights_map = {
+        1: 1.0,
+        2: 1.1,
+        3: 1.3,
+        4: 1.6,
+        5: 2.0,
+    }
+    weights = [weights_map.get(int(q.difficulty or 3), 1.3) for q in questions]
+    total_weight = sum(weights) or 1.0
+
+    running = 0.0
+    for idx, question in enumerate(questions):
+        if idx < len(questions) - 1:
+            score = round(100.0 * (weights[idx] / total_weight), 2)
+            question.score = score
+            running += score
+        else:
+            # Make the last question absorb rounding difference to keep total=100.
+            question.score = round(100.0 - running, 2)
+    return questions
+
+
 def _build_random_questions(
     payload: SimulationGenerateRequest,
     contents: List[Content],
@@ -205,6 +338,7 @@ def _build_random_questions(
                 stem=stem,
                 options=options,
                 correct_index=correct_index,
+                difficulty=payload.difficulty or 3,
                 correct_answer=correct_answer,
                 knowledge_tag=" / ".join(knowledge_tags[:3]),
                 knowledge_tags=knowledge_tags,
@@ -272,6 +406,7 @@ async def _build_ai_questions(
                 stem=stem,
                 options=options,
                 correct_index=correct_index,
+                difficulty=difficulty_level,
                 correct_answer=correct_answer,
                 knowledge_tag=" / ".join(knowledge_tags[:3]),
                 knowledge_tags=knowledge_tags,
@@ -350,6 +485,7 @@ def _to_simulation_question(question: Question) -> SimulationQuestion:
         stem=question.title,
         options=options,
         correct_index=correct_index,
+        difficulty=question.difficulty or 3,
         correct_indices=correct_indices or None,
         correct_answer=question.answer if question_type in {"fill_blank", "short_answer"} else None,
         knowledge_tag=" / ".join(knowledge_tags[:3]),
@@ -406,6 +542,18 @@ async def generate_simulation(
         if not category:
             raise HTTPException(status_code=404, detail="Course category not found")
 
+    # Resume unfinished attempt instead of creating a new one.
+    active_attempt = _find_active_attempt(db, current_user.id)
+    if active_attempt:
+        stored_questions = _load_json(active_attempt.questions_payload, [])
+        if stored_questions:
+            return SimulationGenerateResponse(
+                attempt_id=active_attempt.id,
+                attempt_status=active_attempt.status,
+                settings=payload,
+                questions=[SimulationQuestion(**item) for item in stored_questions],
+            )
+
     mode = (payload.generation_mode or "random").lower()
     if mode == "ai":
         category_ids = _collect_descendant_ids(db, category.id) if category else []
@@ -445,7 +593,26 @@ async def generate_simulation(
     else:
         questions = _build_bank_questions(payload, db, category, current_user)
 
-    return SimulationGenerateResponse(settings=payload, questions=questions)
+    questions = _assign_question_scores(questions)
+
+    attempt = SimulationAttempt(
+        user_id=current_user.id,
+        status="in_progress",
+        paper_source=mode,
+        practice_id=payload.practice_id,
+        questions_payload=_dump_json([q.dict() for q in questions]),
+        answers_payload=_dump_json([]),
+    )
+    db.add(attempt)
+    db.commit()
+    db.refresh(attempt)
+
+    return SimulationGenerateResponse(
+        attempt_id=attempt.id,
+        attempt_status=attempt.status,
+        settings=payload,
+        questions=questions,
+    )
 
 
 @router.post("/submit", response_model=SimulationSubmitResponse)
@@ -454,6 +621,21 @@ def submit_simulation(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if not payload.attempt_id:
+        raise HTTPException(status_code=400, detail="缺少 attempt_id")
+    attempt = (
+        db.query(SimulationAttempt)
+        .filter(
+            SimulationAttempt.id == payload.attempt_id,
+            SimulationAttempt.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(status_code=404, detail="作答记录不存在")
+    if attempt.status == "submitted":
+        raise HTTPException(status_code=400, detail="该试卷已提交，不能重复交卷")
+
     answer_map = {item.question_id: item.selected_index for item in payload.answers}
     answer_text_map = {item.question_id: item.answer_text for item in payload.answers}
     total = len(payload.questions)
@@ -462,6 +644,8 @@ def submit_simulation(
 
     answered = 0
     correct = 0
+    total_score = round(sum(float(question.score or 0.0) for question in payload.questions), 2)
+    earned_score = 0.0
     knowledge_stats: Dict[str, Dict[str, int]] = {}
     trace_items: List[TraceItem] = []
     q_matrix: List[Dict[str, object]] = []
@@ -500,6 +684,7 @@ def submit_simulation(
             is_correct = selected == question.correct_index if selected is not None else False
         if is_correct:
             correct += 1
+            earned_score += float(question.score or 0.0)
 
         q_tags = question.knowledge_tags or ([question.knowledge_tag] if question.knowledge_tag else [])
         if not q_tags:
@@ -537,6 +722,9 @@ def submit_simulation(
             )
 
     accuracy = round((correct / total) * 100, 2) if total > 0 else 0.0
+    if total_score <= 0:
+        total_score = 100.0
+    score = round(earned_score, 2)
     knowledge_accuracy: Dict[str, float] = {}
     weak_points: List[str] = []
     for kp, stat in knowledge_stats.items():
@@ -551,8 +739,11 @@ def submit_simulation(
         user_id=current_user.id,
         trace_items=trace_items,
     )
-
-    return SimulationSubmitResponse(
+    response_data = SimulationSubmitResponse(
+        attempt_id=attempt.id,
+        attempt_status="submitted",
+        total_score=total_score,
+        score=score,
         total_questions=total,
         answered_questions=answered,
         correct_count=correct,
@@ -564,3 +755,13 @@ def submit_simulation(
         q_matrix_by_question=q_matrix_by_question,
         q_matrix_by_tag=q_matrix_by_tag,
     )
+    attempt.status = "submitted"
+    attempt.answers_payload = _dump_json([item.dict() for item in payload.answers])
+    attempt.result_payload = _dump_json(response_data.dict())
+    attempt.submitted_at = datetime.utcnow()
+    db.commit()
+    return response_data
+
+
+
+

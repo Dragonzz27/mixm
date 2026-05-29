@@ -22,6 +22,8 @@ class SimulationQuestion(BaseModel):
     stem: str
     options: List[str]
     correct_index: int
+    difficulty: int = 3
+    score: float = 0.0
     correct_indices: Optional[List[int]] = None
     correct_answer: Optional[str] = None
     knowledge_tag: Optional[str] = None
@@ -30,6 +32,8 @@ class SimulationQuestion(BaseModel):
 
 
 class SimulationGenerateResponse(BaseModel):
+    attempt_id: Optional[str] = None
+    attempt_status: str = "in_progress"
     settings: SimulationGenerateRequest
     questions: List[SimulationQuestion]
 
@@ -41,11 +45,16 @@ class SimulationAnswerItem(BaseModel):
 
 
 class SimulationSubmitRequest(BaseModel):
+    attempt_id: Optional[str] = None
     questions: List[SimulationQuestion]
     answers: List[SimulationAnswerItem]
 
 
 class SimulationSubmitResponse(BaseModel):
+    attempt_id: Optional[str] = None
+    attempt_status: str = "submitted"
+    total_score: float
+    score: float
     total_questions: int
     answered_questions: int
     correct_count: int
@@ -56,3 +65,27 @@ class SimulationSubmitResponse(BaseModel):
     q_matrix: List[Dict[str, object]] = Field(default_factory=list)
     q_matrix_by_question: Dict[str, List[str]] = Field(default_factory=dict)
     q_matrix_by_tag: Dict[str, List[str]] = Field(default_factory=dict)
+
+
+class SimulationAnswerReviewResponse(BaseModel):
+    attempt_id: str
+    attempt_status: str
+    questions: List[SimulationQuestion] = Field(default_factory=list)
+    answers: List[SimulationAnswerItem] = Field(default_factory=list)
+    result: Optional[SimulationSubmitResponse] = None
+
+
+class SimulationTraceItem(BaseModel):
+    id: str
+    user_id: str
+    question_id: str
+    knowledge_tag: str
+    selected_index: Optional[int] = None
+    correct_index: int
+    is_correct: bool
+    created_at: Optional[str] = None
+
+
+class SimulationTraceListResponse(BaseModel):
+    total: int
+    items: List[SimulationTraceItem] = Field(default_factory=list)
