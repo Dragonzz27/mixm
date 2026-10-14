@@ -54,7 +54,7 @@
 
 ## 数据库和后台任务
 
-GORM 映射现有表名、字符串主键、组合主键、nullable 字段、JSONB 和 TEXT JSON。保留物理删除、数据库默认值及显式更新时间。SQL 迁移位于 `internal/store/migrations`，保留名称、内容、应用记录和 advisory transaction lock；不使用 AutoMigrate。
+GORM 映射现有表名、字符串主键、组合主键、nullable 字段、JSONB 和 TEXT JSON。保留物理删除、数据库默认值及显式更新时间。SQL 迁移位于 `internal/repository/migrations`，保留名称、内容、应用记录和 advisory transaction lock；不使用 AutoMigrate。
 
 任务状态与 outbox 保存在 PostgreSQL。发布保留确认，消费保留手动 ACK/NACK；worker 在一个固定连接上完成 advisory lock、处理与解锁，失败解锁时废弃连接。Redis 命中仍检查用户归属。Kubernetes 名称及用户 PVC 保留规则保持原行为。
 

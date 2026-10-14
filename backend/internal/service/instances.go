@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"mixm-edu/backend/internal/cluster"
 	"mixm-edu/backend/internal/dto"
+	"mixm-edu/backend/internal/infra/cluster"
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
 )

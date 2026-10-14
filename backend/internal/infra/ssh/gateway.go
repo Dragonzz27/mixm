@@ -21,8 +21,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"mixm-edu/backend/internal/cluster"
 	"mixm-edu/backend/internal/config"
+	"mixm-edu/backend/internal/infra/cluster"
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
 )

@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-
-	"mixm-edu/backend/internal/dto"
-
 	"strings"
 	"testing"
 
-	"mixm-edu/backend/internal/cluster"
 	"mixm-edu/backend/internal/config"
+	"mixm-edu/backend/internal/dto"
+	"mixm-edu/backend/internal/infra/cluster"
 	"mixm-edu/backend/internal/model"
 )
 

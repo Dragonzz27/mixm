@@ -8,14 +8,13 @@ import (
 
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
-	"mixm-edu/backend/internal/store"
 	"mixm-edu/backend/internal/testutil"
 )
 
 func TestDefaultsNullZeroAndTransactions(t *testing.T) {
 	db := testutil.Database(t)
 	ctx := context.Background()
-	if err := store.Migrate(ctx, db); err != nil {
+	if err := repository.Migrate(ctx, db); err != nil {
 		t.Fatal(err)
 	}
 	row, err := repository.Write(ctx, db, "categories", "", model.Record{"name": "initial"})

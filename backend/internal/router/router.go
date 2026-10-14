@@ -7,10 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/cluster"
+	"mixm-edu/backend/internal/apperror"
 	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/dto"
 	"mixm-edu/backend/internal/handler"
+	"mixm-edu/backend/internal/infra/cluster"
 	"mixm-edu/backend/internal/middleware"
 	"mixm-edu/backend/internal/repository"
 	"mixm-edu/backend/internal/service"
@@ -30,10 +30,10 @@ func New(c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Cli
 	_ = engine.SetTrustedProxies(nil)
 	engine.Use(middleware.CORS, middleware.Logger, middleware.Recovery)
 	engine.NoRoute(func(c *gin.Context) {
-		handler.Failure(c, &dto.Error{Status: http.StatusNotFound, Detail: "资源不存在"})
+		handler.Failure(c, &apperror.Error{Status: http.StatusNotFound, Detail: "资源不存在"})
 	})
 	engine.NoMethod(func(c *gin.Context) {
-		handler.Failure(c, &dto.Error{Status: http.StatusMethodNotAllowed, Detail: "请求方法不允许"})
+		handler.Failure(c, &apperror.Error{Status: http.StatusMethodNotAllowed, Detail: "请求方法不允许"})
 	})
 	core := service.NewCore(c, db, cache, k)
 	public := engine.Group("/api")

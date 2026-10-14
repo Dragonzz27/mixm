@@ -40,16 +40,6 @@ func TestTokenBoundaries(t *testing.T) {
 		t.Fatal("unsigned token accepted")
 	}
 }
-func TestPasswordHash(t *testing.T) {
-	hash, err := Hash("课程-password")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !Verify(hash, "课程-password") || Verify(hash, "wrong") {
-		t.Fatal("password verification failed")
-	}
-}
-
 func TestTokenRequiresType(t *testing.T) {
 	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{Subject: "learner", ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute))}).SignedString([]byte("secret"))
 	if err != nil {

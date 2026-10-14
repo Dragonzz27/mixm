@@ -16,8 +16,8 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"mixm-edu/backend/internal/cluster"
 	"mixm-edu/backend/internal/config"
+	"mixm-edu/backend/internal/infra/cluster"
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
 	"mixm-edu/backend/internal/testutil"

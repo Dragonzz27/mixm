@@ -10,7 +10,6 @@ import (
 
 	"mixm-edu/backend/internal/config"
 	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/store"
 )
 
 func Seed() error {
@@ -19,12 +18,12 @@ func Seed() error {
 		return err
 	}
 	ctx := context.Background()
-	db, err := store.Open(ctx, c.DatabaseURL)
+	db, err := repository.Open(ctx, c.DatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
-	if err = store.Migrate(ctx, db); err != nil {
+	if err = repository.Migrate(ctx, db); err != nil {
 		return err
 	}
 	tx, err := db.Begin(ctx)

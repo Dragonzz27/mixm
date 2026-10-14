@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"mixm-edu/backend/internal/apperror"
 	"mixm-edu/backend/internal/dto"
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
@@ -20,7 +21,7 @@ import (
 
 func Failure(c *gin.Context, err error) {
 	status, message := http.StatusInternalServerError, "服务器错误"
-	var application *dto.Error
+	var application *apperror.Error
 	var pg *pgconn.PgError
 	switch {
 	case errors.As(err, &application):
@@ -78,23 +79,23 @@ func decode(c *gin.Context, target any) bool {
 	decoder.UseNumber()
 	var raw json.RawMessage
 	if err := decoder.Decode(&raw); err != nil {
-		Failure(c, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: "无效的 JSON 请求"})
+		Failure(c, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: "无效的 JSON 请求"})
 		return false
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
-		Failure(c, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: "请求只能包含一个 JSON 值"})
+		Failure(c, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: "请求只能包含一个 JSON 值"})
 		return false
 	}
 	trimmed := bytes.TrimSpace(raw)
 	kind := reflect.ValueOf(target).Elem().Kind()
 	if len(trimmed) == 0 || (kind == reflect.Struct && trimmed[0] != '{') || (kind == reflect.Slice && trimmed[0] != '[') {
-		Failure(c, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: "请求 JSON 类型无效"})
+		Failure(c, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: "请求 JSON 类型无效"})
 		return false
 	}
 	binder := json.NewDecoder(bytes.NewReader(raw))
 	binder.UseNumber()
 	if err := binder.Decode(target); err != nil {
-		Failure(c, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: "无效的 JSON 请求"})
+		Failure(c, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: "无效的 JSON 请求"})
 		return false
 	}
 	return true
@@ -110,13 +111,13 @@ func bindInput[T any](c *gin.Context) (T, bool) {
 func upload(c *gin.Context, limit int64) (dto.Upload, func(), error) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, limit)
 	if err := c.Request.ParseMultipartForm(limit); err != nil {
-		return dto.Upload{}, func() {}, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: "文件过大或格式无效"}
+		return dto.Upload{}, func() {}, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: "文件过大或格式无效"}
 	}
 	cleanup := func() { _ = c.Request.MultipartForm.RemoveAll() }
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		cleanup()
-		return dto.Upload{}, func() {}, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: "需要 file 字段"}
+		return dto.Upload{}, func() {}, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: "需要 file 字段"}
 	}
 	return dto.Upload{Reader: file, Name: header.Filename, Size: header.Size, ContentType: header.Header.Get("Content-Type")}, func() { file.Close(); cleanup() }, nil
 }
@@ -138,7 +139,7 @@ func emit(c *gin.Context) func(model.Record) {
 func FinishPage(c *gin.Context, status int, value any, alreadyPaged bool) {
 	pagination, err := dto.ParsePagination(c.Request.URL.Query())
 	if err != nil {
-		Failure(c, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: err.Error()})
+		Failure(c, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: err.Error()})
 		return
 	}
 	rows := []model.Record{}

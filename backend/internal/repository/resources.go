@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"mixm-edu/backend/internal/apperror"
 	"mixm-edu/backend/internal/dto"
 	"mixm-edu/backend/internal/model"
 )
@@ -52,11 +53,11 @@ func ResourceDetail(ctx context.Context, db *DB, actor model.Actor, table, id st
 func parsePage(query url.Values) (int, int, error) {
 	p, err := dto.ParsePagination(query)
 	if err != nil {
-		return 0, 0, &dto.Error{Status: http.StatusUnprocessableEntity, Detail: err.Error()}
+		return 0, 0, &apperror.Error{Status: http.StatusUnprocessableEntity, Detail: err.Error()}
 	}
 	return p.Offset, p.Limit, nil
 }
-func fail(status int, message string) error { return &dto.Error{Status: status, Detail: message} }
+func fail(status int, message string) error { return &apperror.Error{Status: status, Detail: message} }
 
 func ListResources(ctx context.Context, db *DB, actor model.Actor, query url.Values, table, extra string, args []any) ([]model.Record, int, error) {
 	skip, limit, err := parsePage(query)

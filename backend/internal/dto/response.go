@@ -40,13 +40,6 @@ func ParsePagination(query url.Values) (Pagination, error) {
 	return p, nil
 }
 
-type Error struct {
-	Status int
-	Detail string
-}
-
-func (err *Error) Error() string { return err.Detail }
-
 // Creation distinguishes a new resource from an existing resource resumed by POST.
 type Creation struct {
 	Data    model.Record
