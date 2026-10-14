@@ -138,7 +138,7 @@ async function fetchTags() {
     loadingTags.value = true
     const repoId = route.params.id
     const res = await imageApi.getTags(repoId)
-    tags.value = res || []
+    tags.value = res.items || []
   } catch (err) {
     console.error('Failed to fetch tags:', err)
   } finally {

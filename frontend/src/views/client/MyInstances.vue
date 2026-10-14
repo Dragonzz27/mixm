@@ -67,7 +67,7 @@ async function fetchMyInstances() {
   try {
     loading.value = true
     const res = await instanceApi.getMyInstances()
-    instances.value = res.instances || []
+    instances.value = res.items || []
   } catch (err) {
     console.error('Failed to fetch instances:', err)
     message.error('Failed to load instances')

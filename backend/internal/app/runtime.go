@@ -5,31 +5,33 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+
 	"mixm-edu/backend/internal/config"
+	"mixm-edu/backend/internal/repository"
+
 	"mixm-edu/backend/internal/store"
 )
 
-func Open(ctx context.Context) (config.Config, *pgxpool.Pool, *redis.Client, error) {
-	c, e := config.Load()
-	if e != nil {
-		return c, nil, nil, e
+func Open(ctx context.Context) (config.Config, *repository.DB, *redis.Client, error) {
+	c, err := config.Load()
+	if err != nil {
+		return c, nil, nil, err
 	}
 	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	db, e := store.Open(startup, c.DatabaseURL)
-	if e != nil {
-		return c, nil, nil, e
+	db, err := store.Open(startup, c.DatabaseURL)
+	if err != nil {
+		return c, nil, nil, err
 	}
-	if e = store.Migrate(startup, db); e != nil {
+	if err = store.Migrate(startup, db); err != nil {
 		db.Close()
-		return c, nil, nil, e
+		return c, nil, nil, err
 	}
-	opts, e := redis.ParseURL(c.RedisURL)
-	if e != nil {
+	opts, err := redis.ParseURL(c.RedisURL)
+	if err != nil {
 		db.Close()
-		return c, nil, nil, fmt.Errorf("REDIS_URL: %w", e)
+		return c, nil, nil, fmt.Errorf("REDIS_URL: %w", err)
 	}
 	return c, db, redis.NewClient(opts), nil
 }

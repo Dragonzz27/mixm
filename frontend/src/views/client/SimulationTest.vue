@@ -380,7 +380,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue'
-import axios from 'axios'
+import request from '@/api/request'
 import {
   NAlert,
   NButton,
@@ -606,8 +606,8 @@ async function loadCourses() {
 
 async function loadPractices() {
   try {
-    const res = await practiceApi.getList({ skip: 0, limit: 200 })
-    practiceOptions.value = (res.practices || []).map((item) => ({
+    const res = await practiceApi.getList({ offset: 0, limit: 200 })
+    practiceOptions.value = (res.items || []).map((item) => ({
       label: `${item.title}（${item.question_count || 0}题）`,
       value: item.id
     }))
@@ -673,7 +673,7 @@ async function startTest() {
     }
   } catch (err) {
     console.error(err)
-    message.error(err.response?.data?.detail || '生成测试失败')
+    message.error(err.response?.data?.message || '生成测试失败')
   } finally {
     loading.value = false
   }
@@ -718,7 +718,7 @@ async function submitTest() {
     await loadRecentTraces()
   } catch (err) {
     console.error(err)
-    message.error(err.response?.data?.detail || '提交测试失败')
+    message.error(err.response?.data?.message || '提交测试失败')
   } finally {
     loading.value = false
   }
@@ -804,17 +804,17 @@ async function openAnswerReviewByAttemptId(attemptId) {
   }
   try {
     const token = localStorage.getItem('token')
-    const res = await axios.get(`/api/simulation/attempt/${attemptId}/review`, {
+    const res = await request.get(`/simulation-attempts/${attemptId}/review`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     reviewData.value = {
-      questions: res.data?.questions || [],
-      answers: res.data?.answers || []
+      questions: res.questions || [],
+      answers: res.answers || []
     }
     showReview.value = true
   } catch (err) {
     console.error(err)
-    message.error(err.response?.data?.detail || '获取答案解析失败')
+    message.error(err.response?.data?.message || '获取答案解析失败')
   }
 }
 
@@ -841,12 +841,12 @@ async function loadRecentTraces() {
       recentTraces.value = []
       return
     }
-    const res = await axios.get('/api/simulation/traces?limit=20', {
+    const res = await request.get('/simulation-traces?limit=20', {
       headers: {
         Authorization: `Bearer ${token}`
       }
     })
-    recentTraces.value = res.data?.items || []
+    recentTraces.value = res.items || []
     if (!selectedQuestionTraceId.value && recentTraces.value.length) {
       selectedQuestionTraceId.value = recentTraces.value[0].question_id
     }

@@ -379,7 +379,7 @@ async function loadTemplates() {
     const page = pagination.value.page || 1
     const pageSize = pagination.value.pageSize || 10
     const params = {
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize
     }
     if (searchKeyword.value) {
@@ -387,7 +387,7 @@ async function loadTemplates() {
     }
     const res = await templateApi.getList(params)
     // 解析配置以显示关键信息
-    templates.value = (res.templates || []).map(t => {
+    templates.value = (res.items || []).map(t => {
       let config = {}
       try {
         config = t.config ? JSON.parse(t.config) : {}
@@ -460,8 +460,8 @@ async function loadRepos() {
       imageApi.getList({ type: 'my' }),
       imageApi.getList({ type: 'public' })
     ])
-    const myRepos = myRes.repositories || []
-    const publicRepos = publicRes.repositories || []
+    const myRepos = myRes.items || []
+    const publicRepos = publicRes.items || []
     const mergedRepos = [...myRepos, ...publicRepos]
     const repoMap = new Map()
 
@@ -483,8 +483,8 @@ async function loadRepos() {
 
 async function loadUsers() {
   try {
-    const res = await authApi.getUsers({ skip: 0, limit: 1000 })
-    users.value = res.users || []
+    const res = await authApi.getUsers({ offset: 0, limit: 1000 })
+    users.value = res.items || []
   } catch (err) {
     console.error(err)
     users.value = []
@@ -493,8 +493,8 @@ async function loadUsers() {
 
 async function loadRoles() {
   try {
-    const res = await roleApi.getList({ skip: 0, limit: 200 })
-    roles.value = res.roles || []
+    const res = await roleApi.getList({ offset: 0, limit: 200 })
+    roles.value = res.items || []
   } catch (err) {
     console.error(err)
     roles.value = []
@@ -509,7 +509,7 @@ async function loadTags(repoId) {
   tagsLoading.value = true
   try {
     const res = await imageApi.getTags(repoId)
-    tags.value = res || []
+    tags.value = res.items || []
   } catch (err) {
     console.error(err)
   } finally {
@@ -604,7 +604,7 @@ async function handleBatchStartSubmit() {
     window.dispatchEvent(new CustomEvent('queue-updated'))
   } catch (err) {
     console.error(err)
-    const errorMsg = err.response?.data?.detail || err.message || '批量启动失败'
+    const errorMsg = err.response?.data?.message || err.message || '批量启动失败'
     message.error(errorMsg)
   } finally {
     batchLoading.value = false

@@ -7,29 +7,29 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/redis/go-redis/v9"
+
 	"mixm-edu/backend/internal/cluster"
 	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/store"
+	"mixm-edu/backend/internal/model"
+	"mixm-edu/backend/internal/repository"
 )
 
 func channel(c config.Config) (*amqp.Connection, *amqp.Channel, error) {
-	conn, e := amqp.DialConfig(c.RabbitURL, amqp.Config{Heartbeat: 10 * time.Second, Dial: amqp.DefaultDial(5 * time.Second)})
-	if e != nil {
-		return nil, nil, e
+	conn, err := amqp.DialConfig(c.RabbitURL, amqp.Config{Heartbeat: 10 * time.Second, Dial: amqp.DefaultDial(5 * time.Second)})
+	if err != nil {
+		return nil, nil, err
 	}
-	ch, e := conn.Channel()
-	if e != nil {
+	ch, err := conn.Channel()
+	if err != nil {
 		conn.Close()
-		return nil, nil, e
+		return nil, nil, err
 	}
-	if _, e = ch.QueueDeclare(c.Queue, true, false, false, false, nil); e != nil {
+	if _, err = ch.QueueDeclare(c.Queue, true, false, false, false, nil); err != nil {
 		ch.Close()
 		conn.Close()
-		return nil, nil, e
+		return nil, nil, err
 	}
 	return conn, ch, nil
 }
@@ -41,18 +41,18 @@ func retry(ctx context.Context) bool {
 		return true
 	}
 }
-func Dispatch(ctx context.Context, c config.Config, db *pgxpool.Pool) {
+func Dispatch(ctx context.Context, c config.Config, db *repository.DB) {
 	for ctx.Err() == nil {
-		conn, ch, e := channel(c)
-		if e != nil {
-			slog.Warn("RabbitMQ publisher reconnect", "error", e)
+		conn, ch, err := channel(c)
+		if err != nil {
+			slog.Warn("RabbitMQ publisher reconnect", "error", err)
 			if !retry(ctx) {
 				return
 			}
 			continue
 		}
-		e = ch.Confirm(false)
-		if e != nil {
+		err = ch.Confirm(false)
+		if err != nil {
 			ch.Close()
 			conn.Close()
 			if !retry(ctx) {
@@ -62,9 +62,9 @@ func Dispatch(ctx context.Context, c config.Config, db *pgxpool.Pool) {
 		}
 		confirms := ch.NotifyPublish(make(chan amqp.Confirmation, 1))
 		for ctx.Err() == nil {
-			e = publishBatch(ctx, c, db, ch, confirms)
-			if e != nil {
-				slog.Warn("outbox publish failed", "error", e)
+			err = publishBatch(ctx, c, db, ch, confirms)
+			if err != nil {
+				slog.Warn("outbox publish failed", "error", err)
 				break
 			}
 			select {
@@ -79,21 +79,21 @@ func Dispatch(ctx context.Context, c config.Config, db *pgxpool.Pool) {
 		}
 	}
 }
-func publishBatch(ctx context.Context, c config.Config, db *pgxpool.Pool, ch *amqp.Channel, confirm <-chan amqp.Confirmation) error {
-	tx, e := db.Begin(ctx)
-	if e != nil {
-		return e
+func publishBatch(ctx context.Context, c config.Config, db *repository.DB, ch *amqp.Channel, confirm <-chan amqp.Confirmation) error {
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
 	}
 	defer tx.Rollback(ctx)
-	rows, e := store.Query(ctx, tx, "SELECT id FROM instance_tasks WHERE status IN ('pending','processing') AND (published_at IS NULL OR published_at<now()-interval '10 minutes') ORDER BY created_at LIMIT 20 FOR UPDATE SKIP LOCKED")
-	if e != nil {
-		return e
+	rows, err := repository.OutboxTasks(ctx, tx)
+	if err != nil {
+		return err
 	}
 	for _, row := range rows {
-		id := store.String(row, "id")
-		e = ch.PublishWithContext(ctx, "", c.Queue, false, false, amqp.Publishing{DeliveryMode: amqp.Persistent, ContentType: "text/plain", MessageId: id, Body: []byte(id)})
-		if e != nil {
-			return e
+		id := model.String(row, "id")
+		err = ch.PublishWithContext(ctx, "", c.Queue, false, false, amqp.Publishing{DeliveryMode: amqp.Persistent, ContentType: "text/plain", MessageId: id, Body: []byte(id)})
+		if err != nil {
+			return err
 		}
 		select {
 		case ack, ok := <-confirm:
@@ -105,26 +105,26 @@ func publishBatch(ctx context.Context, c config.Config, db *pgxpool.Pool, ch *am
 		case <-time.After(10 * time.Second):
 			return fmt.Errorf("publish confirm timeout")
 		}
-		if _, e = tx.Exec(ctx, "UPDATE instance_tasks SET published_at=now() WHERE id=$1", id); e != nil {
-			return e
+		if _, err = repository.MarkTaskPublished(ctx, tx, id); err != nil {
+			return err
 		}
 	}
 	return tx.Commit(ctx)
 }
-func Work(ctx context.Context, c config.Config, db *pgxpool.Pool, cache *redis.Client, k *cluster.Client) error {
+func Work(ctx context.Context, c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Client) error {
 	if k == nil {
 		return fmt.Errorf("worker requires Kubernetes configuration")
 	}
 	for ctx.Err() == nil {
-		conn, ch, e := channel(c)
-		if e != nil {
-			slog.Warn("RabbitMQ consumer reconnect", "error", e)
+		conn, ch, err := channel(c)
+		if err != nil {
+			slog.Warn("RabbitMQ consumer reconnect", "error", err)
 			if !retry(ctx) {
 				break
 			}
 			continue
 		}
-		if e = ch.Qos(1, 0, false); e != nil {
+		if err = ch.Qos(1, 0, false); err != nil {
 			ch.Close()
 			conn.Close()
 			if !retry(ctx) {
@@ -132,8 +132,8 @@ func Work(ctx context.Context, c config.Config, db *pgxpool.Pool, cache *redis.C
 			}
 			continue
 		}
-		deliveries, e := ch.Consume(c.Queue, "", false, false, false, false, nil)
-		if e != nil {
+		deliveries, err := ch.Consume(c.Queue, "", false, false, false, false, nil)
+		if err != nil {
 			ch.Close()
 			conn.Close()
 			if !retry(ctx) {
@@ -150,12 +150,12 @@ func Work(ctx context.Context, c config.Config, db *pgxpool.Pool, cache *redis.C
 					if !ok {
 						return
 					}
-					if e = process(ctx, db, cache, k, string(d.Body)); e != nil {
-						slog.Error("task failed to persist", "error", e)
+					if err = process(ctx, db, cache, k, string(d.Body)); err != nil {
+						slog.Error("task failed to persist", "error", err)
 						_ = d.Nack(false, true)
 						return
 					}
-					if e = d.Ack(false); e != nil {
+					if err = d.Ack(false); err != nil {
 						return
 					}
 				}
@@ -169,47 +169,31 @@ func Work(ctx context.Context, c config.Config, db *pgxpool.Pool, cache *redis.C
 	}
 	return ctx.Err()
 }
-func process(ctx context.Context, db *pgxpool.Pool, cache *redis.Client, k *cluster.Client, id string) error {
-	conn, e := db.Acquire(ctx)
-	if e != nil {
-		return e
-	}
-	defer conn.Release()
-	var locked bool
-	if e = conn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtextextended($1,0))", id).Scan(&locked); e != nil {
-		return e
-	}
-	if !locked {
-		return nil
-	}
-	defer func() {
-		unlockCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if _, err := conn.Exec(unlockCtx, "SELECT pg_advisory_unlock(hashtextextended($1,0))", id); err != nil {
-			_ = conn.Conn().Close(unlockCtx)
-		}
-	}()
-	task, e := store.Get(ctx, conn, "instance_tasks", id)
-	if e != nil {
-		if e == pgx.ErrNoRows {
+func process(ctx context.Context, db *repository.DB, cache *redis.Client, k *cluster.Client, id string) error {
+	return db.WithTaskLock(ctx, id, func(conn *repository.DB) error { return processLocked(ctx, conn, cache, k, id) })
+}
+func processLocked(ctx context.Context, conn *repository.DB, cache *redis.Client, k *cluster.Client, id string) error {
+	task, err := repository.Get(ctx, conn, "instance_tasks", id)
+	if err != nil {
+		if err == repository.ErrNotFound {
 			return nil
 		}
-		return e
+		return err
 	}
-	status := store.String(task, "status")
+	status := model.String(task, "status")
 	if status == "completed" || status == "failed" {
 		return nil
 	}
-	instanceID := store.String(task, "instance_id")
+	instanceID := model.String(task, "instance_id")
 	if instanceID == "" {
 		return fmt.Errorf("task has no instance")
 	}
-	v, e := store.Get(ctx, conn, "instances", instanceID)
-	if e != nil {
-		return e
+	v, err := repository.Get(ctx, conn, "instances", instanceID)
+	if err != nil {
+		return err
 	}
-	if _, e = conn.Exec(ctx, "UPDATE instance_tasks SET status='processing',started_at=COALESCE(started_at,now()),attempts=attempts+1 WHERE id=$1", id); e != nil {
-		return e
+	if _, err = repository.MarkTaskProcessing(ctx, conn, id); err != nil {
+		return err
 	}
 	jobCtx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
@@ -217,34 +201,34 @@ func process(ctx context.Context, db *pgxpool.Pool, cache *redis.Client, k *clus
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	tx, e := conn.Begin(ctx)
-	if e != nil {
-		return e
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return err
 	}
 	defer tx.Rollback(ctx)
 	if provisionErr == nil {
-		_, e = tx.Exec(ctx, "UPDATE instances SET status='running',started_at=COALESCE(started_at,now()),updated_at=now() WHERE id=$1", instanceID)
-		if e == nil {
-			_, e = tx.Exec(ctx, "UPDATE instance_tasks SET status='completed',completed_at=now(),error=NULL WHERE id=$1", id)
+		_, err = repository.MarkInstanceRunning(ctx, tx, instanceID)
+		if err == nil {
+			_, err = repository.CompleteTask(ctx, tx, id)
 		}
 	} else {
-		_, e = tx.Exec(ctx, "UPDATE instances SET status='failed',updated_at=now() WHERE id=$1", instanceID)
-		if e == nil {
-			_, e = tx.Exec(ctx, "UPDATE instance_tasks SET status='failed',completed_at=now(),error=$2 WHERE id=$1", id, provisionErr.Error())
+		_, err = repository.MarkInstanceFailed(ctx, tx, instanceID)
+		if err == nil {
+			_, err = repository.FailTask(ctx, tx, id, provisionErr.Error())
 		}
 	}
-	if e != nil {
-		return e
+	if err != nil {
+		return err
 	}
-	if e = tx.Commit(ctx); e != nil {
-		return e
+	if err = tx.Commit(ctx); err != nil {
+		return err
 	}
 	if cache != nil {
-		fresh, e := store.Get(ctx, conn, "instance_tasks", id)
-		if e == nil {
+		fresh, err := repository.Get(ctx, conn, "instance_tasks", id)
+		if err == nil {
 			b, _ := json.Marshal(fresh)
-			if e = cache.Set(ctx, "instance_task:"+id, b, 24*time.Hour).Err(); e != nil {
-				slog.Warn("task cache unavailable", "error", e)
+			if err = cache.Set(ctx, "instance_task:"+id, b, 24*time.Hour).Err(); err != nil {
+				slog.Warn("task cache unavailable", "error", err)
 			}
 		}
 	}

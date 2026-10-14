@@ -179,12 +179,12 @@ async function loadRoles() {
     const page = pagination.value.page || 1
     const pageSize = pagination.value.pageSize || 10
     const params = {
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize,
       keyword: searchKeyword.value || undefined
     }
     const res = await roleApi.getList(params)
-    roles.value = res.roles || []
+    roles.value = res.items || []
     pagination.value.itemCount = res.total || 0
 
     const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
@@ -243,7 +243,7 @@ async function handleSubmit() {
     loadRoles()
   } catch (err) {
     console.error(err)
-    message.error(err?.response?.data?.detail || '提交失败')
+    message.error(err?.response?.data?.message || '提交失败')
   } finally {
     submitLoading.value = false
   }
@@ -262,7 +262,7 @@ function handleDelete(row) {
         loadRoles()
       } catch (err) {
         console.error(err)
-        message.error(err?.response?.data?.detail || '删除失败')
+        message.error(err?.response?.data?.message || '删除失败')
       }
     }
   })

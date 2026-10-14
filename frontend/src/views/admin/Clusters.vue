@@ -271,11 +271,11 @@ async function loadData() {
       clusterApi.getPV(),
       clusterApi.getPVC()
     ])
-    pods.value = podsRes.pods || []
-    nodes.value = nodesRes.nodes || []
-    deployments.value = deploymentsRes.deployments || []
-    pvs.value = pvsRes.pvs || []
-    pvcs.value = pvcsRes.pvcs || []
+    pods.value = podsRes.items || []
+    nodes.value = nodesRes.items || []
+    deployments.value = deploymentsRes.items || []
+    pvs.value = pvsRes.items || []
+    pvcs.value = pvcsRes.items || []
     summary.value = {
       total_pods: podsRes.total || 0,
       running_pods: pods.value.filter(p => p.status === 'running').length,

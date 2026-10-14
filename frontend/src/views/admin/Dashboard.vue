@@ -151,12 +151,12 @@ function formatBytes(bytes) {
 async function loadStats() {
   try {
     const [users, categories, contents] = await Promise.all([
-      authApi.getUsers({ skip: 0, limit: 1 }),
+      authApi.getUsers({ offset: 0, limit: 1 }),
       categoryApi.getList({}),
       contentApi.getList({})
     ])
     stats.value.userCount = users.total || 0
-    stats.value.categoryCount = categories.length || 0
+    stats.value.categoryCount = categories.total || 0
     stats.value.contentCount = contents.total || 0
   } catch (err) {
     console.error(err)

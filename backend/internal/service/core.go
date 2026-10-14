@@ -1,0 +1,68 @@
+package service
+
+import (
+	"context"
+	"net/url"
+
+	"fmt"
+
+	"github.com/redis/go-redis/v9"
+
+	"mixm-edu/backend/internal/client"
+	"mixm-edu/backend/internal/cluster"
+	"mixm-edu/backend/internal/config"
+	"mixm-edu/backend/internal/dto"
+	"mixm-edu/backend/internal/model"
+	"mixm-edu/backend/internal/repository"
+
+	"net/http"
+	"strings"
+)
+
+type Core struct {
+	Config  config.Config
+	DB      *repository.DB
+	Redis   *redis.Client
+	Cluster *cluster.Client
+	Clients *client.Clients
+}
+
+func NewCore(c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Client) *Core {
+	return &Core{Config: c, DB: db, Redis: cache, Cluster: k, Clients: client.New(c)}
+}
+func fail(status int, message string) error { return &Error{Status: status, Detail: message} }
+
+type Error = dto.Error
+
+func admin(actor model.Actor) error {
+	if !actor.IsSuperuser {
+		return fail(http.StatusForbidden, "需要管理员权限")
+	}
+	return nil
+}
+func require(v model.Record, fields ...string) error {
+	for _, field := range fields {
+		if strings.TrimSpace(model.String(v, field)) == "" {
+			return fail(http.StatusUnprocessableEntity, fmt.Sprintf("%s 不能为空", field))
+		}
+	}
+	return nil
+}
+
+func (s *Core) permission(ctx context.Context, actor model.Actor, key string) error {
+	allowed, err := repository.HasPermission(ctx, s.DB, actor, key)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return fail(http.StatusForbidden, "没有操作权限")
+	}
+	return nil
+}
+
+func (s *Core) list(ctx context.Context, actor model.Actor, query url.Values, table, extra string, args []any) ([]model.Record, int, error) {
+	return repository.ListResources(ctx, s.DB, actor, query, table, extra, args)
+}
+func (s *Core) enrich(ctx context.Context, db *repository.DB, table string, v model.Record) (model.Record, error) {
+	return repository.Enrich(ctx, db, table, v)
+}

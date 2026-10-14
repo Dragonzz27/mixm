@@ -1,0 +1,54 @@
+package app
+
+import (
+	"context"
+	"fmt"
+
+	"mixm-edu/backend/internal/repository"
+
+	"github.com/google/uuid"
+
+	"mixm-edu/backend/internal/config"
+	"mixm-edu/backend/internal/model"
+	"mixm-edu/backend/internal/store"
+)
+
+func Seed() error {
+	c, err := config.Load()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	db, err := store.Open(ctx, c.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if err = store.Migrate(ctx, db); err != nil {
+		return err
+	}
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	client := []string{"ClientHome", "ClientContents", "ClientMyInstances", "ClientAssignments", "ClientSimulationTest"}
+	manager := append(append([]string{}, client...), "Dashboard", "Users", "Roles", "Categories", "Contents", "Templates", "Bindings", "Clusters", "Instances", "AdminImageRepositories", "Assignments", "Questions", "Practices")
+	for _, role := range []struct {
+		name string
+		keys []string
+	}{{"学生", client}, {"管理员", manager}} {
+		if _, err = repository.SeedRole(ctx, tx, uuid.NewString(), role.name, model.JSON(role.keys)); err != nil {
+			return err
+		}
+	}
+	for code, name := range map[string]string{"tutorial": "教程", "documentation": "文档", "experiment": "实验", "video": "视频", "exercise": "练习"} {
+		if _, err = repository.SeedContentType(ctx, tx, uuid.NewString(), code, name); err != nil {
+			return err
+		}
+	}
+	if err = tx.Commit(ctx); err == nil {
+		fmt.Println("角色和内容类型初始化完成")
+	}
+	return err
+}

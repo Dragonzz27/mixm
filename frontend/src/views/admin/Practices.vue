@@ -409,8 +409,8 @@ function mergeQuestions(existing, incoming) {
 
 async function loadRoles() {
   try {
-    const res = await roleApi.getList({ skip: 0, limit: 200 })
-    roleOptions.value = (res.roles || []).map((item) => ({
+    const res = await roleApi.getList({ offset: 0, limit: 200 })
+    roleOptions.value = (res.items || []).map((item) => ({
       label: item.name,
       value: item.id,
     }))
@@ -438,13 +438,13 @@ async function loadPractices() {
     const page = pagination.value.page || 1
     const pageSize = pagination.value.pageSize || 10
     const params = {
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize,
     }
     if (searchKeyword.value) params.keyword = searchKeyword.value
 
     const res = await practiceApi.getList(params)
-    practices.value = res.practices || []
+    practices.value = res.items || []
     pagination.value.itemCount = res.total || 0
   } catch (err) {
     console.error(err)
@@ -457,7 +457,7 @@ async function loadApprovedQuestions() {
     const page = questionPickerPagination.value.page || 1
     const pageSize = questionPickerPagination.value.pageSize || 10
     const params = {
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize,
       review_status: 'approved',
     }
@@ -466,7 +466,7 @@ async function loadApprovedQuestions() {
     if (pickerKnowledgeTag.value) params.knowledge_tag_id = pickerKnowledgeTag.value
 
     const res = await questionApi.getList(params)
-    approvedQuestions.value = res.questions || []
+    approvedQuestions.value = res.items || []
     questionPickerPagination.value.itemCount = res.total || 0
   } catch (err) {
     console.error(err)

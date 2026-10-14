@@ -184,8 +184,8 @@ async function loadRepos() {
       imageApi.getList({ type: 'my' }),
       imageApi.getList({ type: 'public' })
     ])
-    const myRepos = myRes.repositories || []
-    const publicRepos = publicRes.repositories || []
+    const myRepos = myRes.items || []
+    const publicRepos = publicRes.items || []
     const mergedRepos = [...myRepos, ...publicRepos]
     const repoMap = new Map()
 
@@ -213,7 +213,7 @@ async function loadTags(repoId) {
   tagsLoading.value = true
   try {
     const res = await imageApi.getTags(repoId)
-    tags.value = res || []
+    tags.value = res.items || []
     if (tags.value.length > 0) {
       formData.value.repo_tag = tags.value[0].name
     }
@@ -243,7 +243,7 @@ async function loadUsers() {
 
   try {
     const res = await authApi.getUsers({})
-    users.value = res.users || []
+    users.value = res.items || []
   } catch (err) {
     console.error(err)
   }
@@ -310,7 +310,7 @@ async function handleSubmit() {
     emit('success')
   } catch (err) {
     console.error(err)
-    const errorMsg = err.response?.data?.detail || err.message || '实例启动失败，请检查配置或联系管理员'
+    const errorMsg = err.response?.data?.message || err.message || '实例启动失败，请检查配置或联系管理员'
     message.error(errorMsg)
   } finally {
     loading.value = false

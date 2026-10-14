@@ -368,8 +368,8 @@ const submissionColumns = computed(() => [
 
 async function loadRoleOptions() {
   try {
-    const res = await roleApi.getList({ skip: 0, limit: 100 })
-    roleOptions.value = (res.roles || []).map(item => ({
+    const res = await roleApi.getList({ offset: 0, limit: 100 })
+    roleOptions.value = (res.items || []).map(item => ({
       label: item.name,
       value: item.id
     }))
@@ -383,13 +383,13 @@ async function loadAssignments() {
     const page = assignmentPagination.value.page || 1
     const pageSize = assignmentPagination.value.pageSize || 10
     const params = {
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize
     }
     if (filterStatus.value) params.status = filterStatus.value
 
     const res = await assignmentApi.getList(params)
-    assignments.value = res.assignments || []
+    assignments.value = res.items || []
     assignmentPagination.value.itemCount = res.total || 0
   } catch (err) {
     console.error(err)
@@ -409,10 +409,10 @@ async function loadSubmissions(assignmentId = currentAssignmentId.value) {
 
   try {
     const res = await assignmentApi.getSubmissions(assignmentId, {
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize
     })
-    submissions.value = res.submissions || []
+    submissions.value = res.items || []
     submissionPagination.value.itemCount = res.total || 0
   } catch (err) {
     console.error(err)

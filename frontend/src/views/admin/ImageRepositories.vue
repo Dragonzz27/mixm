@@ -166,14 +166,14 @@ async function togglePublic(repo) {
 async function fetchRepositories() {
   try {
     loading.value = true
-    const skip = (page.value - 1) * pageSize.value
+    const offset = (page.value - 1) * pageSize.value
     const res = await imageApi.getList({
-      skip,
+      offset,
       limit: pageSize.value,
       type: activeTab.value,
       search: searchText.value || undefined
     })
-    repositories.value = res.repositories || []
+    repositories.value = res.items || []
     total.value = res.total || 0
   } catch (err) {
     console.error('Failed to fetch repositories:', err)

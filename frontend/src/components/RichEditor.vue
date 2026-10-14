@@ -30,6 +30,8 @@
 </template>
 
 <script setup>
+import { API_BASE_URL } from '@/api/config'
+import { apiUrl } from '@/api/protocol'
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
@@ -117,8 +119,8 @@ function initVditor() {
     mode: 'wysiwyg',
     placeholder: '请输入 Markdown 内容...',
     upload: {
-      url: '/api/contents/upload',
-      linkToImgUrl: '/api/contents/upload',
+      url: apiUrl(API_BASE_URL, '/contents/files'),
+      linkToImgUrl: apiUrl(API_BASE_URL, '/contents/files'),
       handler: (files) => {
         handleVditorUpload(files[0])
       }

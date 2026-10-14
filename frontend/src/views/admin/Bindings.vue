@@ -92,7 +92,7 @@ const columns = [
 async function loadContents() {
   try {
     const res = await contentApi.getList({ limit: 1000 })
-    contents.value = res.contents || []
+    contents.value = res.items || []
   } catch (err) {
     console.error(err)
   }
@@ -101,7 +101,7 @@ async function loadContents() {
 async function loadCategories() {
   try {
     const res = await categoryApi.getList({})
-    categories.value = res || []
+    categories.value = res.items || []
   } catch (err) {
     console.error(err)
   }
@@ -115,8 +115,8 @@ async function loadAllBindings() {
     for (const content of contents.value.slice(0, 50)) {
       try {
         const res = await bindingApi.getByContent(content.id)
-        if (res && res.length > 0) {
-          for (const binding of res) {
+        if (res.items && res.items.length > 0) {
+          for (const binding of res.items) {
             const fullContent = contents.value.find(c => c.id === binding.content_id)
             allBindings.push({
               ...binding,
@@ -138,7 +138,7 @@ async function loadBindingsByContent(contentId) {
     try {
       const res = await bindingApi.getByContent(contentId)
       const fullContent = contents.value.find(c => c.id === contentId)
-      bindings.value = (res || []).map(b => ({
+      bindings.value = (res.items || []).map(b => ({
         ...b,
         content_type: fullContent?.content_type || b.content_type
       }))
@@ -156,7 +156,7 @@ async function loadBindingsByCategory(categoryId) {
     try {
       const res = await bindingApi.getByCategory(categoryId)
       const bindingContents = []
-      for (const binding of res || []) {
+      for (const binding of res.items || []) {
         const fullContent = contents.value.find(c => c.id === binding.content_id)
         if (fullContent) {
           bindingContents.push({

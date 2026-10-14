@@ -1,3 +1,4 @@
+import { stream } from './stream'
 import request from './request'
 
 export const authApi = {
@@ -5,30 +6,30 @@ export const authApi = {
     return request.post('/auth/login', data)
   },
   register(data) {
-    return request.post('/auth/register', data)
+    return request.post('/users', data)
   },
   refreshToken(data) {
     return request.post('/auth/refresh', data)
   },
   getUsers(params) {
-    return request.get('/auth/users', { params })
+    return request.get('/users', { params })
   },
   getUser(id) {
-    return request.get(`/auth/users/${id}`)
+    return request.get(`/users/${id}`)
   },
   updateUser(id, data) {
-    return request.put(`/auth/users/${id}`, data)
+    return request.patch(`/users/${id}`, data)
   },
   changePassword(id, data) {
-    return request.post(`/auth/users/${id}/change-password`, data)
+    return request.put(`/users/${id}/password`, data)
   },
   deleteUser(id) {
-    return request.delete(`/auth/users/${id}`)
+    return request.delete(`/users/${id}`)
   },
   importUsers(file) {
     const formData = new FormData()
     formData.append('file', file)
-    return request.post('/auth/users/import', formData, {
+    return request.post('/users/imports', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   }
@@ -48,7 +49,7 @@ export const categoryApi = {
     return request.post('/categories/', data)
   },
   update(id, data) {
-    return request.put(`/categories/${id}`, data)
+    return request.patch(`/categories/${id}`, data)
   },
   delete(id) {
     return request.delete(`/categories/${id}`)
@@ -66,22 +67,22 @@ export const contentApi = {
     return request.get(`/contents/${id}`)
   },
   getByCategory(categoryId, params) {
-    return request.get(`/contents/by-category/${categoryId}`, { params })
+    return request.get(`/categories/${categoryId}/contents`, { params })
   },
   getByCategories(categoryIds, params) {
-    return request.get('/contents/by-categories', { params: { ...params, category_ids: categoryIds.join(',') } })
+    return request.get('/contents', { params: { ...params, category_ids: categoryIds.join(',') } })
   },
   getCategoriesWithContents(params) {
-    return request.get('/contents/categories-with-contents', { params })
+    return request.get('/categories', { params: { ...params, root_only: true, include: 'content-preview' } })
   },
   getCategoryTree(categoryId) {
-    return request.get(`/contents/category-tree/${categoryId}`)
+    return request.get(`/categories/${categoryId}/content-tree`)
   },
   create(data) {
     return request.post('/contents/', data)
   },
   update(id, data) {
-    return request.put(`/contents/${id}`, data)
+    return request.patch(`/contents/${id}`, data)
   },
   delete(id) {
     return request.delete(`/contents/${id}`)
@@ -89,46 +90,40 @@ export const contentApi = {
   uploadFile(file) {
     const formData = new FormData()
     formData.append('file', file)
-    return request.post('/contents/upload', formData)
+    return request.post('/contents/files', formData)
   }
 }
 
 export const bindingApi = {
   getCounts(data) {
-    return request.post('/bindings/counts', data)
+    return request.get('/binding-counts', { params: { category_ids: data.category_ids.join(',') } })
   },
   getAll(params) {
     return request.get('/bindings/', { params })
   },
   getByContent(contentId) {
-    return request.get(`/bindings/content/${contentId}`)
+    return request.get('/bindings', { params: { content_id: contentId } })
   },
   getByCategory(categoryId) {
-    return request.get(`/bindings/category/${categoryId}`)
+    return request.get('/bindings', { params: { category_id: categoryId } })
   },
   getUnboundContents(categoryId, params) {
-    return request.get(`/bindings/category/${categoryId}/unbound`, { params })
-  },
-  getCategoryDetail(categoryId) {
-    return request.get(`/bindings/detail/category/${categoryId}`)
+    return request.get('/contents', { params: { ...params, unbound_category_id: categoryId } })
   },
   batchBind(categoryId, data) {
-    return request.post(`/bindings/category/${categoryId}/batch-bind`, data)
+    return request.post(`/categories/${categoryId}/content-bindings`, data)
   },
   batchUnbind(categoryId, data) {
-    return request.delete(`/bindings/category/${categoryId}/batch-unbind`, { data })
+    return request.delete(`/categories/${categoryId}/content-bindings`, { data })
   },
   getContentDetail(contentId) {
-    return request.get(`/bindings/detail/content/${contentId}`)
+    return request.get(`/contents/${contentId}`)
   },
   getCategoryDetail(categoryId) {
-    return request.get(`/bindings/detail/category/${categoryId}`)
+    return request.get(`/categories/${categoryId}`, { params: { include: 'contents' } })
   },
   create(data) {
     return request.post('/bindings/', data)
-  },
-  update(id, data) {
-    return request.put(`/bindings/${id}`, data)
   },
   delete(id) {
     return request.delete(`/bindings/${id}`)
@@ -161,7 +156,7 @@ export const templateApi = {
     return request.post('/templates/', data)
   },
   update(id, data) {
-    return request.put(`/templates/${id}`, data)
+    return request.patch(`/templates/${id}`, data)
   },
   delete(id) {
     return request.delete(`/templates/${id}`)
@@ -188,32 +183,32 @@ export const clusterApi = {
     return request.get('/clusters/deployments')
   },
   deletePod(namespace, podName) {
-    return request.delete(`/clusters/pods/${namespace}/${podName}`)
+    return request.delete(`/clusters/namespaces/${namespace}/pods/${podName}`)
   },
   deleteDeployment(namespace, deploymentName) {
-    return request.delete(`/clusters/deployments/${namespace}/${deploymentName}`)
+    return request.delete(`/clusters/namespaces/${namespace}/deployments/${deploymentName}`)
   },
   getPodLogs(namespace, podName, container, tailLines) {
     const params = {}
     if (container) params.container = container
     if (tailLines) params.tail_lines = tailLines
-    return request.get(`/clusters/pods/${namespace}/${podName}/logs`, { params })
+    return request.get(`/clusters/namespaces/${namespace}/pods/${podName}/logs`, { params })
   },
   describePod(namespace, podName) {
-    return request.get(`/clusters/pods/${namespace}/${podName}/describe`)
+    return request.get(`/clusters/namespaces/${namespace}/pods/${podName}/describe`)
   },
   getPV() {
-    return request.get('/clusters/pv')
+    return request.get('/clusters/persistent-volumes')
   },
   deletePV(pvName) {
-    return request.delete(`/clusters/pv/${pvName}`)
+    return request.delete(`/clusters/persistent-volumes/${pvName}`)
   },
   getPVC(namespace) {
     const params = namespace ? { namespace } : {}
-    return request.get('/clusters/pvc', { params })
+    return request.get('/clusters/persistent-volume-claims', { params })
   },
   deletePVC(namespace, pvcName) {
-    return request.delete(`/clusters/pvc/${namespace}/${pvcName}`)
+    return request.delete(`/clusters/namespaces/${namespace}/persistent-volume-claims/${pvcName}`)
   }
 }
 
@@ -228,43 +223,44 @@ export const instanceApi = {
     return request.post('/instances/', data)
   },
   startByTemplate(data) {
-    return request.post('/instances/start', data)
+    return request.post('/instances', data)
   },
   startBatchByTemplate(data) {
-    return request.post('/instances/start/batch-template', data)
+    const { template_id, ...payload } = data
+    return request.post(`/templates/${template_id}/instances`, payload)
   },
   startQueued(data) {
-    return request.post('/instances/start', data)
+    return request.post('/instances', data)
   },
   update(id, data) {
-    return request.put(`/instances/${id}`, data)
+    return request.patch(`/instances/${id}`, data)
   },
   start(id) {
-    return request.post(`/instances/${id}/start`)
+    return request.patch(`/instances/${id}`, { status: 'running' })
   },
   stop(id) {
-    return request.post(`/instances/${id}/stop`)
+    return request.patch(`/instances/${id}`, { status: 'stopped' })
   },
   deleteAll() {
-    return request.post('/instances/delete/all')
+    return request.delete('/instances')
   },
   delete(id) {
     return request.delete(`/instances/${id}`)
   },
   getByUser(userId) {
-    return request.get(`/instances/user/${userId}`)
+    return request.get(`/users/${userId}/instances`)
   },
   getMyInstances() {
-    return request.get('/instances/me')
+    return request.get('/users/me/instances')
   },
   getQueueStatus() {
-    // return request.get('/instances/queue/status')
+    return request.get('/instance-tasks/summary')
   },
   getQueueTasks() {
-    return request.get('/instances/queue/tasks')
+    return request.get('/instance-tasks')
   },
   getTaskStatus(taskId) {
-    return request.get(`/instances/queue/task/${taskId}`)
+    return request.get(`/instance-tasks/${taskId}`)
   }
 }
 
@@ -273,7 +269,7 @@ export const imageApi = {
     return request.get('/images/', { params })
   },
   getMyList() {
-    return request.get('/images/me')
+    return request.get('/users/me/images')
   },
   getDetail(id) {
     return request.get(`/images/${id}`)
@@ -282,7 +278,7 @@ export const imageApi = {
     return request.post('/images/', data)
   },
   update(id, data) {
-    return request.put(`/images/${id}`, data)
+    return request.patch(`/images/${id}`, data)
   },
   delete(id) {
     return request.delete(`/images/${id}`)
@@ -306,7 +302,7 @@ export const roleApi = {
     return request.post('/roles/', data)
   },
   update(id, data) {
-    return request.put(`/roles/${id}`, data)
+    return request.patch(`/roles/${id}`, data)
   },
   delete(id) {
     return request.delete(`/roles/${id}`)
@@ -329,7 +325,7 @@ export const assignmentApi = {
     return request.get('/assignments/', { params })
   },
   getActiveList() {
-    return request.get('/assignments/active')
+    return request.get('/assignments', { params: { active: true } })
   },
   getDetail(id) {
     return request.get(`/assignments/${id}`)
@@ -338,7 +334,7 @@ export const assignmentApi = {
     return request.post('/assignments/', data)
   },
   update(id, data) {
-    return request.put(`/assignments/${id}`, data)
+    return request.patch(`/assignments/${id}`, data)
   },
   delete(id) {
     return request.delete(`/assignments/${id}`)
@@ -352,21 +348,22 @@ export const assignmentApi = {
   uploadFile(file) {
     const formData = new FormData()
     formData.append('file', file)
-    return request.post('/assignments/upload', formData, {
+    return request.post('/assignments/files', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
   submit(data) {
-    return request.post('/assignments/submissions', data)
+    const { assignment_id, ...payload } = data
+    return request.post(`/assignments/${assignment_id}/submissions`, payload)
   },
   getMySubmissions(params) {
-    return request.get('/assignments/my/submissions', { params })
+    return request.get('/users/me/submissions', { params })
   },
   updateSubmission(id, data) {
-    return request.put(`/assignments/submissions/${id}`, data)
+    return request.patch(`/submissions/${id}`, data)
   },
   deleteSubmission(id) {
-    return request.delete(`/assignments/submissions/${id}`)
+    return request.delete(`/submissions/${id}`)
   }
 }
 
@@ -381,13 +378,13 @@ export const practiceApi = {
     return request.post('/practices/', data)
   },
   update(id, data) {
-    return request.put(`/practices/${id}`, data)
+    return request.patch(`/practices/${id}`, data)
   },
   delete(id) {
     return request.delete(`/practices/${id}`)
   },
   autoGenerate(data) {
-    return request.post('/practices/auto-generate', data)
+    return request.post('/practices/generations', data)
   }
 }
 
@@ -402,74 +399,22 @@ export const questionApi = {
     return request.post('/questions/', data)
   },
   update(id, data) {
-    return request.put(`/questions/${id}`, data)
+    return request.patch(`/questions/${id}`, data)
   },
   review(id, data) {
-    return request.post(`/questions/${id}/review`, data)
+    return request.put(`/questions/${id}/review`, data)
   },
   delete(id) {
     return request.delete(`/questions/${id}`)
   },
   batchCreate(questions) {
-    return request.post('/questions/batch', questions)
+    return request.post('/questions/batches', questions)
   },
   getAiGenerated(params) {
-    return request.get('/questions/ai-generated', { params })
+    return request.get('/questions', { params: { ...params, is_ai_generated: true } })
   },
   generateQuestion(data, onChunk, onDone, onError) {
-    const token = localStorage.getItem('token')
-    return fetch('/api/questions/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
-      body: JSON.stringify(data)
-    }).then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      function read() {
-        reader.read().then(({ done, value }) => {
-          if (done) {
-            if (buffer) {
-              try {
-                const data = JSON.parse(buffer)
-                if (data.type === 'done') {
-                  onDone(data.data)
-                } else if (data.type === 'error') {
-                  onError(data.message)
-                }
-              } catch (e) {}
-            }
-            return
-          }
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop()
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-                if (data.type === 'chunk') {
-                  onChunk(data.content)
-                } else if (data.type === 'done') {
-                  onDone(data.data)
-                } else if (data.type === 'error') {
-                  onError(data.message)
-                }
-              } catch (e) {}
-            }
-          }
-          read()
-        })
-      }
-      read()
-    }).catch(onError)
+    return stream('/questions/generations', data, { onChunk, onDone, onError })
   }
 }
 
@@ -487,7 +432,7 @@ export const questionCategoryApi = {
     return request.post('/question-categories/', data)
   },
   update(id, data) {
-    return request.put(`/question-categories/${id}`, data)
+    return request.patch(`/question-categories/${id}`, data)
   },
   delete(id) {
     return request.delete(`/question-categories/${id}`)
@@ -496,73 +441,22 @@ export const questionCategoryApi = {
 
 export const knowledgeTreeApi = {
   analyze(data) {
-    return request.post('/knowledge-tree/analyze', data)
+    return request.post('/knowledge-tree/analyses', data)
   },
   analyzeStream(data, onChunk, onDone, onError) {
-    const token = localStorage.getItem('token')
-    return fetch('/api/knowledge-tree/analyze', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
-      body: JSON.stringify(data)
-    }).then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      function read() {
-        reader.read().then(({ done, value }) => {
-          if (done) {
-            if (buffer) {
-              try {
-                const data = JSON.parse(buffer)
-                if (data.type === 'done') {
-                  onDone(data.data)
-                } else if (data.type === 'error') {
-                  onError(data.message)
-                }
-              } catch (e) {}
-            }
-            return
-          }
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop()
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-                if (data.type === 'chunk') {
-                  onChunk(data.content)
-                } else if (data.type === 'done') {
-                  onDone(data.data)
-                } else if (data.type === 'error') {
-                  onError(data.message)
-                }
-              } catch (e) {}
-            }
-          }
-          read()
-        })
-      }
-      read()
-    }).catch(onError)
+    return stream('/knowledge-tree/analyses', data, { onChunk, onDone, onError })
   },
   save(data) {
-    return request.post('/knowledge-tree/save', data)
+    return request.post('/knowledge-tree', data)
   }
 }
 
 export const simulationApi = {
   generate(data) {
-    return request.post('/simulation/generate', data)
+    return request.post('/simulation-attempts', data)
   },
   submit(data) {
-    return request.post('/simulation/submit', data)
+    const { attempt_id, ...payload } = data
+    return request.post(`/simulation-attempts/${attempt_id}/submissions`, payload)
   }
 }

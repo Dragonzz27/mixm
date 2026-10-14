@@ -1,6 +1,6 @@
 # 智泉 / MutiM
 
-教育平台，前端使用 Vue，后端使用 **Go 1.25.0 + Client-go + RabbitMQ + PostgreSQL + Redis**。
+教育平台，前端使用 Vue，后端使用 **Go 1.25.0 + Gin + GORM + Client-go + RabbitMQ + PostgreSQL + Redis**。
 
 包含用户与角色管理、教学内容与知识树、作业提交及评分、题库审核、练习卷、模拟测试、Kubernetes 实验实例、code-server 和 SSH 网关。RustFS 提供 S3 文件存储，Registry 提供容器镜像。`kt_service` 是独立的 Python/PyTorch 模型推理服务，由 Go 通过 HTTP 调用。
 
@@ -106,12 +106,21 @@ go test ./...
 ```text
 backend/
 ├── cmd/                   # server、worker、admin、initdb
-├── internal/api/          # HTTP 接口、鉴权、前端菜单和接口测试
+├── internal/router/       # Gin 路由、OpenAPI 与接口契约测试
+├── internal/middleware/   # JWT 身份认证、CORS、日志、异常恢复
+├── internal/handler/      # 参数绑定及 JSON、文件、SSE 输出
+├── internal/dto/          # 按业务拆分的请求 DTO、可选字段、响应包裹与分页
+├── internal/service/      # 权限、业务规则、事务协调
+├── internal/repository/   # GORM 查询、数据写入、事务与任务连接锁
+├── internal/model/        # 现有 PostgreSQL 表映射和动态业务投影
+├── internal/client/       # Registry、S3、LLM、KT 外部客户端
+├── internal/app/          # 依赖注入、四个入口的启动与关闭
 ├── internal/auth/         # JWT、bcrypt
-├── internal/cluster/      # Client-go 资源生命周期、SSH exec 网关
+├── internal/cluster/      # Client-go 资源生命周期
+├── internal/ssh/          # 通过 repository 查询实例的 SSH exec 网关
 ├── internal/config/       # 环境配置
 ├── internal/queue/        # PostgreSQL outbox、RabbitMQ publisher/worker、Redis 缓存
-├── internal/store/        # pgx 数据访问、数据库结构初始化
+├── internal/store/        # GORM 连接初始化与既有编号 SQL 迁移
 ├── docs/                  # 实例模板配置说明
 └── kubeconfig/            # 本地集群凭据，不包含在镜像内
 deploy/                    # Compose、Dockerfile、Registry 镜像、Kubernetes 清单与脚本
@@ -121,3 +130,13 @@ kt_service/                # 独立模型推理服务
 ```
 
 项目为专有项目，保密使用。
+
+## REST API
+
+后端与前端需要同步更新部署。业务接口仍位于 `/api`，普通 JSON 使用 `{"code":0,"message":"成功","data":...}`；失败保留 HTTP 错误状态，将说明放在 `message`，`data` 为 `null`。列表统一为 `data.items/total/offset/limit`，默认 `offset=0`、`limit=100`，部分更新使用 `PATCH`。
+
+旧业务接口已移除；历史附件 `/api/assignments/file/`、`/api/contents/file/` 和 `/static/` 链接保留。SSE、文件和基础设施接口使用各自格式。完整路由清单见 [routes.json](backend/internal/router/routes.json)，行为与改版映射见 [API 文档](backend/docs/api.md)。
+
+数据库继续使用已有编号 SQL 迁移，不执行 GORM AutoMigrate，也不重写已应用迁移。worker 在同一连接上持有 PostgreSQL advisory lock，保留任务重投递和 outbox 语义。
+
+前端协议及 SSE 解析测试：`cd frontend && npm test`。后端测试仍使用独立 PostgreSQL schema、RabbitMQ 队列和 Redis 测试服务。

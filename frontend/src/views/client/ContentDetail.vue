@@ -359,7 +359,7 @@ async function handleSelect(keys) {
     loading.value = true
     try {
       const res = await contentApi.getByCategory(selectedId)
-      currentCategoryContents.value = res.contents || []
+      currentCategoryContents.value = res.items || []
       viewType.value = 'category'
     } catch (err) {
       console.error('Failed to fetch category contents:', err)
@@ -391,7 +391,7 @@ async function fetchData() {
       }
 
       const contentsRes = await contentApi.getByCategory(id)
-      currentCategoryContents.value = contentsRes.contents || []
+      currentCategoryContents.value = contentsRes.items || []
 
       selectedKeys.value = [id]
       expandedKeys.value = getAllKeys(res)
