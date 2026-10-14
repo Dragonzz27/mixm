@@ -9,8 +9,8 @@ import (
 	"mixm-edu/backend/internal/config"
 )
 
-//go:embed legacy_routes.json
-var legacyRoutes []byte
+//go:embed routes.json
+var requiredRoutes []byte
 
 func canonical(pattern string) string {
 	parts := strings.Split(pattern, "/")
@@ -21,19 +21,19 @@ func canonical(pattern string) string {
 	}
 	return strings.Join(parts, "/")
 }
-func TestLegacyRouteCoverage(t *testing.T) {
+func TestAPIRouteCoverage(t *testing.T) {
 	s := New(config.Config{}, nil, nil, nil)
 	registered := map[string]bool{}
 	for _, p := range s.patterns {
 		registered[canonical(p)] = true
 	}
-	var old []string
-	if e := json.Unmarshal(legacyRoutes, &old); e != nil {
+	var expected []string
+	if e := json.Unmarshal(requiredRoutes, &expected); e != nil {
 		t.Fatal(e)
 	}
-	for _, p := range old {
+	for _, p := range expected {
 		if !registered[canonical(p)] {
-			t.Errorf("legacy endpoint missing: %s", p)
+			t.Errorf("API endpoint missing: %s", p)
 		}
 	}
 }

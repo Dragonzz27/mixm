@@ -1,6 +1,6 @@
 # Backend development
 
-The active backend uses Go 1.25.0, net/http, pgx/PostgreSQL, Client-go, RabbitMQ and Redis. The Vue frontend consumes the existing /api routes. Python code under legacy/ is historical reference and is excluded from builds. kt_service is a separate model inference service.
+The active backend uses Go 1.25.0, net/http, pgx/PostgreSQL, Client-go, RabbitMQ and Redis. The Vue frontend consumes the existing /api routes. kt_service is a separate model inference service.
 
 Run from backend/:
 
@@ -12,11 +12,11 @@ Run from backend/:
 
 Integration tests use TEST_DATABASE_URL, TEST_RABBITMQ_URL and TEST_REDIS_URL. Use disposable test services. Tests create independent PostgreSQL schemas and RabbitMQ queues and clean them up.
 
-Use gofmt, context-aware I/O, parameterized SQL, pgx transactions for related writes, and meaningful HTTP errors with the existing detail JSON key. Runtime persistence must use PostgreSQL. SQLite belongs only in cmd/migrate-sqlite, which opens the source read-only.
+Use gofmt, context-aware I/O, parameterized SQL, pgx transactions for related writes, and meaningful HTTP errors with the existing detail JSON key. Persistence uses PostgreSQL. This is a new project; retain PostgreSQL schema initialization and application seed commands.
 
-Keep API routes and frontend payload fields compatible. legacy_routes.json and TestLegacyRouteCoverage cover the original route inventory. Authorization must be enforced in handlers, and task ownership must be checked before using Redis cache entries.
+Keep API routes and frontend payload fields compatible. routes.json and TestAPIRouteCoverage cover the current API contract. Authorization must be enforced in handlers, and task ownership must be checked before using Redis cache entries.
 
-Keep durable task records and the publishing outbox in PostgreSQL. RabbitMQ messages contain task IDs, use publisher confirmations and manual consumer acknowledgement, and must remain safe under redelivery. Preserve deploy-cs-, svc-cs-, ing-cs-, mid-cs- and edu-pvc-cs- resource names for migrated instances. User PVCs survive instance deletion.
+Keep durable task records and the publishing outbox in PostgreSQL. RabbitMQ messages contain task IDs, use publisher confirmations and manual consumer acknowledgement, and must remain safe under redelivery. Preserve deploy-cs-, svc-cs-, ing-cs-, mid-cs- and edu-pvc-cs- resource names for instances. User PVCs survive instance deletion.
 
 Migrations are embedded in internal/store/migrations, applied in filename order, and serialized by an advisory transaction lock. Do not rewrite applied migrations; add a new numbered migration.
 

@@ -26,7 +26,7 @@ docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --bui
 docker compose -f deploy/docker-compose.yaml --env-file backend/.env logs -f backend worker
 ```
 
-首次初始化和旧数据库迁移参阅 [项目 README](../README.md) 与 [后端迁移说明](../backend/docs/migration.md)。仅启动本地 Go 开发依赖：
+首次启动和数据库初始化参阅 [项目 README](../README.md)。仅启动本地 Go 开发依赖：
 
 ```bash
 docker compose -f deploy/docker-compose.yaml up -d postgres rabbitmq redis

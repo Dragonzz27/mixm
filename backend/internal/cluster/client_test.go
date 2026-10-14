@@ -30,7 +30,7 @@ func TestResourceValidation(t *testing.T) {
 	}
 }
 
-func TestLonghornReplicaCompatibility(t *testing.T) {
+func TestLonghornReplicaConfiguration(t *testing.T) {
 	volume := &unstructured.Unstructured{Object: map[string]any{"apiVersion": "longhorn.io/v1beta2", "kind": "Volume", "metadata": map[string]any{"name": "test-volume", "namespace": "longhorn-system"}, "spec": map[string]any{"numberOfReplicas": int64(3)}}}
 	dynamic := fake.NewSimpleDynamicClient(runtime.NewScheme(), volume)
 	c := &Client{Dynamic: dynamic}
@@ -42,7 +42,7 @@ func TestLonghornReplicaCompatibility(t *testing.T) {
 		t.Fatal(e)
 	}
 	if store.Number(store.Object(v.Object["spec"]), "numberOfReplicas") != 1 {
-		t.Fatal("legacy Longhorn replica configuration changed")
+		t.Fatal("Longhorn replica configuration was not applied")
 	}
 }
 func TestProvisionIsIdempotentAndPreservesUserPVC(t *testing.T) {
