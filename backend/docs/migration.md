@@ -47,8 +47,10 @@ code-server 的 /instance/{id} 路由需要 Traefik ingress controller 和 traef
 
 ## 故障检查
 
+从项目根目录执行：
+
 ```bash
-docker compose logs backend worker postgres rabbitmq
+docker compose -f deploy/docker-compose.yaml logs backend worker postgres rabbitmq
 ```
 
 RabbitMQ 无法连接时 outbox 保留任务并自动重连。缺少 kubeconfig 时教学接口仍可运行，集群/实例接口返回 503，worker 启动失败。KT 推理不可用时沿用旧版启发式掌握度更新（答对 alpha=0.18、答错 beta=0.22）。LLM 接口需要有效 LLM_API_KEY 和兼容的 /chat/completions 服务。

@@ -1,3 +1,5 @@
+name: mixm-edu
+
 x-backend-env: &backend-env
   DATABASE_URL: postgres://mutim:${POSTGRES_PASSWORD:-mutim}@postgres:5432/mutim?sslmode=disable
   SECRET_KEY: ${SECRET_KEY:-local-development-secret-change-before-deployment}
@@ -76,7 +78,7 @@ services:
   rustfs:
     image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/rustfs:v1
     ports: ["19000:9000", "19001:9001"]
-    volumes: ["./RustFS/data:/data"]
+    volumes: ["../RustFS/data:/data"]
     environment:
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
@@ -85,11 +87,13 @@ services:
     restart: unless-stopped
 
   backend:
-    build: ./backend
+    build:
+      context: ../backend
+      dockerfile: ../deploy/backend/Dockerfile
     restart: unless-stopped
     ports: ["8002:8002", "30022:30022"]
     volumes:
-      - ./backend/kubeconfig:/app/kubeconfig:ro
+      - ../backend/kubeconfig:/app/kubeconfig:ro
       - backend_uploads:/app/uploads
       - backend_static:/app/static
       - backend_data:/app/data
@@ -106,10 +110,12 @@ services:
       retries: 10
 
   worker:
-    build: ./backend
+    build:
+      context: ../backend
+      dockerfile: ../deploy/backend/Dockerfile
     restart: unless-stopped
     command: ["worker"]
-    volumes: ["./backend/kubeconfig:/app/kubeconfig:ro"]
+    volumes: ["../backend/kubeconfig:/app/kubeconfig:ro"]
     environment: *backend-env
     extra_hosts: ["host.docker.internal:host-gateway"]
     depends_on:
@@ -118,23 +124,27 @@ services:
       redis: {condition: service_healthy}
 
   kt-service:
-    build: ./kt_service
+    build:
+      context: ../kt_service
+      dockerfile: ../deploy/kt-service/Dockerfile
     restart: unless-stopped
     ports: ["8010:8010"]
-    volumes: ["./kt_service/train/output:/app/train/output"]
+    volumes: ["../kt_service/train/output:/app/train/output"]
     environment:
       KT_DKT_CHECKPOINT: /app/train/output/dkt_checkpoint.pt
       KT_DKT_SKILL_MAP: /app/train/output/skill_map.json
 
   frontend:
-    build: ./frontend
+    build:
+      context: ../frontend
+      dockerfile: ../deploy/frontend/Dockerfile
     restart: unless-stopped
     ports: ["5173:5173"]
     volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - ./frontend/index.html:/app/index.html
-      - ./frontend/vite.config.js:/app/vite.config.js
+      - ../frontend/src:/app/src
+      - ../frontend/public:/app/public
+      - ../frontend/index.html:/app/index.html
+      - ../frontend/vite.config.js:/app/vite.config.js
     command: pnpm dev --host 0.0.0.0 --port 5173
     environment:
       VITE_API_BASE_URL: /api

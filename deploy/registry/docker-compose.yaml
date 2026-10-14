@@ -1,4 +1,4 @@
-version: '3.8'
+name: registry
 
 services:
   registry:
@@ -12,7 +12,7 @@ services:
     volumes:
       # 数据持久化到 7.3T 大盘
       # 奉贤数据盘小，放项目目录下
-        - ./registry-data:/var/lib/registry
+        - ../../registry/registry-data:/var/lib/registry
       # - /data/docker-registry:/var/lib/registry
     environment:
       # 【关键】允许跨域访问，否则 Web UI 无法加载数据

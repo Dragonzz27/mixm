@@ -304,4 +304,8 @@ backend/bin/
 backend/data/
 backend/kubeconfig/*
 !backend/kubeconfig/.gitkeep
-!backend/.dockerignore
+
+
+# Deployment-generated manifests and existing service data
+deploy/kubernetes/generated/
+registry/registry-data/

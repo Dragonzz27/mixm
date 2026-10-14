@@ -6,13 +6,15 @@
 
 ## Docker Compose
 
+部署文件统一位于 [`deploy/`](deploy/README.md)，下列部署命令均从项目根目录执行。
+
 ```bash
 cp backend/.env.example backend/.env
 mkdir -p backend/kubeconfig
 # 将可从容器访问的 kubeconfig 放到 backend/kubeconfig/k3s.yaml
 # 修改 backend/.env 中的 SECRET_KEY、Kubernetes 主机、Registry 和存储类配置
 
-docker compose --env-file backend/.env up -d --build
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --build
 ```
 
 Compose 的 PostgreSQL、RabbitMQ、Redis 地址自动使用服务名；`.env.example` 中的 localhost 地址用于本地 Go 开发。`POSTGRES_PASSWORD`、`RABBITMQ_PASSWORD` 可在同一环境文件中覆盖 Compose 默认值，连接字符串中的密码需适合 URL 使用。
@@ -20,8 +22,8 @@ Compose 的 PostgreSQL、RabbitMQ、Redis 地址自动使用服务名；`.env.ex
 首次创建新数据库后初始化角色、内容类型和管理员：
 
 ```bash
-docker compose --env-file backend/.env exec backend initdb
-docker compose --env-file backend/.env exec \
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env exec backend initdb
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env exec \
   -e ADMIN_EMAIL=admin@example.com \
   -e ADMIN_PASSWORD='replace-with-your-password' \
   backend admin
@@ -47,7 +49,7 @@ API 文档使用 Swagger UI；页面资源需要访问 CDN。无 Kubernetes 配�
 使用当前 `go version go1.25.0 linux/amd64`，无需更换 Go 工具链：
 
 ```bash
-docker compose up -d postgres rabbitmq redis
+docker compose -f deploy/docker-compose.yaml up -d postgres rabbitmq redis
 cd backend
 cp .env.example .env
 # 编辑 .env，设置 SECRET_KEY 和 kubeconfig 等参数
@@ -63,7 +65,7 @@ go run ./cmd/server
 go run ./cmd/worker
 ```
 
-前端：
+前端（从项目根目录执行）：
 
 ```bash
 cd frontend
@@ -122,6 +124,7 @@ backend/
 ├── docs/                  # 迁移和模板配置说明
 ├── kubeconfig/            # 本地集群凭据，不包含在镜像内
 └── legacy/                # 原 Python 后端归档，不参与 Go 构建
+deploy/                    # Compose、Dockerfile、Registry 镜像、Kubernetes 清单与脚本
 frontend/                  # Vue 前端
 kt_service/                # 独立模型推理服务
 ```
