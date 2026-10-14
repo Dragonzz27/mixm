@@ -1,155 +1,129 @@
-# 智泉
+# 智泉 / MutiM
 
-## TODO
-现在在HyperV中进行的部署k3s，但是code-server在目前iframe里可以打开，但输入密码后还是重定向到密码框。cd
+教育平台，前端使用 Vue，后端使用 **Go 1.25.0 + Client-go + RabbitMQ + PostgreSQL + Redis**。
 
-## 部署
+包含用户与角色管理、教学内容与知识树、作业提交及评分、题库审核、练习卷、模拟测试、Kubernetes 实验实例、code-server 和 SSH 网关。RustFS 提供 S3 文件存储，Registry 提供容器镜像。`kt_service` 保留为独立的 Python/PyTorch 模型推理服务，由 Go 通过 HTTP 调用。
 
-### backend
+## Docker Compose
 
-1. k3s部署后，提取kubeconfig文件，保存至/backend/app/kubeconfig/k3s.yaml
-2. 检查.env中是否为 K8S_CONFIG_PATH=kubeconfig/k3s.yaml
-3. 注意cluster.cluster.server 非127.0.0.1
+```bash
+cp backend/.env.example backend/.env
+mkdir -p backend/kubeconfig
+# 将可从容器访问的 kubeconfig 放到 backend/kubeconfig/k3s.yaml
+# 修改 backend/.env 中的 SECRET_KEY、Kubernetes 主机、Registry 和存储类配置
 
-部署docker-compose.yaml采用nerdctl，注意postgresql文件夹需赋予权限
-
-
-### fronted
-
-注意配置.env
-
-
-
-# MutiM
-
-## 项目简介
-
-MutiM 是一个全栈应用，后端使用 FastAPI（Python），前端使用 Vue.js。
-
-## 功能概览
-
-- 用户认证与授权
-- 基于角色的作业可见性控制
-- 作业管理（创建、更新、删除）
-- 提交管理（上传、审核、评分）
-- 将作业成绩导出为 CSV
-
-## 快速开始
-
-### 前置条件
-
-- 推荐使用 Docker 与 Docker Compose
-- 或本地开发环境：
-  - Python 3.11+
-  - Node.js 20+
-
-### 使用 Docker Compose 启动（开发推荐）
-
-1. 克隆仓库
-2. 在项目根目录运行：
-   ```bash
-   docker-compose up -d
-   ```
-3. 启动后服务地址：
-   - 前端: http://localhost:3000
-   - 后端 API: http://localhost:8002/api
-   - API 文档: http://localhost:8002/docs
-
-### 本地开发
-
-#### 后端
-
-1. 进入后端目录：
-   ```bash
-   cd backend
-   ```
-2. 创建并激活虚拟环境：
-   ```bash
-   python -m venv venv
-   # macOS/Linux: source venv/bin/activate
-   # Windows: venv\\Scripts\\activate
-   ```
-3. 安装依赖：
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. 复制并配置环境变量（将 `.env.example` 另存为 `.env` 并调整）
-5. 运行开发服务器：
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8002 --reload
-   ```
-
-#### 前端
-
-1. 进入前端目录：
-   ```bash
-   cd frontend
-   ```
-2. 安装依赖：
-   ```bash
-   npm install
-   ```
-3. 配置环境变量（根据 `.env.example` 创建 `.env`）
-4. 启动开发服务器：
-   ```bash
-   npm run dev
-   ```
-5. 前端默认地址： http://localhost:5173
-
-## API 文档
-
-启动后访问 http://localhost:8002/docs 可查看交互式 API 文档。
-
-## 详细功能说明
-
-### 基于角色的作业可见性
-
-- 管理员在创建/编辑作业时可指定可见角色
-- 若未选择任何角色，则该作业对所有用户可见
-- 超级管理员（`is_superuser=true`）可查看所有作业
-- 普通用户仅能看到：
-  - 对所有角色可见的作业（未选择角色）
-  - 与其拥有的角色至少有交集的作业
-
-### 提交管理
-
-- 用户可上传文件提交作业（支持 doc、docx、pdf、ppt、pptx、txt）
-- 教师可查看提交、给出反馈并评分
-- 提交状态：submitted、reviewed、completed
-
-### 成绩导出
-
-- 教师可将某作业的提交成绩导出为 CSV 文件
-- CSV 包含：提交 ID、用户 ID、用户名、文件名、提交时间、状态、成绩、反馈
-
-## 配置说明
-
-### 后端（.env）
-
-- `SECRET_KEY`：用于 JWT 签发的密钥
-- `ALGORITHM`：JWT 算法（默认：HS256）
-- `ACCESS_TOKEN_EXPIRE_MINUTES`：访问令牌过期时间（分钟）
-- `DATABASE_URL`：数据库连接字符串（默认：SQLite）
-
-### 前端
-
-- `VITE_API_BASE_URL`：API 基础地址（默认：http://localhost:8002/api）
-
-## 项目结构
-
-```
-mixm-edu/
-├── backend/
-│   ├── app/                 # FastAPI 应用代码
-   │   ├── models/           # SQLAlchemy 模型
-   │   ├── router/           # 路由定义
-   │   ├── schema/           # Pydantic 模型
-   │   └── service/          # 业务逻辑
-├── frontend/                # Vue 前端
-├── docker-compose.yaml      # Docker Compose 配置
-└── README.md                # 项目说明（此文件）
+docker compose --env-file backend/.env up -d --build
 ```
 
-## 许可证
+Compose 的 PostgreSQL、RabbitMQ、Redis 地址自动使用服务名；`.env.example` 中的 localhost 地址用于本地 Go 开发。`POSTGRES_PASSWORD`、`RABBITMQ_PASSWORD` 可在同一环境文件中覆盖 Compose 默认值，连接字符串中的密码需适合 URL 使用。
 
-本项目为专有项目，保密使用。
+首次创建新数据库后初始化角色、内容类型和管理员：
+
+```bash
+docker compose --env-file backend/.env exec backend initdb
+docker compose --env-file backend/.env exec \
+  -e ADMIN_EMAIL=admin@example.com \
+  -e ADMIN_PASSWORD='replace-with-your-password' \
+  backend admin
+```
+
+管理员命令只创建新账号，不会重置已有账号；学生账号由管理页面创建或导入。Excel 导入兼容前端模板的 `username,email,phone,role_name` 列和旧版默认密码 `123456`，也可提供 `password`、`role_id` 列。
+
+| 服务 | 地址 |
+| --- | --- |
+| 前端 | http://localhost:5173 |
+| API | http://localhost:8002/api |
+| API 文档 | http://localhost:8002/docs |
+| OpenAPI | http://localhost:8002/openapi.json |
+| 健康检查 | http://localhost:8002/health |
+| SSH 网关 | localhost:30022 |
+| RabbitMQ 管理界面 | http://localhost:15672 |
+| RustFS | http://localhost:19000 |
+
+API 文档使用 Swagger UI；页面资源需要访问 CDN。无 Kubernetes 配置时，HTTP 服务可运行教学和用户功能，实例及集群接口返回 503，worker 需要有效 kubeconfig。
+
+## 本地开发
+
+使用当前 `go version go1.25.0 linux/amd64`，无需更换 Go 工具链：
+
+```bash
+docker compose up -d postgres rabbitmq redis
+cd backend
+cp .env.example .env
+# 编辑 .env，设置 SECRET_KEY 和 kubeconfig 等参数
+go mod download
+go run ./cmd/initdb
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='replace-with-your-password' go run ./cmd/admin
+go run ./cmd/server
+```
+
+在另一终端从 `backend/` 启动任务消费者：
+
+```bash
+go run ./cmd/worker
+```
+
+前端：
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+本地前端开发需将 `frontend/vite.config.js` 的代理目标设为 `http://localhost:8002`，或设置 `VITE_BACKEND_PROXY_TARGET=http://localhost:8002`；Compose 使用默认目标 `http://backend:8002`。
+
+## SQLite 数据迁移
+
+先停止旧后端写入并等待 Celery 实例创建任务完成，备份 SQLite、上传文件和 kubeconfig。导入目标必须是空的 PostgreSQL 业务数据库；迁移已有数据时，应在执行 `initdb` 和创建管理员之前导入。
+
+从 `backend/` 执行：
+
+```bash
+go run ./cmd/migrate-sqlite -sqlite /absolute/path/to/app.db -dry-run
+go run ./cmd/migrate-sqlite -sqlite /absolute/path/to/app.db
+```
+
+工具只读打开 SQLite，保留原有 ID、bcrypt 密码、时间、角色与关联数据。导入在 PostgreSQL 事务中完成，关联约束校验失败会回滚。`-dry-run` 创建/更新目标数据库结构，但回滚业务数据。旧版 Celery 的消息与 Redis 任务历史不会导入 RabbitMQ；应先清空旧任务，再切换服务。
+
+上传文件、RustFS 对象和 Kubernetes 资源需按 [迁移说明](backend/docs/migration.md) 保留。实际数据导入和生产切换由部署时执行。
+
+## 验证与构建
+
+```bash
+cd backend
+go test ./...
+go vet ./...
+make build
+```
+
+集成测试只在指定测试服务时运行，自动创建和清理独立 PostgreSQL schema、RabbitMQ 队列、Redis 缓存键：
+
+```bash
+TEST_DATABASE_URL='postgres://mutim:mutim@localhost:5432/mutim_test?sslmode=disable' \
+TEST_RABBITMQ_URL='amqp://mutim:mutim@localhost:5672/' \
+TEST_REDIS_URL='redis://localhost:6379/15' \
+go test ./...
+```
+
+`TestLegacyRouteCoverage` 检查迁移前的 134 条接口。其他测试覆盖 JWT 边界、权限、关联数据、服务端评分、试卷恢复、Kubernetes 资源幂等、RabbitMQ 重复投递和 Redis 结果缓存。Kubernetes 测试使用 Client-go fake client。
+
+## 代码结构
+
+```text
+backend/
+├── cmd/                   # server、worker、admin、initdb、migrate、migrate-sqlite
+├── internal/api/          # HTTP 接口、鉴权、前端菜单和兼容性测试
+├── internal/auth/         # JWT、bcrypt
+├── internal/cluster/      # Client-go 资源生命周期、SSH exec 网关
+├── internal/config/       # 环境配置
+├── internal/queue/        # PostgreSQL outbox、RabbitMQ publisher/worker、Redis 缓存
+├── internal/store/        # pgx 数据访问、嵌入式 SQL 迁移
+├── docs/                  # 迁移和模板配置说明
+├── kubeconfig/            # 本地集群凭据，不包含在镜像内
+└── legacy/                # 原 Python 后端归档，不参与 Go 构建
+frontend/                  # Vue 前端
+kt_service/                # 独立模型推理服务
+```
+
+项目为专有项目，保密使用。

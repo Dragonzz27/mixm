@@ -1,13 +1,72 @@
+x-backend-env: &backend-env
+  DATABASE_URL: postgres://mutim:${POSTGRES_PASSWORD:-mutim}@postgres:5432/mutim?sslmode=disable
+  SECRET_KEY: ${SECRET_KEY:-local-development-secret-change-before-deployment}
+  ALGORITHM: HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-180}
+  REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+  REDIS_URL: redis://redis:6379/2
+  RABBITMQ_URL: amqp://mutim:${RABBITMQ_PASSWORD:-mutim}@rabbitmq:5672/
+  RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-instance_create}
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+  K8S_CONFIG_PATH: /app/kubeconfig/k3s.yaml
+  K8S_SSH_GATEWAY_HOST: ${K8S_SSH_GATEWAY_HOST:-localhost}
+  K8S_CODE_SERVER_HOST: ${K8S_CODE_SERVER_HOST:-localhost}
+  K8S_SSH_PORT: 30022
+  SSH_HOST_KEY_PATH: /app/data/ssh_host_key
+  STORAGE_CLASS_NAME: ${STORAGE_CLASS_NAME:-longhorn}
+  PVC_ACCESS_MODE: ${PVC_ACCESS_MODE:-ReadWriteMany}
+  USER_PERSONAL_PVC_CAPACITY: ${USER_PERSONAL_PVC_CAPACITY:-10Gi}
+  REGISTRY_URL: ${REGISTRY_URL:-http://host.docker.internal:5000}
+  REGISTRY_PREFIX: ${REGISTRY_PREFIX:-localhost:5000}
+  REGISTRY_USERNAME: ${REGISTRY_USERNAME:-}
+  REGISTRY_PASSWORD: ${REGISTRY_PASSWORD:-}
+  RUSTFS_ENDPOINT: http://rustfs:9000
+  RUSTFS_BUCKET: ${RUSTFS_BUCKET:-content}
+  RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+  RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+  LLM_API_URL: ${LLM_API_URL:-https://api.openai.com/v1}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-gpt-4o}
+  KT_MODEL_BACKEND: ${KT_MODEL_BACKEND:-kt_service}
+  KT_SERVICE_URL: http://kt-service:8010
+  KT_SERVICE_TIMEOUT_SECONDS: ${KT_SERVICE_TIMEOUT_SECONDS:-3}
+
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mutim
+      POSTGRES_USER: mutim
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mutim}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mutim -d mutim"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: mutim
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-mutim}
+    ports: ["127.0.0.1:5672:5672", "127.0.0.1:15672:15672"]
+    volumes: ["rabbitmq_data:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   redis:
     image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:8.4.0-alpine
-    container_name: redis_cache
     restart: unless-stopped
-    command: redis-server
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./redis_data:/data
+    command: redis-server --appendonly yes
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: ["redis_data:/data"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -16,102 +75,76 @@ services:
 
   rustfs:
     image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/rustfs:v1
-    container_name: rustfs-server
-    ports:
-      - "19000:9000"
-      - "19001:9001"
-    volumes:
-      - ./RustFS/data:/data
+    ports: ["19000:9000", "19001:9001"]
+    volumes: ["./RustFS/data:/data"]
     environment:
-      - RUSTFS_ACCESS_KEY=rustfsadmin
-      - RUSTFS_SECRET_KEY=rustfsadmin
-      - RUSTFS_CONSOLE_ENABLE=true
-    command:
-      - --console-enable
-      - /data
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    command: ["--console-enable", "/data"]
     restart: unless-stopped
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: backend_app
+    build: ./backend
     restart: unless-stopped
-    ports:
-      - "8002:8002"
+    ports: ["8002:8002", "30022:30022"]
     volumes:
-      - ./backend:/app
-      - ./backend/static:/app/static
-      - ./backend/uploads:/app/uploads
-    working_dir: /app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8002 --reload
-    environment:
-      - DATABASE_URL=sqlite:///./app.db
-      - SECRET_KEY=your-secret-key-here
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=180
-      - REFRESH_TOKEN_EXPIRE_DAYS=7
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-      - QUEUE_REDIS_URL=redis://redis:6379/2
-      - RUSTFS_ENDPOINT=http://rustfs:9000
-      - KT_MODEL_BACKEND=kt_service
-      - KT_SERVICE_URL=http://kt-service:8010
-      - KT_SERVICE_TIMEOUT_SECONDS=3
+      - ./backend/kubeconfig:/app/kubeconfig:ro
+      - backend_uploads:/app/uploads
+      - backend_static:/app/static
+      - backend_data:/app/data
+    environment: *backend-env
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8002/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
-  celery:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: celery_worker
+  worker:
+    build: ./backend
     restart: unless-stopped
-    volumes:
-      - ./backend:/app
-    working_dir: /app
-    command: python run_celery.py
-    environment:
-      - CELERY_WORKER_CONCURRENCY=4
-      - CELERY_WORKER_POOL=solo
-      - CELERY_WORKER_LOGLEVEL=info
-      - CELERY_WORKER_QUEUE=instance_create
-      - REFRESH_TOKEN_EXPIRE_DAYS=7
-      - DATABASE_URL=sqlite:///./app.db
-      - SECRET_KEY=your-secret-key-here
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=180
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
-      - QUEUE_REDIS_URL=redis://redis:6379/2
+    command: ["worker"]
+    volumes: ["./backend/kubeconfig:/app/kubeconfig:ro"]
+    environment: *backend-env
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      redis: {condition: service_healthy}
 
   kt-service:
-    build:
-      context: ./kt_service
-      dockerfile: Dockerfile
-    container_name: kt_service
+    build: ./kt_service
     restart: unless-stopped
-    ports:
-      - "8010:8010"
-    volumes:
-      - ./kt_service/train/output:/app/train/output
+    ports: ["8010:8010"]
+    volumes: ["./kt_service/train/output:/app/train/output"]
     environment:
-      - KT_DKT_CHECKPOINT=/app/train/output/dkt_checkpoint.pt
-      - KT_DKT_SKILL_MAP=/app/train/output/skill_map.json
+      KT_DKT_CHECKPOINT: /app/train/output/dkt_checkpoint.pt
+      KT_DKT_SKILL_MAP: /app/train/output/skill_map.json
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: frontend_app
+    build: ./frontend
     restart: unless-stopped
-    ports:
-      - "5173:5173"
+    ports: ["5173:5173"]
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
       - ./frontend/vite.config.js:/app/vite.config.js
-      - ./frontend/.env:/app/.env
-    working_dir: /app
     command: pnpm dev --host 0.0.0.0 --port 5173
     environment:
-      - VITE_API_BASE_URL=http://localhost:8002/api
+      VITE_API_BASE_URL: /api
+    depends_on:
+      backend: {condition: service_healthy}
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
+  backend_uploads:
+  backend_static:
+  backend_data:
