@@ -5,17 +5,15 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
+	"mixm-edu/backend/internal/infra/cluster"
+	"mixm-edu/backend/internal/infra/queue"
+	"mixm-edu/backend/internal/infra/ssh"
 	"mixm-edu/backend/internal/router"
-	"mixm-edu/backend/internal/ssh"
-
-	"mixm-edu/backend/internal/cluster"
-	"mixm-edu/backend/internal/queue"
 )
 
 func RunServer() error {

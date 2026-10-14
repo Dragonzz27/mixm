@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	"mixm-edu/backend/internal/repository"
-	"mixm-edu/backend/internal/store"
 )
 
 func Database(t *testing.T) *repository.DB {
@@ -21,7 +20,7 @@ func Database(t *testing.T) *repository.DB {
 		t.Skip("set TEST_DATABASE_URL to run PostgreSQL integration tests")
 	}
 	ctx := context.Background()
-	root, err := store.Open(ctx, dsn)
+	root, err := repository.Open(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +36,7 @@ func Database(t *testing.T) *repository.DB {
 	params := parsed.Query()
 	params.Set("search_path", name)
 	parsed.RawQuery = params.Encode()
-	db, err := store.Open(ctx, parsed.String())
+	db, err := repository.Open(ctx, parsed.String())
 	if err != nil {
 		root.Exec(ctx, "DROP SCHEMA "+name+" CASCADE")
 		root.Close()
@@ -52,7 +51,7 @@ func Database(t *testing.T) *repository.DB {
 		}
 		root.Close()
 	})
-	if err = store.Migrate(ctx, db); err != nil {
+	if err = repository.Migrate(ctx, db); err != nil {
 		t.Fatal(err)
 	}
 	return db

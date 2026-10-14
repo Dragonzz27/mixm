@@ -111,16 +111,18 @@ backend/
 ├── internal/handler/      # 参数绑定及 JSON、文件、SSE 输出
 ├── internal/dto/          # 按业务拆分的请求 DTO、可选字段、响应包裹与分页
 ├── internal/service/      # 权限、业务规则、事务协调
-├── internal/repository/   # GORM 查询、数据写入、事务与任务连接锁
+├── internal/repository/   # GORM 连接、编号 SQL 迁移、查询、事务与任务连接锁
 ├── internal/model/        # 现有 PostgreSQL 表映射和动态业务投影
-├── internal/client/       # Registry、S3、LLM、KT 外部客户端
 ├── internal/app/          # 依赖注入、四个入口的启动与关闭
 ├── internal/auth/         # JWT、bcrypt
-├── internal/cluster/      # Client-go 资源生命周期
-├── internal/ssh/          # 通过 repository 查询实例的 SSH exec 网关
+├── internal/apperror/     # 客户端、业务层与 HTTP 层共用的应用错误
 ├── internal/config/       # 环境配置
-├── internal/queue/        # PostgreSQL outbox、RabbitMQ publisher/worker、Redis 缓存
-├── internal/store/        # GORM 连接初始化与既有编号 SQL 迁移
+├── internal/infra/        # 基础设施目录分组，各子目录仍是独立 Go 包
+│   ├── client/            # Registry、S3、LLM、KT 外部客户端
+│   ├── cluster/           # Client-go 资源生命周期
+│   ├── queue/             # PostgreSQL outbox、RabbitMQ publisher/worker、Redis 缓存
+│   └── ssh/               # 通过 repository 查询实例的 SSH exec 网关
+├── internal/testutil/     # 独立测试数据库等项目专用测试支持
 ├── docs/                  # 实例模板配置说明
 └── kubeconfig/            # 本地集群凭据，不包含在镜像内
 deploy/                    # Compose、Dockerfile、Registry 镜像、Kubernetes 清单与脚本
@@ -130,6 +132,8 @@ kt_service/                # 独立模型推理服务
 ```
 
 项目为专有项目，保密使用。
+
+四个命令入口共享 `internal` 包；辅助函数留在其所属的职责包内，不集中到统一的 `utils` 包。当前没有跨项目 Go 复用需求，因此不设置 `backend/pkg`。应用错误使用 `apperror.Error`，请求与响应类型放在 `dto`，数据库连接和迁移统一由 `repository` 管理。编号 SQL 位于 `internal/repository/migrations`，文件名、SQL 内容与迁移记录保持兼容。
 
 ## REST API
 

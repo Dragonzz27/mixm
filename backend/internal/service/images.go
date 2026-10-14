@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 
+	"mixm-edu/backend/internal/apperror"
 	"mixm-edu/backend/internal/dto"
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
@@ -32,7 +33,7 @@ func (s *Images) image(ctx context.Context, actor model.Actor, id string) (model
 func (s *Images) tags(ctx context.Context, v model.Record, detailed ...bool) ([]model.Record, error) {
 	resp, err := s.Clients.Registry.Request(ctx, "GET", model.String(v, "name")+"/tags/list")
 	if err != nil {
-		var he *Error
+		var he *apperror.Error
 		if errors.As(err, &he) && he.Status == 404 {
 			return []model.Record{}, nil
 		}

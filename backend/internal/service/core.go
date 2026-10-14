@@ -2,21 +2,19 @@ package service
 
 import (
 	"context"
-	"net/url"
-
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/client"
-	"mixm-edu/backend/internal/cluster"
+	"mixm-edu/backend/internal/apperror"
 	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/dto"
+	"mixm-edu/backend/internal/infra/client"
+	"mixm-edu/backend/internal/infra/cluster"
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
-
-	"net/http"
-	"strings"
 )
 
 type Core struct {
@@ -30,9 +28,7 @@ type Core struct {
 func NewCore(c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Client) *Core {
 	return &Core{Config: c, DB: db, Redis: cache, Cluster: k, Clients: client.New(c)}
 }
-func fail(status int, message string) error { return &Error{Status: status, Detail: message} }
-
-type Error = dto.Error
+func fail(status int, message string) error { return &apperror.Error{Status: status, Detail: message} }
 
 func admin(actor model.Actor) error {
 	if !actor.IsSuperuser {

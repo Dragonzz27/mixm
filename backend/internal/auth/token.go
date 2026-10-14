@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type Claims struct {
@@ -25,12 +24,4 @@ func Parse(secret, raw, kind string) (*Claims, error) {
 		return nil, errors.New("invalid token")
 	}
 	return c, nil
-}
-
-func Hash(password string) (string, error) {
-	b, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(b), err
-}
-func Verify(hash, password string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }

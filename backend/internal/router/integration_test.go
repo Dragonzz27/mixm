@@ -8,15 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"mixm-edu/backend/internal/service"
-
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
 	"mixm-edu/backend/internal/auth"
-	"mixm-edu/backend/internal/cluster"
 	"mixm-edu/backend/internal/config"
+	"mixm-edu/backend/internal/infra/cluster"
 	"mixm-edu/backend/internal/model"
 	"mixm-edu/backend/internal/repository"
+	"mixm-edu/backend/internal/service"
 	"mixm-edu/backend/internal/testutil"
 )
 

@@ -9,8 +9,6 @@ import (
 
 	"mixm-edu/backend/internal/config"
 	"mixm-edu/backend/internal/repository"
-
-	"mixm-edu/backend/internal/store"
 )
 
 func Open(ctx context.Context) (config.Config, *repository.DB, *redis.Client, error) {
@@ -20,11 +18,11 @@ func Open(ctx context.Context) (config.Config, *repository.DB, *redis.Client, er
 	}
 	startup, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	db, err := store.Open(startup, c.DatabaseURL)
+	db, err := repository.Open(startup, c.DatabaseURL)
 	if err != nil {
 		return c, nil, nil, err
 	}
-	if err = store.Migrate(startup, db); err != nil {
+	if err = repository.Migrate(startup, db); err != nil {
 		db.Close()
 		return c, nil, nil, err
 	}

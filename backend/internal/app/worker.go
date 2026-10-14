@@ -3,13 +3,12 @@ package app
 import (
 	"context"
 	"log/slog"
-
 	"os/signal"
 	"sync"
 	"syscall"
 
-	"mixm-edu/backend/internal/cluster"
-	"mixm-edu/backend/internal/queue"
+	"mixm-edu/backend/internal/infra/cluster"
+	"mixm-edu/backend/internal/infra/queue"
 )
 
 func RunWorker() error {
