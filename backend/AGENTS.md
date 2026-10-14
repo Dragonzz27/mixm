@@ -21,3 +21,5 @@ Keep durable task records and the publishing outbox in PostgreSQL. RabbitMQ mess
 Migrations are embedded in internal/store/migrations, applied in filename order, and serialized by an advisory transaction lock. Do not rewrite applied migrations; add a new numbered migration.
 
 Do not log credentials or include .env files, kubeconfigs, SSH host keys or database files in images. Never run imports or schema changes against existing user databases as part of tests.
+
+Deployment files live under deploy/ at the repository root. The main entry point is docker compose -f deploy/docker-compose.yaml; Dockerfiles are selected explicitly while build contexts remain backend/, frontend/ and kt_service/.

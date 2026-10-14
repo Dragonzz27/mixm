@@ -44,7 +44,7 @@ py kt_service/train/train_dkt_checkpoint.py `
 - `dkt_checkpoint.pt`
 - `skill_map.json`
 
-在 `docker-compose.yaml` 中为 `kt-service` 配置：
+在项目根目录的 `deploy/docker-compose.yaml` 中为 `kt-service` 配置（以下 Compose 命令从项目根目录执行）：
 
 - 模型路径：`KT_DKT_CHECKPOINT=.../dkt_checkpoint.pt`
 - 映射路径：`KT_DKT_SKILL_MAP=.../skill_map.json`
@@ -53,7 +53,7 @@ py kt_service/train/train_dkt_checkpoint.py `
 完成后重启：
 
 ```powershell
-docker compose up -d --build kt-service
+docker compose -f deploy/docker-compose.yaml up -d --build kt-service
 ```
 
 ## 5）快速验证
@@ -63,7 +63,7 @@ docker compose up -d --build kt-service
 3. 查看日志：
 
 ```powershell
-docker compose logs kt-service --tail 100
+docker compose -f deploy/docker-compose.yaml logs kt-service --tail 100
 ```
 
 如果看到 `POST /predict 200`，说明 KT 推理链路正常。
