@@ -1,4 +1,4 @@
-> 部署配置已集中到 [deploy/](deploy/README.md)。本文保留历史功能设计说明。当前后端已迁移至 Go 1.25.0 + Client-go + RabbitMQ + PostgreSQL + Redis；运行与数据迁移请参阅 [README.md](README.md) 和 [迁移说明](backend/docs/migration.md)。
+> 部署配置集中在 [deploy/](deploy/README.md)。项目后端使用 Go 1.25.0 + Client-go + RabbitMQ + PostgreSQL + Redis；运行和初始化说明请参阅 [README.md](README.md)。
 
 # 题库系统、考试系统、练习系统、作业系统设计方案
 
@@ -561,4 +561,4 @@ QUESTION_GEN_DEFAULT_DIFFICULTY=3
 
 ### 9.2 数据库
 
-现有使用 SQLite/PostgreSQL，新增表使用相同的数据库连接。
+项目统一使用 PostgreSQL，业务表通过同一个数据库连接访问。

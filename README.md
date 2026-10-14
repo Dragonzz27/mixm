@@ -2,7 +2,7 @@
 
 教育平台，前端使用 Vue，后端使用 **Go 1.25.0 + Client-go + RabbitMQ + PostgreSQL + Redis**。
 
-包含用户与角色管理、教学内容与知识树、作业提交及评分、题库审核、练习卷、模拟测试、Kubernetes 实验实例、code-server 和 SSH 网关。RustFS 提供 S3 文件存储，Registry 提供容器镜像。`kt_service` 保留为独立的 Python/PyTorch 模型推理服务，由 Go 通过 HTTP 调用。
+包含用户与角色管理、教学内容与知识树、作业提交及评分、题库审核、练习卷、模拟测试、Kubernetes 实验实例、code-server 和 SSH 网关。RustFS 提供 S3 文件存储，Registry 提供容器镜像。`kt_service` 是独立的 Python/PyTorch 模型推理服务，由 Go 通过 HTTP 调用。
 
 ## Docker Compose
 
@@ -29,7 +29,7 @@ docker compose -f deploy/docker-compose.yaml --env-file backend/.env exec \
   backend admin
 ```
 
-管理员命令只创建新账号，不会重置已有账号；学生账号由管理页面创建或导入。Excel 导入兼容前端模板的 `username,email,phone,role_name` 列和旧版默认密码 `123456`，也可提供 `password`、`role_id` 列。
+管理员命令只创建新账号，不会重置已有账号；学生账号由管理页面创建或导入。Excel 导入使用前端模板的 `username,email,phone,role_name` 列和默认密码 `123456`，也可提供 `password`、`role_id` 列。
 
 | 服务 | 地址 |
 | --- | --- |
@@ -75,20 +75,11 @@ pnpm dev
 
 本地前端开发需将 `frontend/vite.config.js` 的代理目标设为 `http://localhost:8002`，或设置 `VITE_BACKEND_PROXY_TARGET=http://localhost:8002`；Compose 使用默认目标 `http://backend:8002`。
 
-## SQLite 数据迁移
+## 数据库初始化
 
-先停止旧后端写入并等待 Celery 实例创建任务完成，备份 SQLite、上传文件和 kubeconfig。导入目标必须是空的 PostgreSQL 业务数据库；迁移已有数据时，应在执行 `initdb` 和创建管理员之前导入。
+应用使用 PostgreSQL，server、worker、admin 和 initdb 启动时自动执行数据库结构初始化。SQL 文件嵌入二进制，schema_migrations 记录已执行的版本，事务锁防止多个进程重复建表。
 
-从 `backend/` 执行：
-
-```bash
-go run ./cmd/migrate-sqlite -sqlite /absolute/path/to/app.db -dry-run
-go run ./cmd/migrate-sqlite -sqlite /absolute/path/to/app.db
-```
-
-工具只读打开 SQLite，保留原有 ID、bcrypt 密码、时间、角色与关联数据。导入在 PostgreSQL 事务中完成，关联约束校验失败会回滚。`-dry-run` 创建/更新目标数据库结构，但回滚业务数据。旧版 Celery 的消息与 Redis 任务历史不会导入 RabbitMQ；应先清空旧任务，再切换服务。
-
-上传文件、RustFS 对象和 Kubernetes 资源需按 [迁移说明](backend/docs/migration.md) 保留。实际数据导入和生产切换由部署时执行。
+首次启动后执行 initdb 创建基础角色和内容类型，再用 admin 创建管理员。
 
 ## 验证与构建
 
@@ -108,22 +99,21 @@ TEST_REDIS_URL='redis://localhost:6379/15' \
 go test ./...
 ```
 
-`TestLegacyRouteCoverage` 检查迁移前的 134 条接口。其他测试覆盖 JWT 边界、权限、关联数据、服务端评分、试卷恢复、Kubernetes 资源幂等、RabbitMQ 重复投递和 Redis 结果缓存。Kubernetes 测试使用 Client-go fake client。
+`TestAPIRouteCoverage` 检查当前 134 条 API 接口。其他测试覆盖 JWT 边界、权限、关联数据、服务端评分、试卷恢复、Kubernetes 资源幂等、RabbitMQ 重复投递和 Redis 结果缓存。Kubernetes 测试使用 Client-go fake client。
 
 ## 代码结构
 
 ```text
 backend/
-├── cmd/                   # server、worker、admin、initdb、migrate、migrate-sqlite
-├── internal/api/          # HTTP 接口、鉴权、前端菜单和兼容性测试
+├── cmd/                   # server、worker、admin、initdb
+├── internal/api/          # HTTP 接口、鉴权、前端菜单和接口测试
 ├── internal/auth/         # JWT、bcrypt
 ├── internal/cluster/      # Client-go 资源生命周期、SSH exec 网关
 ├── internal/config/       # 环境配置
 ├── internal/queue/        # PostgreSQL outbox、RabbitMQ publisher/worker、Redis 缓存
-├── internal/store/        # pgx 数据访问、嵌入式 SQL 迁移
-├── docs/                  # 迁移和模板配置说明
-├── kubeconfig/            # 本地集群凭据，不包含在镜像内
-└── legacy/                # 原 Python 后端归档，不参与 Go 构建
+├── internal/store/        # pgx 数据访问、数据库结构初始化
+├── docs/                  # 实例模板配置说明
+└── kubeconfig/            # 本地集群凭据，不包含在镜像内
 deploy/                    # Compose、Dockerfile、Registry 镜像、Kubernetes 清单与脚本
 scripts/                   # 通用辅助脚本，例如 create-demo-pod.sh
 frontend/                  # Vue 前端

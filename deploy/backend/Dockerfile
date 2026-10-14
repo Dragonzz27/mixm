@@ -7,9 +7,7 @@ COPY cmd ./cmd
 RUN CGO_ENABLED=0 go build -trimpath -o /out/server ./cmd/server && \
     CGO_ENABLED=0 go build -trimpath -o /out/worker ./cmd/worker && \
     CGO_ENABLED=0 go build -trimpath -o /out/admin ./cmd/admin && \
-    CGO_ENABLED=0 go build -trimpath -o /out/initdb ./cmd/initdb && \
-    CGO_ENABLED=0 go build -trimpath -o /out/migrate ./cmd/migrate && \
-    CGO_ENABLED=0 go build -trimpath -o /out/migrate-sqlite ./cmd/migrate-sqlite
+    CGO_ENABLED=0 go build -trimpath -o /out/initdb ./cmd/initdb
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata && \

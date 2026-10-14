@@ -1,9 +1,6 @@
-legacy
 bin
 .env
 .env.*
-*.db
-*.sqlite*
 kubeconfig
 uploads
 static

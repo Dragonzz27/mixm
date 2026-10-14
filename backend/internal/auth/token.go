@@ -21,7 +21,7 @@ func Sign(secret, subject, kind string, ttl time.Duration) (string, error) {
 func Parse(secret, raw, kind string) (*Claims, error) {
 	c := &Claims{}
 	t, e := jwt.ParseWithClaims(raw, c, func(t *jwt.Token) (any, error) { return []byte(secret), nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
-	if e != nil || !t.Valid || c.Subject == "" || (c.Type != kind && !(kind == "access" && c.Type == "")) {
+	if e != nil || !t.Valid || c.Subject == "" || c.Type != kind {
 		return nil, errors.New("invalid token")
 	}
 	return c, nil

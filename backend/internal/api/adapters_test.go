@@ -62,7 +62,7 @@ func TestRegistryAdapter(t *testing.T) {
 		t.Fatal("empty repository must have no tags")
 	}
 }
-func TestLegacyTemplateNormalization(t *testing.T) {
+func TestTemplateNormalization(t *testing.T) {
 	v := store.Row{"cpu_limit": "2", "memory_limit_str": "2Gi", "storage": "5Gi", "gpu_limit": "0"}
 	if e := normalizeTemplate(v); e != nil {
 		t.Fatal(e)
@@ -71,6 +71,6 @@ func TestLegacyTemplateNormalization(t *testing.T) {
 		t.Fatal(e)
 	}
 	if store.Number(v, "storage_limit") != 5 || v["memory_limit"] != "2Gi" {
-		t.Fatalf("legacy template not normalized: %v", v)
+		t.Fatalf("template configuration not normalized: %v", v)
 	}
 }
