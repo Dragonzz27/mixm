@@ -15,7 +15,7 @@ export const useContentTypeStore = defineStore('contentType', () => {
   async function loadContentTypes() {
     try {
       const res = await contentTypeApi.getList({})
-      contentTypes.value = res.types || []
+      contentTypes.value = res.items || []
     } catch (err) {
       console.error('Failed to load content types:', err)
     }

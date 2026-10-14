@@ -281,7 +281,7 @@ const historyColumns = [
 async function loadAssignments() {
   try {
     const res = await assignmentApi.getActiveList()
-    availableAssignments.value = res || []
+    availableAssignments.value = res.items || []
   } catch (err) {
     console.error(err)
   }
@@ -290,9 +290,9 @@ async function loadAssignments() {
 async function loadMySubmissions() {
   try {
     const res = await assignmentApi.getMySubmissions({})
-    mySubmissions.value = res || []
+    mySubmissions.value = res.items || []
     userSubmissionMap.value = {}
-    for (const item of res || []) {
+    for (const item of res.items || []) {
       userSubmissionMap.value[item.assignment_id] = item
     }
   } catch (err) {
@@ -350,7 +350,7 @@ function customRequest({ file, onFinish, onError }) {
   }).catch(err => {
     console.error(err)
     uploadFile.value = null
-    message.error(err.response?.data?.detail || '文件上传失败')
+    message.error(err.response?.data?.message || '文件上传失败')
     onError()
   })
 }
@@ -385,7 +385,7 @@ async function handleSubmit() {
     loadAssignments()
   } catch (err) {
     console.error(err)
-    message.error(err.response?.data?.detail || '提交失败')
+    message.error(err.response?.data?.message || '提交失败')
   } finally {
     submitting.value = false
   }

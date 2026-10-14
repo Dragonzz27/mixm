@@ -41,9 +41,9 @@ func Load() (Config, error) {
 		unit time.Duration
 		dest *time.Duration
 	}{{"ACCESS_TOKEN_EXPIRE_MINUTES", 180, time.Minute, &c.AccessTTL}, {"REFRESH_TOKEN_EXPIRE_DAYS", 7, 24 * time.Hour, &c.RefreshTTL}, {"KT_SERVICE_TIMEOUT_SECONDS", 3, time.Second, &c.KTTimeout}} {
-		n, e := integer(item.name, item.def)
-		if e != nil {
-			return c, e
+		n, err := integer(item.name, item.def)
+		if err != nil {
+			return c, err
 		}
 		*item.dest = time.Duration(n) * item.unit
 	}
@@ -53,8 +53,8 @@ func Load() (Config, error) {
 	if env("ALGORITHM", "HS256") != "HS256" {
 		return c, fmt.Errorf("only HS256 is supported")
 	}
-	u, e := url.Parse(c.DatabaseURL)
-	if e != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
+	u, err := url.Parse(c.DatabaseURL)
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
 		return c, fmt.Errorf("DATABASE_URL must use PostgreSQL")
 	}
 	if c.SSHPort > 65535 || c.WorkerConcurrency > 64 {
@@ -69,8 +69,8 @@ func env(k, d string) string {
 	return d
 }
 func integer(k string, d int) (int, error) {
-	n, e := strconv.Atoi(env(k, strconv.Itoa(d)))
-	if e != nil || n < 1 {
+	n, err := strconv.Atoi(env(k, strconv.Itoa(d)))
+	if err != nil || n < 1 {
 		return 0, fmt.Errorf("%s must be a positive integer", k)
 	}
 	return n, nil

@@ -216,15 +216,15 @@ async function loadUsers() {
   try {
     const page = pagination.value.page || 1
     const pageSize = pagination.value.pageSize || 10
-    const skip = (page - 1) * pageSize
+    const offset = (page - 1) * pageSize
 
     const res = await authApi.getUsers({ 
-      skip,
+      offset,
       limit: pageSize,
       keyword: searchKey.value || undefined
     })
 
-    users.value = res.users || []
+    users.value = res.items || []
     pagination.value.itemCount = res.total || 0
 
     const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
@@ -239,8 +239,8 @@ async function loadUsers() {
 
 async function loadRoles() {
   try {
-    const res = await roleApi.getList({ skip: 0, limit: 200 })
-    roleOptions.value = (res.roles || []).map((item) => ({
+    const res = await roleApi.getList({ offset: 0, limit: 200 })
+    roleOptions.value = (res.items || []).map((item) => ({
       label: item.name,
       value: item.id
     }))

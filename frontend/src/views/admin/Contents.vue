@@ -139,11 +139,11 @@ async function loadContents() {
     const page = pagination.value.page || 1
     const pageSize = pagination.value.pageSize || 10
     const res = await contentApi.getList({
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize,
       keyword: searchKey.value || undefined
     })
-    contents.value = res.contents || []
+    contents.value = res.items || []
     pagination.value.itemCount = res.total || 0
 
     const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
@@ -164,7 +164,7 @@ function handleSearch() {
 async function loadTemplates() {
   try {
     const res = await templateApi.getList({})
-    templates.value = res.templates || []
+    templates.value = res.items || []
   } catch (err) {
     console.error(err)
   }

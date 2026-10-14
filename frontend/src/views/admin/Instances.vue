@@ -183,10 +183,10 @@ async function loadData() {
     const page = pagination.value.page || 1
     const pageSize = pagination.value.pageSize || 10
     const instancesRes = await instanceApi.getList({
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize
     })
-    instances.value = instancesRes.instances || []
+    instances.value = instancesRes.items || []
     pagination.value.itemCount = instancesRes.total || 0
 
     const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))

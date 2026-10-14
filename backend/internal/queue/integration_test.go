@@ -15,9 +15,11 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+
 	"mixm-edu/backend/internal/cluster"
 	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/store"
+	"mixm-edu/backend/internal/model"
+	"mixm-edu/backend/internal/repository"
 	"mixm-edu/backend/internal/testutil"
 )
 
@@ -28,44 +30,44 @@ func TestRabbitMQOutboxAndDuplicateDelivery(t *testing.T) {
 	db := testutil.Database(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	opts, e := redis.ParseURL(os.Getenv("TEST_REDIS_URL"))
-	if e != nil {
-		t.Fatal(e)
+	opts, err := redis.ParseURL(os.Getenv("TEST_REDIS_URL"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	cache := redis.NewClient(opts)
 	defer cache.Close()
 	name := "test_" + uuid.NewString()
 	cfg := config.Config{RabbitURL: os.Getenv("TEST_RABBITMQ_URL"), Queue: name, PVCCapacity: "10Gi", PVCAccessMode: "ReadWriteMany", StorageClass: "longhorn"}
-	conn, ch, e := channel(cfg)
-	if e != nil {
-		t.Fatal(e)
+	conn, ch, err := channel(cfg)
+	if err != nil {
+		t.Fatal(err)
 	}
 	defer conn.Close()
 	defer ch.Close()
 	defer ch.QueueDelete(name, false, false, false)
-	u, e := store.Write(ctx, db, "users", "", store.Row{"username": "queue-test", "hashed_password": "unused"})
-	if e != nil {
-		t.Fatal(e)
+	u, err := repository.Write(ctx, db, "users", "", model.Record{"username": "queue-test", "hashed_password": "unused"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	v := store.Row{"name": "test", "user_id": u["id"], "image": "ubuntu:24.04", "config": `{"password":"secret"}`}
-	if e = cluster.Validate(v); e != nil {
-		t.Fatal(e)
+	v := model.Record{"name": "test", "user_id": u["id"], "image": "ubuntu:24.04", "config": `{"password":"secret"}`}
+	if err = cluster.Validate(v); err != nil {
+		t.Fatal(err)
 	}
-	inst, e := store.Write(ctx, db, "instances", "", v)
-	if e != nil {
-		t.Fatal(e)
+	inst, err := repository.Write(ctx, db, "instances", "", v)
+	if err != nil {
+		t.Fatal(err)
 	}
-	task, e := store.Write(ctx, db, "instance_tasks", "", store.Row{"user_id": u["id"], "instance_id": inst["id"], "payload": v})
-	if e != nil {
-		t.Fatal(e)
+	task, err := repository.Write(ctx, db, "instance_tasks", "", model.Record{"user_id": u["id"], "instance_id": inst["id"], "payload": v})
+	if err != nil {
+		t.Fatal(err)
 	}
-	id := store.String(task, "id")
+	id := model.String(task, "id")
 	defer cache.Del(context.Background(), "instance_task:"+id)
 	k := kubefake.NewSimpleClientset()
 	k.PrependReactor("get", "deployments", func(a ktesting.Action) (bool, runtime.Object, error) {
-		obj, e := k.Tracker().Get(appsv1.SchemeGroupVersion.WithResource("deployments"), a.GetNamespace(), a.(ktesting.GetAction).GetName())
-		if e != nil {
-			return true, nil, e
+		obj, err := k.Tracker().Get(appsv1.SchemeGroupVersion.WithResource("deployments"), a.GetNamespace(), a.(ktesting.GetAction).GetName())
+		if err != nil {
+			return true, nil, err
 		}
 		d := obj.(*appsv1.Deployment).DeepCopy()
 		d.Status.ObservedGeneration = d.Generation
@@ -88,9 +90,9 @@ func TestRabbitMQOutboxAndDuplicateDelivery(t *testing.T) {
 	})
 	deadline := time.Now().Add(15 * time.Second)
 	for {
-		row, e := store.Get(ctx, db, "instance_tasks", id)
-		if e != nil {
-			t.Fatal(e)
+		row, err := repository.Get(ctx, db, "instance_tasks", id)
+		if err != nil {
+			t.Fatal(err)
 		}
 		if row["status"] == "completed" {
 			break
@@ -103,23 +105,23 @@ func TestRabbitMQOutboxAndDuplicateDelivery(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if e = ch.PublishWithContext(ctx, "", name, false, false, amqp.Publishing{Body: []byte(id), DeliveryMode: amqp.Persistent}); e != nil {
-		t.Fatal(e)
+	if err = ch.PublishWithContext(ctx, "", name, false, false, amqp.Publishing{Body: []byte(id), DeliveryMode: amqp.Persistent}); err != nil {
+		t.Fatal(err)
 	}
-	if e = process(ctx, db, cache, client, id); e != nil {
-		t.Fatal(e)
+	if err = process(ctx, db, cache, client, id); err != nil {
+		t.Fatal(err)
 	}
-	row, e := store.Get(ctx, db, "instance_tasks", id)
-	if e != nil || store.Number(row, "attempts") != 1 {
+	row, err := repository.Get(ctx, db, "instance_tasks", id)
+	if err != nil || model.Number(row, "attempts") != 1 {
 		t.Fatalf("duplicate task executed again: %v", row)
 	}
-	ds, e := k.AppsV1().Deployments("default").List(ctx, metav1.ListOptions{})
-	if e != nil || len(ds.Items) != 1 {
+	ds, err := k.AppsV1().Deployments("default").List(ctx, metav1.ListOptions{})
+	if err != nil || len(ds.Items) != 1 {
 		t.Fatal("duplicate Kubernetes deployment")
 	}
 	deadline = time.Now().Add(3 * time.Second)
 	for {
-		if value, e := cache.Get(ctx, "instance_task:"+id).Result(); e == nil && value != "" {
+		if value, err := cache.Get(ctx, "instance_task:"+id).Result(); err == nil && value != "" {
 			break
 		}
 		if time.Now().After(deadline) {

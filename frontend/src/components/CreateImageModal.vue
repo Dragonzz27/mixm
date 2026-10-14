@@ -80,8 +80,8 @@ async function handleSubmit() {
     emit('success')
     handleClose()
   } catch (err) {
-    if (err.response?.data?.detail) {
-      message.error(err.response.data.detail)
+    if (err.response?.data?.message) {
+      message.error(err.response.data.message)
     } else {
       message.error('创建失败')
     }

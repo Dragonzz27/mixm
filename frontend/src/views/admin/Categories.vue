@@ -426,14 +426,14 @@ async function loadUnboundContents(page = 1) {
   loadingUnbound.value = true
   try {
     const pageSize = unboundPagination.value.pageSize
-    const skip = (page - 1) * pageSize
+    const offset = (page - 1) * pageSize
     const params = {
       keyword: unboundSearchKey.value || undefined,
-      skip: skip,
+      offset: offset,
       limit: pageSize
     }
     const res = await bindingApi.getUnboundContents(currentCategoryId.value, params)
-    unboundContents.value = res.contents || []
+    unboundContents.value = res.items || []
     unboundPagination.value.itemCount = res.total || 0
     unboundPagination.value.page = page
 

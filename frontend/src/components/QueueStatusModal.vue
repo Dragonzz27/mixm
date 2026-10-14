@@ -89,7 +89,7 @@ async function loadData() {
       failed: statusRes.failed || 0,
       total: statusRes.total || 0
     }
-    tasks.value = tasksRes.tasks || []
+    tasks.value = tasksRes.items || []
   } catch (err) {
     console.error('Failed to load queue data:', err)
   } finally {

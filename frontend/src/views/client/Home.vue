@@ -153,7 +153,7 @@ async function fetchMyInstances() {
   try {
     loadingInstances.value = true
     const res = await instanceApi.getMyInstances()
-    instances.value = res.instances || []
+    instances.value = res.items || []
     buildRecentActivities()
   } catch (err) {
     console.error('Failed to fetch instances:', err)

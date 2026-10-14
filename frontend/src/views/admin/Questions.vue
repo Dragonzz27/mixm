@@ -623,8 +623,8 @@ function flattenKnowledgeOptions(nodes, result = []) {
 
 async function loadRoles() {
   try {
-    const res = await roleApi.getList({ skip: 0, limit: 100 })
-    roleOptions.value = (res.roles || []).map((item) => ({
+    const res = await roleApi.getList({ offset: 0, limit: 100 })
+    roleOptions.value = (res.items || []).map((item) => ({
       label: item.name,
       value: item.id,
     }))
@@ -638,7 +638,7 @@ async function loadQuestions() {
     const page = questionPagination.value.page || 1
     const pageSize = questionPagination.value.pageSize || 10
     const params = {
-      skip: (page - 1) * pageSize,
+      offset: (page - 1) * pageSize,
       limit: pageSize,
     }
 
@@ -649,7 +649,7 @@ async function loadQuestions() {
     if (searchKeyword.value) params.keyword = searchKeyword.value
 
     const res = await questionApi.getList(params)
-    questions.value = res.questions || []
+    questions.value = res.items || []
     questionPagination.value.itemCount = res.total || 0
 
     const maxPage = Math.max(1, Math.ceil((questionPagination.value.itemCount || 0) / pageSize))

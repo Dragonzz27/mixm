@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './config'
+import { unwrapEnvelope, resolveFileURLs } from './protocol'
 import axios from 'axios'
 import { useUserStore } from '@/stores/user'
 import { createDiscreteApi } from 'naive-ui'
@@ -35,7 +37,7 @@ function processQueue(error, token = null) {
 }
 
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
@@ -60,7 +62,7 @@ request.interceptors.request.use(
 
 request.interceptors.response.use(
   (response) => {
-    return response.data
+    return resolveFileURLs(unwrapEnvelope(response.data), API_BASE_URL)
   },
   async (error) => {
     const { response, config } = error
@@ -71,10 +73,10 @@ request.interceptors.response.use(
         return Promise.reject(error)
       }
 
-      if (response.status === 401) {
+      if (response.status === 401 && !config._retry) {
+        config._retry = true
         if (!isRefreshing) {
           isRefreshing = true
-          userStore.token && (config._retry = true)
 
           const refreshed = await userStore.refreshAccessToken()
 
@@ -116,7 +118,7 @@ request.interceptors.response.use(
           message.error('服务器错误')
           break
         default:
-          message.error(response.data?.detail || '请求失败')
+          message.error(response.data?.message || '请求失败')
       }
     } else {
       message.error('网络连接失败')

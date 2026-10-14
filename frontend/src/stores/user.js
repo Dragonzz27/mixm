@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+import { API_BASE_URL } from '@/api/config'
+import { unwrapEnvelope } from '@/api/protocol'
 
 export const useUserStore = defineStore('user', () => {
   const getStoredItem = (key) => {
@@ -75,9 +76,10 @@ export const useUserStore = defineStore('user', () => {
       const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
         refresh_token: refreshToken.value
       })
-      if (response.data.access_token && response.data.refresh_token) {
-        setToken(response.data.access_token)
-        setRefreshToken(response.data.refresh_token)
+      const tokens = unwrapEnvelope(response.data)
+      if (tokens.access_token && tokens.refresh_token) {
+        setToken(tokens.access_token)
+        setRefreshToken(tokens.refresh_token)
         return true
       }
       return false

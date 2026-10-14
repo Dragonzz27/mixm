@@ -22,8 +22,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
 	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/store"
+	"mixm-edu/backend/internal/model"
 )
 
 type Client struct {
@@ -36,82 +37,82 @@ type Client struct {
 var Middleware = schema.GroupVersionResource{Group: "traefik.io", Version: "v1alpha1", Resource: "middlewares"}
 
 func New(c config.Config) (*Client, error) {
-	cfg, e := clientcmd.BuildConfigFromFlags("", c.Kubeconfig)
-	if e != nil {
-		cfg, e = rest.InClusterConfig()
+	cfg, err := clientcmd.BuildConfigFromFlags("", c.Kubeconfig)
+	if err != nil {
+		cfg, err = rest.InClusterConfig()
 	}
-	if e != nil {
-		return nil, fmt.Errorf("Kubernetes config: %w", e)
+	if err != nil {
+		return nil, fmt.Errorf("Kubernetes config: %w", err)
 	}
 	cfg.Timeout = 30 * time.Second
-	k, e := kubernetes.NewForConfig(cfg)
-	if e != nil {
-		return nil, e
+	k, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
 	}
-	d, e := dynamic.NewForConfig(cfg)
-	if e != nil {
-		return nil, e
+	d, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
 	}
 	return &Client{K: k, Dynamic: d, REST: cfg, Config: c}, nil
 }
-func Validate(v store.Row) error {
-	for k, d := range (store.Row{"cpu_limit": 1.0, "memory_limit": "1Gi", "storage_limit": 1, "gpu_limit": 0, "gpu_memory_limit": 0, "namespace": "default", "replicas": 1}) {
+func Validate(v model.Record) error {
+	for k, d := range (model.Record{"cpu_limit": 1.0, "memory_limit": "1Gi", "storage_limit": 1, "gpu_limit": 0, "gpu_memory_limit": 0, "namespace": "default", "replicas": 1}) {
 		if v[k] == nil {
 			v[k] = d
 		}
 	}
-	cpu := store.Number(v, "cpu_limit")
+	cpu := model.Number(v, "cpu_limit")
 	if cpu < 0.5 || cpu > 16 {
 		return fmt.Errorf("CPU 必须为 0.5-16")
 	}
-	memory, e := resource.ParseQuantity(store.String(v, "memory_limit"))
-	if e != nil || memory.Value() < 512<<20 || memory.Value() > 32<<30 {
+	memory, err := resource.ParseQuantity(model.String(v, "memory_limit"))
+	if err != nil || memory.Value() < 512<<20 || memory.Value() > 32<<30 {
 		return fmt.Errorf("内存必须为 512Mi-32Gi")
 	}
 	for _, spec := range []struct {
 		k        string
 		min, max float64
 	}{{"storage_limit", 1, 40}, {"gpu_limit", 0, 8}, {"gpu_memory_limit", 0, 1048576}, {"replicas", 1, 1}} {
-		n := store.Number(v, spec.k)
+		n := model.Number(v, spec.k)
 		if n < spec.min || n > spec.max || n != float64(int(n)) {
 			return fmt.Errorf("%s 无效", spec.k)
 		}
 	}
 	return nil
 }
-func (c *Client) Provision(ctx context.Context, v store.Row) error {
+func (c *Client) Provision(ctx context.Context, v model.Record) error {
 	if c == nil {
 		return fmt.Errorf("Kubernetes 未配置")
 	}
-	if e := Validate(v); e != nil {
-		return e
+	if err := Validate(v); err != nil {
+		return err
 	}
-	id, ns := store.String(v, "id"), store.String(v, "namespace")
+	id, ns := model.String(v, "id"), model.String(v, "namespace")
 	name := "deploy-cs-" + id
 	svc := "svc-cs-" + id
-	pvc := "edu-pvc-cs-" + store.String(v, "user_id")
-	cfg := store.Object(v["config"])
-	password := store.String(cfg, "password")
-	limits := corev1.ResourceList{corev1.ResourceCPU: resource.MustParse(strconv.FormatFloat(store.Number(v, "cpu_limit"), 'f', -1, 64)), corev1.ResourceMemory: resource.MustParse(store.String(v, "memory_limit")), corev1.ResourceEphemeralStorage: resource.MustParse(fmt.Sprintf("%dGi", int(store.Number(v, "storage_limit"))))}
-	if gpu := store.Number(v, "gpu_limit"); gpu > 0 {
+	pvc := "edu-pvc-cs-" + model.String(v, "user_id")
+	cfg := model.Object(v["config"])
+	password := model.String(cfg, "password")
+	limits := corev1.ResourceList{corev1.ResourceCPU: resource.MustParse(strconv.FormatFloat(model.Number(v, "cpu_limit"), 'f', -1, 64)), corev1.ResourceMemory: resource.MustParse(model.String(v, "memory_limit")), corev1.ResourceEphemeralStorage: resource.MustParse(fmt.Sprintf("%dGi", int(model.Number(v, "storage_limit"))))}
+	if gpu := model.Number(v, "gpu_limit"); gpu > 0 {
 		limits["nvidia.com/gpu"] = resource.MustParse(fmt.Sprint(int(gpu)))
-		if gm := store.Number(v, "gpu_memory_limit"); gm > 0 {
+		if gm := model.Number(v, "gpu_memory_limit"); gm > 0 {
 			limits["nvidia.com/gpumem"] = resource.MustParse(fmt.Sprint(int(gm)))
 		}
 	}
-	cap, e := resource.ParseQuantity(c.Config.PVCCapacity)
-	if e != nil {
-		return e
+	cap, err := resource.ParseQuantity(c.Config.PVCCapacity)
+	if err != nil {
+		return err
 	}
-	_, e = c.K.CoreV1().PersistentVolumeClaims(ns).Create(ctx, &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvc}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.PersistentVolumeAccessMode(c.Config.PVCAccessMode)}, StorageClassName: &c.Config.StorageClass, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: cap}}}}, metav1.CreateOptions{})
-	if e != nil && !apierrors.IsAlreadyExists(e) {
-		return e
+	_, err = c.K.CoreV1().PersistentVolumeClaims(ns).Create(ctx, &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvc}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.PersistentVolumeAccessMode(c.Config.PVCAccessMode)}, StorageClassName: &c.Config.StorageClass, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: cap}}}}, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
 	}
-	image := store.String(v, "image")
+	image := model.String(v, "image")
 	code := strings.Contains(strings.ToLower(image), "codeserver") || strings.Contains(strings.ToLower(image), "code-server")
 	ports := []corev1.ContainerPort{{Name: "ssh", ContainerPort: 22}}
 	servicePorts := []corev1.ServicePort{{Name: "ssh", Port: 80, TargetPort: intstr.FromInt32(22)}}
-	env := []corev1.EnvVar{{Name: "TARGET_PASS", Value: password}, {Name: "ROOT_PASSWORD", Value: password}, {Name: "SSH_PASSWORD", Value: password}, {Name: "SSH_USERNAME", Value: store.String(v, "ssh_username")}}
+	env := []corev1.EnvVar{{Name: "TARGET_PASS", Value: password}, {Name: "ROOT_PASSWORD", Value: password}, {Name: "SSH_PASSWORD", Value: password}, {Name: "SSH_USERNAME", Value: model.String(v, "ssh_username")}}
 	if code {
 		ports = append(ports, corev1.ContainerPort{Name: "http", ContainerPort: 8080})
 		servicePorts = []corev1.ServicePort{{Name: "http", Port: 80, TargetPort: intstr.FromInt32(8080)}, {Name: "ssh", Port: 22, TargetPort: intstr.FromInt32(22)}}
@@ -124,26 +125,26 @@ func (c *Client) Provision(ctx context.Context, v store.Row) error {
 	replicas := int32(1)
 	labels := map[string]string{"app": name, "mixm/instance-id": id}
 	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}, Spec: appsv1.DeploymentSpec{Replicas: &replicas, Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": name}}, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: labels}, Spec: corev1.PodSpec{Containers: []corev1.Container{container}, Volumes: []corev1.Volume{{Name: "project-data", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc}}}}}}}}
-	_, e = c.K.AppsV1().Deployments(ns).Create(ctx, deployment, metav1.CreateOptions{})
-	if e != nil && !apierrors.IsAlreadyExists(e) {
-		return e
+	_, err = c.K.AppsV1().Deployments(ns).Create(ctx, deployment, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
 	}
-	_, e = c.K.CoreV1().Services(ns).Create(ctx, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: svc}, Spec: corev1.ServiceSpec{Selector: map[string]string{"app": name}, Ports: servicePorts}}, metav1.CreateOptions{})
-	if e != nil && !apierrors.IsAlreadyExists(e) {
-		return e
+	_, err = c.K.CoreV1().Services(ns).Create(ctx, &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: svc}, Spec: corev1.ServiceSpec{Selector: map[string]string{"app": name}, Ports: servicePorts}}, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
 	}
 	if code {
 		path := "/instance/" + id
 		mw := "mid-cs-" + id
-		_, e = c.Dynamic.Resource(Middleware).Namespace(ns).Create(ctx, &unstructured.Unstructured{Object: map[string]any{"apiVersion": "traefik.io/v1alpha1", "kind": "Middleware", "metadata": map[string]any{"name": mw}, "spec": map[string]any{"stripPrefix": map[string]any{"prefixes": []any{path}, "forceSlash": true}}}}, metav1.CreateOptions{})
-		if e != nil && !apierrors.IsAlreadyExists(e) {
-			return e
+		_, err = c.Dynamic.Resource(Middleware).Namespace(ns).Create(ctx, &unstructured.Unstructured{Object: map[string]any{"apiVersion": "traefik.io/v1alpha1", "kind": "Middleware", "metadata": map[string]any{"name": mw}, "spec": map[string]any{"stripPrefix": map[string]any{"prefixes": []any{path}, "forceSlash": true}}}}, metav1.CreateOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
 		}
 		class := "traefik"
 		prefix := netv1.PathTypePrefix
-		_, e = c.K.NetworkingV1().Ingresses(ns).Create(ctx, &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "ing-cs-" + id, Annotations: map[string]string{"traefik.ingress.kubernetes.io/router.middlewares": ns + "-" + mw + "@kubernetescrd"}}, Spec: netv1.IngressSpec{IngressClassName: &class, Rules: []netv1.IngressRule{{IngressRuleValue: netv1.IngressRuleValue{HTTP: &netv1.HTTPIngressRuleValue{Paths: []netv1.HTTPIngressPath{{Path: path, PathType: &prefix, Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svc, Port: netv1.ServiceBackendPort{Number: 80}}}}}}}}}}}, metav1.CreateOptions{})
-		if e != nil && !apierrors.IsAlreadyExists(e) {
-			return e
+		_, err = c.K.NetworkingV1().Ingresses(ns).Create(ctx, &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "ing-cs-" + id, Annotations: map[string]string{"traefik.ingress.kubernetes.io/router.middlewares": ns + "-" + mw + "@kubernetescrd"}}, Spec: netv1.IngressSpec{IngressClassName: &class, Rules: []netv1.IngressRule{{IngressRuleValue: netv1.IngressRuleValue{HTTP: &netv1.HTTPIngressRuleValue{Paths: []netv1.HTTPIngressPath{{Path: path, PathType: &prefix, Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svc, Port: netv1.ServiceBackendPort{Number: 80}}}}}}}}}}}, metav1.CreateOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
 		}
 	}
 	longhornDone := true
@@ -164,9 +165,9 @@ func (c *Client) Provision(ctx context.Context, v store.Row) error {
 			}
 			longhornDone = true
 		}
-		d, e := c.K.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
-		if e != nil {
-			return false, e
+		d, err := c.K.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
 		}
 		return d.Status.ObservedGeneration >= d.Generation && d.Status.ReadyReplicas >= replicas && d.Status.AvailableReplicas >= replicas, nil
 	})
@@ -179,20 +180,20 @@ func (c *Client) setLonghornReplicas(ctx context.Context, volume string) error {
 	var last error
 	for _, version := range []string{"v1beta2", "v1beta1"} {
 		gvr := schema.GroupVersionResource{Group: "longhorn.io", Version: version, Resource: "volumes"}
-		v, e := c.Dynamic.Resource(gvr).Namespace("longhorn-system").Get(ctx, volume, metav1.GetOptions{})
-		if e != nil {
-			if apierrors.IsNotFound(e) {
-				last = e
+		v, err := c.Dynamic.Resource(gvr).Namespace("longhorn-system").Get(ctx, volume, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				last = err
 				continue
 			}
-			return e
+			return err
 		}
-		spec := store.Object(v.Object["spec"])
-		if store.Number(spec, "numberOfReplicas") == 1 {
+		spec := model.Object(v.Object["spec"])
+		if model.Number(spec, "numberOfReplicas") == 1 {
 			return nil
 		}
-		_, e = c.Dynamic.Resource(gvr).Namespace("longhorn-system").Patch(ctx, volume, types.MergePatchType, []byte(`{"spec":{"numberOfReplicas":1}}`), metav1.PatchOptions{})
-		return e
+		_, err = c.Dynamic.Resource(gvr).Namespace("longhorn-system").Patch(ctx, volume, types.MergePatchType, []byte(`{"spec":{"numberOfReplicas":1}}`), metav1.PatchOptions{})
+		return err
 	}
 	return last
 }
@@ -200,13 +201,13 @@ func (c *Client) Scale(ctx context.Context, ns, id string, n int32) error {
 	if c == nil {
 		return fmt.Errorf("Kubernetes 未配置")
 	}
-	d, e := c.K.AppsV1().Deployments(ns).GetScale(ctx, "deploy-cs-"+id, metav1.GetOptions{})
-	if e != nil {
-		return e
+	d, err := c.K.AppsV1().Deployments(ns).GetScale(ctx, "deploy-cs-"+id, metav1.GetOptions{})
+	if err != nil {
+		return err
 	}
 	d.Spec.Replicas = n
-	_, e = c.K.AppsV1().Deployments(ns).UpdateScale(ctx, d.Name, d, metav1.UpdateOptions{})
-	return e
+	_, err = c.K.AppsV1().Deployments(ns).UpdateScale(ctx, d.Name, d, metav1.UpdateOptions{})
+	return err
 }
 func (c *Client) Delete(ctx context.Context, ns, id string) error {
 	if c == nil {
@@ -219,8 +220,8 @@ func (c *Client) Delete(ctx context.Context, ns, id string) error {
 	}, func() error {
 		return c.Dynamic.Resource(Middleware).Namespace(ns).Delete(ctx, "mid-cs-"+id, metav1.DeleteOptions{})
 	}} {
-		if e := f(); e != nil && !apierrors.IsNotFound(e) {
-			return e
+		if err := f(); err != nil && !apierrors.IsNotFound(err) {
+			return err
 		}
 	}
 	return nil

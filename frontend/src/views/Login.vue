@@ -199,7 +199,7 @@ async function handleLogin() {
     if (err.response?.status === 401) {
       dialog.error({
         title: 'Login Failed',
-        content: err.response.data?.detail || 'Invalid email or password',
+        content: err.response.data?.message || 'Invalid email or password',
         positiveText: 'OK'
       })
     } else {
