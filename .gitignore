@@ -307,5 +307,5 @@ backend/kubeconfig/*
 
 
 # Deployment-generated manifests and existing service data
-deploy/kubernetes/generated/
+scripts/code-server-*.yaml
 registry/registry-data/

@@ -14,8 +14,7 @@ deploy/
 │   ├── docker-compose.yaml            # 独立镜像仓库
 │   └── ubuntu/                        # 实验镜像 Dockerfile 和 build.sh
 ├── rustfs/docker-compose.yaml          # 可选的独立 RustFS 部署
-├── longhorn/longhorn.yaml               # Longhorn 安装清单
-└── kubernetes/create-demo-pod.sh        # 生成 code-server 演示清单
+└── longhorn/longhorn.yaml               # Longhorn 安装清单
 ```
 
 ## 完整应用
@@ -67,11 +66,11 @@ docker compose -f deploy/rustfs/docker-compose.yaml up -d
 ```bash
 kubectl apply -f deploy/longhorn/longhorn.yaml
 bash deploy/registry/ubuntu/build.sh
-bash deploy/kubernetes/create-demo-pod.sh demo-user
-kubectl apply -f deploy/kubernetes/generated/code-server-demo-user.yaml
+bash scripts/create-demo-pod.sh demo-user
+kubectl apply -f scripts/code-server-demo-user.yaml
 ```
 
-演示脚本固定将生成的清单保存到 `deploy/kubernetes/generated/`；生成文件包含实例密码，已加入 Git 忽略规则。镜像构建脚本通过自身位置选择 Dockerfile，不依赖调用时的工作目录。
+演示脚本位于根目录的 [`scripts/create-demo-pod.sh`](../scripts/create-demo-pod.sh)，生成的清单直接保存到 `scripts/`，文件名为 `code-server-<user_id>.yaml`；生成文件包含实例密码，已加入 Git 忽略规则。镜像构建脚本通过自身位置选择 Dockerfile，不依赖调用时的工作目录。
 
 ## 配置校验
 

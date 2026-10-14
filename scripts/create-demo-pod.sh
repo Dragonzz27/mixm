@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # 此脚本用于生成 Code-Server 的 Kubernetes 部署清单
-# 使用方法：bash deploy/kubernetes/create-demo-pod.sh <user_id>
-# 随后会生成 deploy/kubernetes/generated/code-server-<user_id>.yaml
+# 使用方法：bash scripts/create-demo-pod.sh <user_id>
+# 随后会生成 scripts/code-server-<user_id>.yaml
 # 请使用 kubectl apply -f <file_name> 来部署
 # 访问地址为 http://<your-domain>:port/<user_id>/   （注意最后一个下划线）
 
@@ -13,10 +13,8 @@ fi
 
 USER_ID=$1
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUTPUT_DIR="${SCRIPT_DIR}/generated"
-mkdir -p "${OUTPUT_DIR}"
 PASSWORD=$(openssl rand -base64 12)
-FILE_NAME="${OUTPUT_DIR}/code-server-${USER_ID}.yaml"
+FILE_NAME="${SCRIPT_DIR}/code-server-${USER_ID}.yaml"
 MIDDLEWARE_NAME="stripprefix-${USER_ID}"
 
 echo "========================================="

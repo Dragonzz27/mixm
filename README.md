@@ -125,6 +125,7 @@ backend/
 ├── kubeconfig/            # 本地集群凭据，不包含在镜像内
 └── legacy/                # 原 Python 后端归档，不参与 Go 构建
 deploy/                    # Compose、Dockerfile、Registry 镜像、Kubernetes 清单与脚本
+scripts/                   # 通用辅助脚本，例如 create-demo-pod.sh
 frontend/                  # Vue 前端
 kt_service/                # 独立模型推理服务
 ```
