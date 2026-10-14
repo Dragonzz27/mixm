@@ -298,3 +298,10 @@ kt_service/train/**/*.pt
 kt_service/train/**/*.pth
 kt_service/train/**/*.ckpt
 kt_service/train/**/*.onnx
+
+# Go backend
+backend/bin/
+backend/data/
+backend/kubeconfig/*
+!backend/kubeconfig/.gitkeep
+!backend/.dockerignore

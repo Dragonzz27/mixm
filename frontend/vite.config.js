@@ -15,7 +15,7 @@ export default defineConfig({
     allowedHosts: ['mixm-edu.yoobit.cn', 'https://mixm-edu.yoobit.cn/'],
     proxy: {
       '/api': {
-        target: 'http://backend:8002',
+        target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://backend:8002',
         changeOrigin: true
       }
     }

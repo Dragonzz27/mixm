@@ -1,80 +1,21 @@
-# 模板配置说明
+# 实例模板配置
 
-模板配置使用 JSON 格式，支持以下配置项：
-
-## 基础配置
+templates.config 保存 JSON 字符串。批量启动使用 repo_id 与 repo_tag 指定已有镜像仓库，资源配置示例：
 
 ```json
 {
-  "namespace": "default",
-  "replicas": 1,
-  "image": "codercom/code-server:latest",
-  "container_port": 8080,
-  "service_port": 80
+  "repo_id": "已有镜像仓库ID",
+  "repo_tag": "latest",
+  "cpu_limit": 1.0,
+  "memory_limit": "1Gi",
+  "storage_limit": 1,
+  "gpu_limit": 0,
+  "gpu_memory_limit": 0
 }
 ```
 
-## 资源配置
+CPU 范围 0.5-16，内存范围 512Mi-32Gi，临时存储范围 1-40Gi，GPU 数量范围 0-8。旧配置的 memory_limit_str 和 storage（例如 1Gi）会在批量启动时归一化。
 
-```json
-{
-  "cpu_limit": "1",
-  "memory_limit_str": "1Gi",
-  "cpu_request": "0.5",
-  "memory_request": "512Mi",
-  "storage": "1Gi"
-}
-```
+每个用户的持久 workspace 使用 edu-pvc-cs-{user_id}，容量由 USER_PERSONAL_PVC_CAPACITY 设置。storage_limit 控制容器临时存储，不改变已有用户 PVC 容量。PVC_ACCESS_MODE 与 STORAGE_CLASS_NAME 应匹配实际存储供应器。
 
-## 环境变量
-
-```json
-{
-  "env": [
-    {"name": "MY_VAR", "value": "my_value"},
-    {"name": "ANOTHER_VAR", "value": "another_value"}
-  ]
-}
-```
-
-## 完整示例
-
-```json
-{
-  "namespace": "default",
-  "replicas": 1,
-  "image": "codercom/code-server:latest",
-  "container_port": 8080,
-  "service_port": 80,
-  "cpu_limit": "1",
-  "memory_limit_str": "1Gi",
-  "cpu_request": "0.5",
-  "memory_request": "512Mi",
-  "storage": "1Gi",
-  "env": [
-    {"name": "CUSTOM_ENV", "value": "custom_value"}
-  ]
-}
-```
-
-## 配置项说明
-
-- `namespace`: Kubernetes 命名空间
-- `replicas`: 副本数
-- `image`: 容器镜像
-- `container_port`: 容器端口
-- `service_port`: Service 端口
-- `cpu_limit`: CPU 限制
-- `memory_limit_str`: 内存限制（字符串格式，如 "1Gi"）
-- `cpu_request`: CPU 请求
-- `memory_request`: 内存请求
-- `storage`: 存储大小
-- `env`: 自定义环境变量数组
-- `memory_limit`: 内存限制（数字格式，单位 MB，用于数据库记录）
-
-## 优先级
-
-实例创建时，配置的优先级如下：
-1. 用户传入的参数（最高优先级）
-2. 模板配置
-3. 默认值（最低优先级）
+code-server 镜像使用原入口命令，暴露 8080 和 22 端口；普通 Ubuntu 镜像初始化 sshd。Go SSH 网关通过 Kubernetes pods/exec 连接到运行中的容器。

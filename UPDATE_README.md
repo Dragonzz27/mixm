@@ -1,3 +1,5 @@
+> 本文保留历史功能设计说明。当前后端已迁移至 Go 1.25.0 + Client-go + RabbitMQ + PostgreSQL + Redis；运行与数据迁移请参阅 [README.md](README.md) 和 [迁移说明](backend/docs/migration.md)。
+
 # 题库系统、考试系统、练习系统、作业系统设计方案
 
 ## 一、需求概述
