@@ -1,87 +1,193 @@
-# 智泉 / MutiM
+# 智泉 · Mixm
 
-教育平台，前端使用 Vue，后端使用 **Go 1.25.0 + Gin + GORM + Client-go + RabbitMQ + PostgreSQL + Redis**。
+面向教学与在线实验的教育平台，将教学内容、作业、题库、模拟测试和容器实验环境集中到同一工作流中。
 
-包含用户与角色管理、教学内容与知识树、作业提交及评分、题库审核、练习卷、模拟测试、Kubernetes 实验实例、code-server 和 SSH 网关。RustFS 提供 S3 文件存储，Registry 提供容器镜像。`kt_service` 是独立的 Python/PyTorch 模型推理服务，由 Go 通过 HTTP 调用。
+项目采用 Vue 3 前端与 Go 后端，支持通过 Kubernetes 分配实验实例，并可接入大语言模型与 DKT 知识追踪服务。
 
-## Docker Compose
+[功能特性](#功能特性) · [快速开始](#快速开始) · [本地开发](#本地开发) · [配置说明](#配置说明) · [文档](#文档) · [参与贡献](#参与贡献)
 
-部署文件统一位于 [`deploy/`](deploy/README.md)，下列部署命令均从项目根目录执行。
+## 功能特性
+
+- **教学内容**：管理教程、文档、实验、视频与练习，使用分类树组织内容，并按角色控制可见范围。
+- **作业管理**：发布作业、提交附件、批改评分与导出提交记录。
+- **题库与测评**：题目分类、审核、练习组卷、模拟测试、答题记录与解析。
+- **在线实验**：基于 Kubernetes 模板创建实例，提供 code-server、SSH 访问与持久化存储。
+- **智能辅助**：接入大语言模型生成题目、分析知识树，结合答题轨迹追踪知识掌握情况。
+- **平台管理**：用户与角色权限、Excel 批量导入、镜像仓库管理和集群资源查看。
+
+## 技术栈
+
+| 模块 | 技术 |
+| --- | --- |
+| 前端 | Vue 3、Vite、Naive UI、Pinia、Vue Router |
+| 后端 | Go 1.25.0、Gin、GORM、JWT |
+| 数据与任务 | PostgreSQL、RabbitMQ、Redis |
+| 实验环境 | Kubernetes、Client-go、code-server、SSH 网关 |
+| 文件与镜像 | RustFS / S3 兼容存储、容器 Registry |
+| 知识追踪 | Python、FastAPI、PyTorch、DKT |
+
+前端通过 `/api` 调用后端。后端将实例任务写入 PostgreSQL，并通过 RabbitMQ 交给独立 worker 执行，Redis 用于缓存任务结果。知识追踪服务通过 HTTP 与后端通信，可按需启用。
+
+## 快速开始
+
+以下命令适用于 Bash，除特别说明外均在仓库根目录执行。首次构建需要能够拉取依赖包和容器镜像。
+
+### 1. 获取代码并配置环境
+
+准备 Git、Docker 和 Docker Compose，然后执行：
 
 ```bash
+git clone https://github.com/Dragonzz27/mixm.git
+cd mixm
 cp backend/.env.example backend/.env
-mkdir -p backend/kubeconfig
-# 将可从容器访问的 kubeconfig 放到 backend/kubeconfig/k3s.yaml
-# 修改 backend/.env 中的 SECRET_KEY、Kubernetes 主机、Registry 和存储类配置
-
-docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --build
 ```
 
-Compose 的 PostgreSQL、RabbitMQ、Redis 地址自动使用服务名；`.env.example` 中的 localhost 地址用于本地 Go 开发。`POSTGRES_PASSWORD`、`RABBITMQ_PASSWORD` 可在同一环境文件中覆盖 Compose 默认值，连接字符串中的密码需适合 URL 使用。
+编辑 `backend/.env`，将 `SECRET_KEY` 替换为自己的随机密钥。初次体验可保留 `KT_MODEL_BACKEND=heuristic`，无需启动模型服务或准备 Kubernetes 集群。
 
-首次创建新数据库后初始化角色、内容类型和管理员：
+如果需要修改数据库、消息队列和对象存储凭据，可在该文件中设置 `POSTGRES_PASSWORD`、`RABBITMQ_PASSWORD`、`RUSTFS_ACCESS_KEY` 和 `RUSTFS_SECRET_KEY`。数据库与 RabbitMQ 密码用于拼接连接 URL，需使用适合 URL 的值。
+
+### 2. 启动应用
+
+启动前端、API 和基础服务：
 
 ```bash
-docker compose -f deploy/docker-compose.yaml --env-file backend/.env exec backend initdb
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env \
+  up -d --build postgres rabbitmq redis rustfs backend frontend
+```
+
+此配置使用容器服务名连接 PostgreSQL、RabbitMQ、Redis 和 RustFS；环境示例中的 `localhost` 地址用于本地开发。
+
+### 3. 初始化数据与管理员
+
+首次部署到新数据库时执行：
+
+```bash
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env \
+  exec backend initdb
+
 docker compose -f deploy/docker-compose.yaml --env-file backend/.env exec \
   -e ADMIN_EMAIL=admin@example.com \
   -e ADMIN_PASSWORD='replace-with-your-password' \
   backend admin
 ```
 
-管理员命令只创建新账号，不会重置已有账号；学生账号由管理页面创建或导入。Excel 导入使用前端模板的 `username,email,phone,role_name` 列和默认密码 `123456`，也可提供 `password`、`role_id` 列。
+将示例邮箱和密码替换为自己的值，然后使用该邮箱登录。`initdb` 初始化基础角色与内容类型，`admin` 仅创建新管理员，不会重置已有账号。学生账号可通过管理页面创建或批量导入。
 
-| 服务 | 地址 |
+### 4. 访问服务
+
+| 服务 | 默认地址 |
 | --- | --- |
-| 前端 | http://localhost:5173 |
-| API | http://localhost:8002/api |
-| API 文档 | http://localhost:8002/docs |
-| OpenAPI | http://localhost:8002/openapi.json |
-| 健康检查 | http://localhost:8002/health |
-| SSH 网关 | localhost:30022 |
-| RabbitMQ 管理界面 | http://localhost:15672 |
-| RustFS | http://localhost:19000 |
+| Web 界面 | <http://localhost:5173> |
+| API 文档 | <http://localhost:8002/docs> |
+| OpenAPI 描述 | <http://localhost:8002/openapi.json> |
+| API 健康检查 | <http://localhost:8002/health> |
+| RabbitMQ 管理界面 | <http://localhost:15672> |
+| RustFS S3 接口 | <http://localhost:19000> |
+| RustFS 控制台 | <http://localhost:19001> |
 
-API 文档使用 Swagger UI；页面资源需要访问 CDN。无 Kubernetes 配置时，HTTP 服务可运行教学和用户功能，实例及集群接口返回 503，worker 需要有效 kubeconfig。
+API 文档页面使用 CDN 加载 Swagger UI。未配置 Kubernetes 时，教学与用户功能可以运行，实例及集群相关接口返回 `503`。
+
+查看日志或停止服务：
+
+```bash
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env logs -f backend
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env down
+```
 
 ## 本地开发
 
-使用当前 `go version go1.25.0 linux/amd64`，无需更换 Go 工具链：
+准备 Go 1.25.0、Node.js 24（与前端镜像一致）和 pnpm，并按快速开始的第 1 步创建、编辑 `backend/.env`。
+
+### 后端
+
+仅启动开发所需的基础服务：
 
 ```bash
-docker compose -f deploy/docker-compose.yaml up -d postgres rabbitmq redis
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env \
+  up -d postgres rabbitmq redis rustfs
+
 cd backend
-cp .env.example .env
-# 编辑 .env，设置 SECRET_KEY 和 kubeconfig 等参数
 go mod download
 go run ./cmd/initdb
 ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='replace-with-your-password' go run ./cmd/admin
 go run ./cmd/server
 ```
 
-在另一终端从 `backend/` 启动任务消费者：
+如果已通过快速开始初始化数据库，可跳过 `initdb` 和 `admin`。如果已运行应用容器，请先停止容器中的 `backend`、`frontend` 和 `worker`，避免端口占用或重复消费任务。
 
-```bash
-go run ./cmd/worker
-```
+后端从当前工作目录读取 `.env`，因此 Go 命令需在 `backend/` 下执行。若修改了基础服务密码，请同步调整 `.env` 中的 `DATABASE_URL` 与 `RABBITMQ_URL`。
 
-前端（从项目根目录执行）：
+### 前端
+
+在另一个终端从仓库根目录执行：
 
 ```bash
 cd frontend
 pnpm install
-pnpm dev
+VITE_BACKEND_PROXY_TARGET=http://localhost:8002 pnpm dev
 ```
 
-本地前端开发需将 `frontend/vite.config.js` 的代理目标设为 `http://localhost:8002`，或设置 `VITE_BACKEND_PROXY_TARGET=http://localhost:8002`；Compose 使用默认目标 `http://backend:8002`。
+前端默认通过 `/api` 访问后端，上述命令将开发代理指向本机 Go 服务。也可以通过 `frontend/.env` 的 `VITE_API_BASE_URL` 指定 API 地址，格式参考 [前端环境示例](frontend/.env.example)。
 
-## 数据库初始化
+## 可选功能
 
-应用使用 PostgreSQL，server、worker、admin 和 initdb 启动时自动执行数据库结构初始化。SQL 文件嵌入二进制，schema_migrations 记录已执行的版本，事务锁防止多个进程重复建表。
+### Kubernetes 实验环境
 
-首次启动后执行 initdb 创建基础角色和内容类型，再用 admin 创建管理员。
+1. 准备可用集群，将 kubeconfig 放到 `backend/kubeconfig/k3s.yaml`；容器部署时，配置中的集群地址必须可从容器内访问。
+2. 配置 `K8S_SSH_GATEWAY_HOST`、`K8S_CODE_SERVER_HOST`、`STORAGE_CLASS_NAME`、`PVC_ACCESS_MODE` 与镜像仓库地址。
+3. 应用新配置并启动 API 与 worker：
 
-## 验证与构建
+```bash
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --build backend worker
+```
+
+本地开发时，在 `backend/` 下使用 `go run ./cmd/worker` 启动任务消费者；worker 需要有效的 Kubernetes 配置。SSH 网关默认端口为 `30022`。
+
+存储类需要支持所配置的访问模式。实例模板与镜像部署方式见 [模板配置说明](backend/docs/template_config.md) 和 [部署指南](deploy/README.md)。
+
+### DKT 知识追踪
+
+默认使用后端内置的 `heuristic` 模式。若需启用独立模型服务，可在仓库根目录执行：
+
+```bash
+python3 -m venv kt_service/.venv
+source kt_service/.venv/bin/activate
+python -m pip install -r kt_service/requirements.txt
+python -m uvicorn app.main:app --app-dir kt_service --host 0.0.0.0 --port 8010
+```
+
+本地 Go 开发时，将 `backend/.env` 中的 `KT_MODEL_BACKEND` 设为 `kt_service`，`KT_SERVICE_URL` 设为 `http://localhost:8010`，然后重启后端。
+
+训练与加载模型权重见 [DKT 训练说明](kt_service/train/README.md)。未提供训练权重时，服务使用随机初始化模型，健康检查成功仅表示服务可访问。
+
+当前仓库未包含 Compose 中引用的 `deploy/kt-service/Dockerfile`，因此快速开始按服务名启动基础应用。使用容器部署 DKT 服务前，需补齐其构建文件与模型挂载配置。
+
+### 大语言模型
+
+在 `backend/.env` 中设置 `LLM_API_URL`、`LLM_API_KEY` 和 `LLM_MODEL`，重启本地后端或重新创建后端容器后，可使用题目生成与知识树分析功能。
+
+## 配置说明
+
+完整配置见 [后端环境示例](backend/.env.example)。常用配置如下：
+
+| 配置项 | 用途 |
+| --- | --- |
+| `SECRET_KEY` | JWT 签名密钥 |
+| `DATABASE_URL`、`REDIS_URL`、`RABBITMQ_URL` | 本地开发的数据库、缓存与消息队列连接地址 |
+| `ACCESS_TOKEN_EXPIRE_MINUTES`、`REFRESH_TOKEN_EXPIRE_DAYS` | 访问令牌与刷新令牌有效期 |
+| `K8S_CONFIG_PATH` | Kubernetes 配置文件路径 |
+| `K8S_SSH_GATEWAY_HOST`、`K8S_CODE_SERVER_HOST` | 用户访问实验环境的主机地址 |
+| `STORAGE_CLASS_NAME`、`PVC_ACCESS_MODE` | 实验持久化存储配置 |
+| `REGISTRY_URL`、`REGISTRY_PREFIX` | 镜像仓库 API 地址与镜像名称前缀 |
+| `RUSTFS_ENDPOINT`、`RUSTFS_BUCKET` | S3 兼容存储地址与桶名 |
+| `LLM_API_URL`、`LLM_API_KEY`、`LLM_MODEL` | 大语言模型接口配置 |
+| `KT_MODEL_BACKEND`、`KT_SERVICE_URL` | 知识追踪模式与模型服务地址 |
+
+Compose 会覆盖部分服务地址，具体值见 [Compose 配置](deploy/docker-compose.yaml)。环境文件、集群凭据和模型训练产物应保留在本地。
+
+## 测试与构建
+
+后端：
 
 ```bash
 cd backend
@@ -90,7 +196,17 @@ go vet ./...
 make build
 ```
 
-集成测试只在指定测试服务时运行，自动创建和清理独立 PostgreSQL schema、RabbitMQ 队列、Redis 缓存键：
+`make build` 在 `backend/bin/` 生成 `server`、`worker`、`admin` 和 `initdb` 四个程序。数据库结构通过嵌入二进制的编号 SQL 迁移自动初始化，基础角色和内容类型仍需通过 `initdb` 创建。
+
+前端：
+
+```bash
+cd frontend
+pnpm test
+pnpm build
+```
+
+后端集成测试需显式提供独立测试服务；未设置对应变量时会跳过相关测试。先准备测试数据库 `mutim_test`，再从 `backend/` 执行：
 
 ```bash
 TEST_DATABASE_URL='postgres://mutim:mutim@localhost:5432/mutim_test?sslmode=disable' \
@@ -99,48 +215,52 @@ TEST_REDIS_URL='redis://localhost:6379/15' \
 go test ./...
 ```
 
-`TestAPIRouteCoverage` 检查当前 134 条 API 接口。其他测试覆盖 JWT 边界、权限、关联数据、服务端评分、试卷恢复、Kubernetes 资源幂等、RabbitMQ 重复投递和 Redis 结果缓存。Kubernetes 测试使用 Client-go fake client。
+测试会创建并清理独立 PostgreSQL schema、RabbitMQ 队列和 Redis 缓存键。请使用测试环境，连接地址与凭据按实际服务调整。
 
-## 代码结构
+## 项目结构
 
 ```text
-backend/
-├── cmd/                   # server、worker、admin、initdb
-├── internal/router/       # Gin 路由、OpenAPI 与接口契约测试
-├── internal/middleware/   # JWT 身份认证、CORS、日志、异常恢复
-├── internal/handler/      # 参数绑定及 JSON、文件、SSE 输出
-├── internal/dto/          # 按业务拆分的请求 DTO、可选字段、响应包裹与分页
-├── internal/service/      # 权限、业务规则、事务协调
-├── internal/repository/   # GORM 连接、编号 SQL 迁移、查询、事务与任务连接锁
-├── internal/model/        # 现有 PostgreSQL 表映射和动态业务投影
-├── internal/app/          # 依赖注入、四个入口的启动与关闭
-├── internal/auth/         # JWT、bcrypt
-├── internal/apperror/     # 客户端、业务层与 HTTP 层共用的应用错误
-├── internal/config/       # 环境配置
-├── internal/infra/        # 基础设施目录分组，各子目录仍是独立 Go 包
-│   ├── client/            # Registry、S3、LLM、KT 外部客户端
-│   ├── cluster/           # Client-go 资源生命周期
-│   ├── queue/             # PostgreSQL outbox、RabbitMQ publisher/worker、Redis 缓存
-│   └── ssh/               # 通过 repository 查询实例的 SSH exec 网关
-├── internal/testutil/     # 独立测试数据库等项目专用测试支持
-├── docs/                  # 实例模板配置说明
-└── kubeconfig/            # 本地集群凭据，不包含在镜像内
-deploy/                    # Compose、Dockerfile、Registry 镜像、Kubernetes 清单与脚本
-scripts/                   # 通用辅助脚本，例如 create-demo-pod.sh
-frontend/                  # Vue 前端
-kt_service/                # 独立模型推理服务
+.
+├── backend/
+│   ├── cmd/                # server、worker、admin、initdb 入口
+│   ├── internal/
+│   │   ├── app/            # 应用组装与启动
+│   │   ├── router/         # 路由、OpenAPI 与接口契约
+│   │   ├── handler/        # HTTP 请求与响应
+│   │   ├── service/        # 业务逻辑与权限
+│   │   ├── repository/     # 数据访问与 SQL 迁移
+│   │   ├── model/          # 数据模型
+│   │   ├── dto/            # 请求与响应类型
+│   │   ├── auth/           # JWT 与密码处理
+│   │   ├── middleware/     # HTTP 中间件
+│   │   ├── config/         # 环境配置
+│   │   └── infra/          # 外部客户端、集群、队列与 SSH
+│   └── docs/               # API 与实验模板文档
+├── frontend/               # Vue 应用与前端测试
+├── kt_service/             # DKT 推理服务与训练脚本
+├── deploy/                 # Compose、Dockerfile 与部署清单
+└── scripts/                # 实验环境辅助脚本
 ```
 
-项目为专有项目，保密使用。
+## 文档
 
-四个命令入口共享 `internal` 包；辅助函数留在其所属的职责包内，不集中到统一的 `utils` 包。当前没有跨项目 Go 复用需求，因此不设置 `backend/pkg`。应用错误使用 `apperror.Error`，请求与响应类型放在 `dto`，数据库连接和迁移统一由 `repository` 管理。编号 SQL 位于 `internal/repository/migrations`，文件名、SQL 内容与迁移记录保持兼容。
+- [部署指南](deploy/README.md)：基础服务、镜像仓库、存储与 Kubernetes 部署。
+- [REST API 说明](backend/docs/api.md)：响应格式、分页、资源接口与 SSE 协议。
+- [路由清单](backend/internal/router/routes.json)：后端接口契约。
+- [实验模板配置](backend/docs/template_config.md)：实例模板与环境配置。
+- [DKT 训练说明](kt_service/train/README.md)：数据准备、模型训练与权重加载。
 
-## REST API
+## 参与贡献
 
-后端与前端需要同步更新部署。业务接口仍位于 `/api`，普通 JSON 使用 `{"code":0,"message":"成功","data":...}`；失败保留 HTTP 错误状态，将说明放在 `message`，`data` 为 `null`。列表统一为 `data.items/total/offset/limit`，默认 `offset=0`、`limit=100`，部分更新使用 `PATCH`。
+欢迎通过 [Issues](https://github.com/Dragonzz27/mixm/issues) 报告问题或讨论需求，通过 [Pull Requests](https://github.com/Dragonzz27/mixm/pulls) 提交改进。
 
-旧业务接口已移除；历史附件 `/api/assignments/file/`、`/api/contents/file/` 和 `/static/` 链接保留。SSE、文件和基础设施接口使用各自格式。完整路由清单见 [routes.json](backend/internal/router/routes.json)，行为与改版映射见 [API 文档](backend/docs/api.md)。
+1. 提交问题时，说明运行环境、复现步骤、预期行为与实际结果；日志中请移除凭据和个人信息。
+2. Fork 仓库并创建功能分支，尽量让每次改动聚焦一个问题。
+3. 修改代码时补充必要的测试与文档；接口改动需同步前后端，数据库变更通过新增编号 SQL 迁移完成。
+4. 运行相关测试与构建，在 Pull Request 中说明变更目的、验证方式及影响范围。
 
-数据库继续使用已有编号 SQL 迁移，不执行 GORM AutoMigrate，也不重写已应用迁移。worker 在同一连接上持有 PostgreSQL advisory lock，保留任务重投递和 outbox 语义。
+后端开发约定见 [backend/AGENTS.md](backend/AGENTS.md)。
 
-前端协议及 SSE 解析测试：`cd frontend && npm test`。后端测试仍使用独立 PostgreSQL schema、RabbitMQ 队列和 Redis 测试服务。
+## 许可证
+
+仓库目前未提供 `LICENSE` 文件，具体授权范围待维护者明确。
