@@ -241,31 +241,6 @@ type Role struct {
 
 func (Role) TableName() string { return "roles" }
 
-type KnowledgeMastery struct {
-	ID              string     `gorm:"column:id;type:text;primaryKey" json:"id"`
-	UserID          string     `gorm:"column:user_id;type:text" json:"user_id"`
-	KnowledgeTag    string     `gorm:"column:knowledge_tag;type:text" json:"knowledge_tag"`
-	Mastery         float64    `gorm:"column:mastery;type:double precision" json:"mastery"`
-	Attempts        int        `gorm:"column:attempts;type:integer" json:"attempts"`
-	CorrectAttempts int        `gorm:"column:correct_attempts;type:integer" json:"correct_attempts"`
-	UpdatedAt       *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
-}
-
-func (KnowledgeMastery) TableName() string { return "knowledge_mastery" }
-
-type SimulationAnswerTrace struct {
-	ID            string     `gorm:"column:id;type:text;primaryKey" json:"id"`
-	UserID        string     `gorm:"column:user_id;type:text" json:"user_id"`
-	QuestionID    string     `gorm:"column:question_id;type:text" json:"question_id"`
-	KnowledgeTag  string     `gorm:"column:knowledge_tag;type:text" json:"knowledge_tag"`
-	SelectedIndex *int       `gorm:"column:selected_index;type:integer" json:"selected_index"`
-	CorrectIndex  int        `gorm:"column:correct_index;type:integer" json:"correct_index"`
-	IsCorrect     bool       `gorm:"column:is_correct;type:boolean" json:"is_correct"`
-	CreatedAt     *time.Time `gorm:"column:created_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"created_at"`
-}
-
-func (SimulationAnswerTrace) TableName() string { return "simulation_answer_trace" }
-
 type SimulationAttempt struct {
 	ID               string     `gorm:"column:id;type:text;primaryKey" json:"id"`
 	UserID           string     `gorm:"column:user_id;type:text" json:"user_id"`
@@ -390,10 +365,6 @@ func Entity(table string) any {
 		return &Template{}
 	case "roles":
 		return &Role{}
-	case "knowledge_mastery":
-		return &KnowledgeMastery{}
-	case "simulation_answer_trace":
-		return &SimulationAnswerTrace{}
 	case "simulation_attempt":
 		return &SimulationAttempt{}
 	case "questions":

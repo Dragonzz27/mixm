@@ -29,9 +29,6 @@ x-backend-env: &backend-env
   LLM_API_URL: ${LLM_API_URL:-https://api.openai.com/v1}
   LLM_API_KEY: ${LLM_API_KEY:-}
   LLM_MODEL: ${LLM_MODEL:-gpt-4o}
-  KT_MODEL_BACKEND: ${KT_MODEL_BACKEND:-kt_service}
-  KT_SERVICE_URL: http://kt-service:8010
-  KT_SERVICE_TIMEOUT_SECONDS: ${KT_SERVICE_TIMEOUT_SECONDS:-3}
 
 services:
   postgres:
@@ -122,17 +119,6 @@ services:
       postgres: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
       redis: {condition: service_healthy}
-
-  kt-service:
-    build:
-      context: ../kt_service
-      dockerfile: ../deploy/kt-service/Dockerfile
-    restart: unless-stopped
-    ports: ["8010:8010"]
-    volumes: ["../kt_service/train/output:/app/train/output"]
-    environment:
-      KT_DKT_CHECKPOINT: /app/train/output/dkt_checkpoint.pt
-      KT_DKT_SKILL_MAP: /app/train/output/skill_map.json
 
   frontend:
     build:

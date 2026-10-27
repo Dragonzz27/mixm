@@ -2,7 +2,7 @@
 
 面向教学与在线实验的教育平台，将教学内容、作业、题库、模拟测试和容器实验环境集中到同一工作流中。
 
-项目采用 Vue 3 前端与 Go 后端，支持通过 Kubernetes 分配实验实例，并可接入大语言模型与 DKT 知识追踪服务。
+项目采用 Vue 3 前端与 Go 后端，支持通过 Kubernetes 分配实验实例，并可接入大语言模型。
 
 [功能特性](#功能特性) · [快速开始](#快速开始) · [本地开发](#本地开发) · [配置说明](#配置说明) · [文档](#文档) · [参与贡献](#参与贡献)
 
@@ -12,7 +12,7 @@
 - **作业管理**：发布作业、提交附件、批改评分与导出提交记录。
 - **题库与测评**：题目分类、审核、练习组卷、模拟测试、答题记录与解析。
 - **在线实验**：基于 Kubernetes 模板创建实例，提供 code-server、SSH 访问与持久化存储。
-- **智能辅助**：接入大语言模型生成题目、分析知识树，结合答题轨迹追踪知识掌握情况。
+- **智能辅助**：接入大语言模型生成题目、分析知识树。
 - **平台管理**：用户与角色权限、Excel 批量导入、镜像仓库管理和集群资源查看。
 
 ## 技术栈
@@ -24,9 +24,8 @@
 | 数据与任务 | PostgreSQL、RabbitMQ、Redis |
 | 实验环境 | Kubernetes、Client-go、code-server、SSH 网关 |
 | 文件与镜像 | RustFS / S3 兼容存储、容器 Registry |
-| 知识追踪 | Python、FastAPI、PyTorch、DKT |
 
-前端通过 `/api` 调用后端。后端将实例任务写入 PostgreSQL，并通过 RabbitMQ 交给独立 worker 执行，Redis 用于缓存任务结果。知识追踪服务通过 HTTP 与后端通信，可按需启用。
+前端通过 `/api` 调用后端。后端将实例任务写入 PostgreSQL，并通过 RabbitMQ 交给独立 worker 执行，Redis 用于缓存任务结果。
 
 ## 快速开始
 
@@ -42,7 +41,7 @@ cd mixm
 cp backend/.env.example backend/.env
 ```
 
-编辑 `backend/.env`，将 `SECRET_KEY` 替换为自己的随机密钥。初次体验可保留 `KT_MODEL_BACKEND=heuristic`，无需启动模型服务或准备 Kubernetes 集群。
+编辑 `backend/.env`，将 `SECRET_KEY` 替换为自己的随机密钥。初次体验无需准备 Kubernetes 集群。
 
 如果需要修改数据库、消息队列和对象存储凭据，可在该文件中设置 `POSTGRES_PASSWORD`、`RABBITMQ_PASSWORD`、`RUSTFS_ACCESS_KEY` 和 `RUSTFS_SECRET_KEY`。数据库与 RabbitMQ 密码用于拼接连接 URL，需使用适合 URL 的值。
 
@@ -145,23 +144,6 @@ docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --bui
 
 存储类需要支持所配置的访问模式。实例模板与镜像部署方式见 [模板配置说明](backend/docs/template_config.md) 和 [部署指南](deploy/README.md)。
 
-### DKT 知识追踪
-
-默认使用后端内置的 `heuristic` 模式。若需启用独立模型服务，可在仓库根目录执行：
-
-```bash
-python3 -m venv kt_service/.venv
-source kt_service/.venv/bin/activate
-python -m pip install -r kt_service/requirements.txt
-python -m uvicorn app.main:app --app-dir kt_service --host 0.0.0.0 --port 8010
-```
-
-本地 Go 开发时，将 `backend/.env` 中的 `KT_MODEL_BACKEND` 设为 `kt_service`，`KT_SERVICE_URL` 设为 `http://localhost:8010`，然后重启后端。
-
-训练与加载模型权重见 [DKT 训练说明](kt_service/train/README.md)。未提供训练权重时，服务使用随机初始化模型，健康检查成功仅表示服务可访问。
-
-当前仓库未包含 Compose 中引用的 `deploy/kt-service/Dockerfile`，因此快速开始按服务名启动基础应用。使用容器部署 DKT 服务前，需补齐其构建文件与模型挂载配置。
-
 ### 大语言模型
 
 在 `backend/.env` 中设置 `LLM_API_URL`、`LLM_API_KEY` 和 `LLM_MODEL`，重启本地后端或重新创建后端容器后，可使用题目生成与知识树分析功能。
@@ -181,9 +163,8 @@ python -m uvicorn app.main:app --app-dir kt_service --host 0.0.0.0 --port 8010
 | `REGISTRY_URL`、`REGISTRY_PREFIX` | 镜像仓库 API 地址与镜像名称前缀 |
 | `RUSTFS_ENDPOINT`、`RUSTFS_BUCKET` | S3 兼容存储地址与桶名 |
 | `LLM_API_URL`、`LLM_API_KEY`、`LLM_MODEL` | 大语言模型接口配置 |
-| `KT_MODEL_BACKEND`、`KT_SERVICE_URL` | 知识追踪模式与模型服务地址 |
 
-Compose 会覆盖部分服务地址，具体值见 [Compose 配置](deploy/docker-compose.yaml)。环境文件、集群凭据和模型训练产物应保留在本地。
+Compose 会覆盖部分服务地址，具体值见 [Compose 配置](deploy/docker-compose.yaml)。环境文件和集群凭据应保留在本地。
 
 ## 测试与构建
 
@@ -237,7 +218,6 @@ go test ./...
 │   │   └── infra/          # 外部客户端、集群、队列与 SSH
 │   └── docs/               # API 与实验模板文档
 ├── frontend/               # Vue 应用与前端测试
-├── kt_service/             # DKT 推理服务与训练脚本
 ├── deploy/                 # Compose、Dockerfile 与部署清单
 └── scripts/                # 实验环境辅助脚本
 ```
@@ -248,7 +228,6 @@ go test ./...
 - [REST API 说明](backend/docs/api.md)：响应格式、分页、资源接口与 SSE 协议。
 - [路由清单](backend/internal/router/routes.json)：后端接口契约。
 - [实验模板配置](backend/docs/template_config.md)：实例模板与环境配置。
-- [DKT 训练说明](kt_service/train/README.md)：数据准备、模型训练与权重加载。
 
 ## 参与贡献
 

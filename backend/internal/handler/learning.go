@@ -68,22 +68,6 @@ func (h *Learning) Review(c *gin.Context) {
 	}
 	Success(c, http.StatusOK, result)
 }
-func (h *Learning) Traces(c *gin.Context) {
-	result, err := h.Service.Traces(c.Request.Context(), actor(c), c.Request.URL.Query())
-	if err != nil {
-		Failure(c, err)
-		return
-	}
-	FinishPage(c, http.StatusOK, result, true)
-}
-func (h *Learning) KTStatus(c *gin.Context) {
-	result, err := h.Service.KTStatus(c.Request.Context())
-	if err != nil {
-		Failure(c, err)
-		return
-	}
-	Success(c, http.StatusOK, result)
-}
 func (h *Learning) QuestionGeneration(c *gin.Context) {
 	value, ok := bindInput[dto.LearningInput](c)
 	if !ok {

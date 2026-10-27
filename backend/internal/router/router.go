@@ -120,8 +120,6 @@ func New(c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Cli
 	protected.POST("/simulation-attempts/:id/submissions", learningHandler.Submit)
 	protected.GET("/simulation-attempts/current", learningHandler.Current)
 	protected.GET("/simulation-attempts/:id/review", learningHandler.Review)
-	protected.GET("/simulation-traces", learningHandler.Traces)
-	protected.GET("/knowledge-tracing/status", learningHandler.KTStatus)
 	protected.POST("/questions/generations", learningHandler.QuestionGeneration)
 	protected.POST("/knowledge-tree/analyses", learningHandler.KnowledgeAnalysis)
 	protected.POST("/knowledge-tree", learningHandler.SaveKnowledge)

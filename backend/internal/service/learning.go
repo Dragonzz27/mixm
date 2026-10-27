@@ -11,7 +11,6 @@ import (
 
 	"math"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -278,9 +277,6 @@ func (s *Learning) submitSimulation(ctx context.Context, actor model.Actor, inpu
 	score := 0.0
 	answered, correct := 0, 0
 	byTag := map[string][]int{}
-	byQuestion := model.Record{}
-	tagQuestions := map[string][]string{}
-	traces := []model.Record{}
 	for _, q := range qs {
 		qid := model.String(q, "id")
 		isAnswered, isCorrect := gradeQuestion(q, answerMap[qid])
@@ -292,7 +288,6 @@ func (s *Learning) submitSimulation(ctx context.Context, actor model.Actor, inpu
 			score += model.Number(q, "score")
 		}
 		tags := model.Strings(q["knowledge_tags"])
-		byQuestion[qid] = tags
 		for _, tag := range tags {
 			counts := byTag[tag]
 			if counts == nil {
@@ -303,20 +298,9 @@ func (s *Learning) submitSimulation(ctx context.Context, actor model.Actor, inpu
 				counts[1]++
 			}
 			byTag[tag] = counts
-			tagQuestions[tag] = append(tagQuestions[tag], qid)
-			tr := model.Record{"question_id": qid, "knowledge_tag": tag, "selected_index": answerMap[qid]["selected_index"], "correct_index": q["correct_index"], "is_correct": isCorrect}
-			traces = append(traces, tr)
-			dbTrace := model.Record{}
-			for k, x := range tr {
-				dbTrace[k] = x
-			}
-			dbTrace["user_id"] = actor.ID
-			if _, err = repository.Write(ctx, tx, "simulation_answer_trace", "", dbTrace); err != nil {
-				return nil, err
-			}
 		}
 	}
-	accuracy, mastery, previous := model.Record{}, model.Record{}, model.Record{}
+	accuracy := model.Record{}
 	weak := []string{}
 	for tag, counts := range byTag {
 		acc := math.Round(float64(counts[1])/float64(counts[0])*10000) / 100
@@ -324,48 +308,9 @@ func (s *Learning) submitSimulation(ctx context.Context, actor model.Actor, inpu
 		if acc < 60 {
 			weak = append(weak, tag)
 		}
-		rows, err := repository.KnowledgeMastery(ctx, tx, actor.ID, tag)
-		if err != nil {
-			return nil, err
-		}
-		p := 0.5
-		if len(rows) > 0 {
-			p = model.Number(rows[0], "mastery")
-		}
-		previous[tag] = p
-		for _, trace := range traces {
-			if trace["knowledge_tag"] != tag {
-				continue
-			}
-			if model.Bool(trace, "is_correct") {
-				p += 0.18 * (1 - p)
-			} else {
-				p -= 0.22 * p
-			}
-		}
-		_, err = repository.UpsertKnowledgeMastery(ctx, tx, uuid.NewString(), actor.ID, tag, p, counts[0], counts[1])
-		if err != nil {
-			return nil, err
-		}
-		mastery[tag] = math.Round(p*10000) / 10000
 	}
 	sort.Slice(weak, func(i, j int) bool { return model.Number(accuracy, weak[i]) < model.Number(accuracy, weak[j]) })
-	if s.Config.KTBackend == "kt_service" {
-		payload := model.Record{"user_id": actor.ID, "traces": traces, "prev_mastery": previous}
-		predicted, err := s.Clients.KT.Predict(ctx, payload)
-		if err == nil {
-			for tag, value := range model.Object(predicted["mastery_by_tag"]) {
-				n := model.Number(model.Record{"v": value}, "v")
-				if n >= 0 && n <= 1 {
-					mastery[tag] = n
-					if _, err := repository.UpdateKnowledgeMastery(ctx, tx, n, actor.ID, tag); err != nil {
-						return nil, err
-					}
-				}
-			}
-		}
-	}
-	result := model.Record{"attempt_id": a["id"], "attempt_status": "submitted", "total_score": 100, "score": math.Round(score*100) / 100, "total_questions": len(qs), "answered_questions": answered, "correct_count": correct, "accuracy": math.Round(float64(correct)/float64(len(qs))*10000) / 100, "weak_knowledge_points": weak, "knowledge_accuracy": accuracy, "knowledge_mastery": mastery, "q_matrix": traces, "q_matrix_by_question": byQuestion, "q_matrix_by_tag": tagQuestions}
+	result := model.Record{"attempt_id": a["id"], "attempt_status": "submitted", "total_score": 100, "score": math.Round(score*100) / 100, "total_questions": len(qs), "answered_questions": answered, "correct_count": correct, "accuracy": math.Round(float64(correct)/float64(len(qs))*10000) / 100, "weak_knowledge_points": weak, "knowledge_accuracy": accuracy}
 	if _, err = repository.Write(ctx, tx, "simulation_attempt", model.String(a, "id"), model.Record{"status": "submitted", "answers_payload": model.JSON(answers), "result_payload": model.JSON(result), "submitted_at": time.Now()}); err != nil {
 		return nil, err
 	}
@@ -526,22 +471,6 @@ func (s *Learning) Review(ctx context.Context, actor model.Actor, id string) (an
 		return nil, fail(http.StatusBadRequest, "当前试卷尚未交卷")
 	}
 	return model.Record{"attempt_id": a["id"], "attempt_status": a["status"], "questions": model.Objects(a["questions_payload"]), "answers": model.Objects(a["answers_payload"]), "result": model.Object(a["result_payload"])}, nil
-}
-func (s *Learning) Traces(ctx context.Context, actor model.Actor, query url.Values) (any, error) {
-	rows, total, err := s.list(ctx, actor, query, "simulation_answer_trace", "user_id=$1", []any{actor.ID})
-	return model.Record{"total": total, "items": rows}, err
-}
-func (s *Learning) KTStatus(ctx context.Context) (any, error) {
-	out := model.Record{"backend": s.Config.KTBackend, "available": s.Config.KTBackend == "heuristic", "model": "heuristic"}
-	if s.Config.KTBackend == "kt_service" {
-		data, status, err := s.Clients.KT.Health(ctx)
-		out["available"] = status == http.StatusOK
-		if err == nil {
-			out["service"] = data
-			out["model"] = data["model"]
-		}
-	}
-	return out, nil
 }
 func (s *Learning) QuestionGeneration(ctx context.Context, actor model.Actor, input dto.LearningInput, emit func(model.Record)) (any, error) {
 	return s.stream(ctx, actor, input, false, emit)

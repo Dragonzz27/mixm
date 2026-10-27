@@ -58,7 +58,7 @@ func (r *Router) OpenAPI(c *gin.Context) {
 		}
 		operation := gin.H{"responses": responses, "security": []gin.H{{"bearerAuth": []string{}}}}
 		list := false
-		for _, name := range []string{".List", ".Mine", ".ForUser", ".Tasks", ".Submissions", ".CategoryContents", ".Traces", ".Tags", ".GetPods", ".GetNodes", ".GetDeployments", ".GetPv", ".GetPvc"} {
+		for _, name := range []string{".List", ".Mine", ".ForUser", ".Tasks", ".Submissions", ".CategoryContents", ".Tags", ".GetPods", ".GetNodes", ".GetDeployments", ".GetPv", ".GetPvc"} {
 			if strings.HasSuffix(route.Handler, name+"-fm") {
 				list = true
 				break

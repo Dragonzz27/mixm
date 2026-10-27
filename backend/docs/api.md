@@ -40,8 +40,7 @@
 | AI 题目、练习生成 | GET /questions?is_ai_generated=true、POST /practices/generations |
 | 题目生成、知识树分析、保存 | POST /questions/generations、/knowledge-tree/analyses、/knowledge-tree |
 | 模拟测试创建、交卷 | POST /simulation-attempts、POST /simulation-attempts/:id/submissions |
-| 当前测试、解析、轨迹 | GET /simulation-attempts/current、/simulation-attempts/:id/review、/simulation-traces |
-| 知识追踪状态 | GET /knowledge-tracing/status |
+| 当前测试、解析 | GET /simulation-attempts/current、/simulation-attempts/:id/review |
 | 上传、下载 | POST /assignments/files、/contents/files；GET 对应 /files/:filename 或 /files/*key |
 | 集群命名空间资源 | /clusters/namespaces/:namespace/pods/:name、deployments/:name、persistent-volume-claims/:name |
 | PV/PVC 集合 | /clusters/persistent-volumes、/clusters/persistent-volume-claims |

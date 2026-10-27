@@ -1,6 +1,6 @@
 # Backend development
 
-The active backend uses Go 1.25.0, Gin, GORM/PostgreSQL, Client-go, RabbitMQ and Redis. The Vue frontend consumes the existing /api routes. kt_service is a separate model inference service.
+The active backend uses Go 1.25.0, Gin, GORM/PostgreSQL, Client-go, RabbitMQ and Redis. The Vue frontend consumes the existing /api routes.
 
 Run from backend/:
 
@@ -32,4 +32,4 @@ Migrations are embedded in internal/repository/migrations, applied in filename o
 
 Do not log credentials or include .env files, kubeconfigs, SSH host keys or database files in images. Never run imports or schema changes against existing user databases as part of tests.
 
-Deployment files live under deploy/ at the repository root. The main entry point is docker compose -f deploy/docker-compose.yaml; Dockerfiles are selected explicitly while build contexts remain backend/, frontend/ and kt_service/.
+Deployment files live under deploy/ at the repository root. The main entry point is docker compose -f deploy/docker-compose.yaml; Dockerfiles are selected explicitly while build contexts remain backend/ and frontend/.

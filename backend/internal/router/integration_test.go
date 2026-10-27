@@ -98,6 +98,22 @@ func TestPostgresAPIWorkflow(t *testing.T) {
 	if model.Number(result, "score") != 0 || model.Number(result, "total_score") != 100 {
 		t.Fatalf("client controlled grading: %v", result)
 	}
+	if model.Number(result, "answered_questions") != 1 || model.Number(result, "accuracy") != 0 {
+		t.Fatalf("submission statistics incorrect: %v", result)
+	}
+	accuracy := model.Object(result["knowledge_accuracy"])
+	if len(accuracy) != 1 || model.Number(accuracy, "Go") != 0 {
+		t.Fatalf("per-test knowledge accuracy lost: %v", accuracy)
+	}
+	for _, key := range []string{"knowledge_mastery", "q_matrix", "q_matrix_by_question", "q_matrix_by_tag"} {
+		if _, exists := result[key]; exists {
+			t.Errorf("retired field %s returned in submission", key)
+		}
+	}
+	studentReview := call("GET", "/api/simulation-attempts/"+model.String(paper, "attempt_id")+"/review", studentToken, nil, 200)
+	if len(model.Objects(studentReview["questions"])) != 1 || len(model.Objects(studentReview["answers"])) != 1 {
+		t.Fatalf("answer review lost: %v", studentReview)
+	}
 	call("POST", "/api/simulation-attempts/"+model.String(paper, "attempt_id")+"/submissions", studentToken, model.Record{"attempt_id": paper["attempt_id"], "answers": []model.Record{}}, 409)
 	call("GET", "/api/simulation-attempts/"+model.String(paper, "attempt_id")+"/review", token, nil, 404)
 	call("GET", "/api/questions?difficulty=3", token, nil, 200)

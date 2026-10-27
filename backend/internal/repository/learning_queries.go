@@ -21,15 +21,6 @@ func LockSimulationUserForSubmission(ctx context.Context, db *DB, userID string)
 func SimulationAttemptForUpdate(ctx context.Context, db *DB, attemptID, userID string) (model.Record, error) {
 	return One(ctx, db, "SELECT * FROM simulation_attempt WHERE id=$1 AND user_id=$2 FOR UPDATE", attemptID, userID)
 }
-func KnowledgeMastery(ctx context.Context, db *DB, userID, tag string) ([]model.Record, error) {
-	return Query(ctx, db, "SELECT mastery FROM knowledge_mastery WHERE user_id=$1 AND knowledge_tag=$2", userID, tag)
-}
-func UpsertKnowledgeMastery(ctx context.Context, db *DB, id, userID, tag string, mastery float64, attempts, correct int) (Result, error) {
-	return db.Exec(ctx, "INSERT INTO knowledge_mastery(id,user_id,knowledge_tag,mastery,attempts,correct_attempts,updated_at) VALUES($1,$2,$3,$4,$5,$6,now()) ON CONFLICT(user_id,knowledge_tag) DO UPDATE SET attempts=knowledge_mastery.attempts+EXCLUDED.attempts,correct_attempts=knowledge_mastery.correct_attempts+EXCLUDED.correct_attempts,mastery=EXCLUDED.mastery,updated_at=now()", id, userID, tag, mastery, attempts, correct)
-}
-func UpdateKnowledgeMastery(ctx context.Context, db *DB, mastery float64, userID, tag string) (Result, error) {
-	return db.Exec(ctx, "UPDATE knowledge_mastery SET mastery=$1 WHERE user_id=$2 AND knowledge_tag=$3", mastery, userID, tag)
-}
 func CurrentSimulationAttempts(ctx context.Context, db *DB, userID string) ([]model.Record, error) {
 	return Query(ctx, db, "SELECT * FROM simulation_attempt WHERE user_id=$1 AND status='in_progress' ORDER BY started_at DESC LIMIT 1", userID)
 }

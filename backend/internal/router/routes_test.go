@@ -41,7 +41,7 @@ func TestHTTPContract(t *testing.T) {
 	for _, test := range []struct {
 		method, path string
 		status       int
-	}{{"OPTIONS", "/api/categories", 204}, {"GET", "/api/auth/users", 404}, {"POST", "/api/instances/start", 405}, {"GET", "/missing", 404}, {"GET", "/api/auth/login", 405}} {
+	}{{"OPTIONS", "/api/categories", 204}, {"GET", "/api/auth/users", 404}, {"POST", "/api/instances/start", 405}, {"GET", "/missing", 404}, {"GET", "/api/auth/login", 405}, {"GET", "/api/knowledge-tracing/status", 404}, {"GET", "/api/simulation-traces", 404}} {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, httptest.NewRequest(test.method, test.path, nil))
 		if w.Code != test.status {

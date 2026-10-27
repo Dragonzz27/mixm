@@ -9,7 +9,6 @@ deploy/
 │   ├── Dockerfile                      # Go server、worker 和管理命令
 │   └── Dockerfile.dockerignore         # 后端构建上下文排除规则
 ├── frontend/Dockerfile                 # Vue 开发服务镜像
-├── kt-service/Dockerfile               # 独立模型推理服务镜像
 ├── registry/
 │   ├── docker-compose.yaml            # 独立镜像仓库
 │   └── ubuntu/                        # 实验镜像 Dockerfile 和 build.sh
@@ -32,12 +31,13 @@ docker compose -f deploy/docker-compose.yaml --env-file backend/.env logs -f bac
 docker compose -f deploy/docker-compose.yaml up -d postgres rabbitmq redis
 ```
 
+升级时，后端启动会自动执行新增的 SQL 迁移。`003_remove_knowledge_tracing.sql` 删除已停用的掌握度与作答轨迹表，并清理历史测试结果中的掌握度和 Q 矩阵字段；试卷、答案、成绩与单次测试知识点正确率保留。
+
 Dockerfile 位于此目录，构建上下文仍为原应用目录，因此 `COPY` 路径保持原样。单独构建镜像：
 
 ```bash
 docker build -f deploy/backend/Dockerfile -t mixm-backend backend
 docker build -f deploy/frontend/Dockerfile -t mixm-frontend frontend
-docker build -f deploy/kt-service/Dockerfile -t mixm-kt-service kt_service
 ```
 
 后端排除规则采用与 Dockerfile 同目录的 `Dockerfile.dockerignore`，匹配的路径相对于 `backend/` 构建上下文。
@@ -59,7 +59,7 @@ docker compose -f deploy/rustfs/docker-compose.yaml up -d
 | 独立 Registry | `registry` | 根目录 `registry/registry-data` |
 | 独立 RustFS | `rustfs` | 根目录 `RustFS/data` |
 
-挂载的 kubeconfig、前端源码和模型输出仍使用原有目录。应用 `.env.example` 保留在应用目录，供本地开发与部署共享；运行数据不随部署文件迁移。
+挂载的 kubeconfig 和前端源码仍使用原有目录。应用 `.env.example` 保留在应用目录，供本地开发与部署共享；运行数据不随部署文件迁移。
 
 ## Kubernetes 与实验镜像
 
