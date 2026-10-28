@@ -28,6 +28,8 @@ deploy/
 
 先按[项目 README](../README.md)创建并编辑 `backend/.env`。Registry 默认保留原有的 `172.18.120.33:55000` 绑定；更换部署主机时设置 `REGISTRY_BIND_ADDRESS`、`REGISTRY_PORT`，并同步 `REGISTRY_URL` 和 `REGISTRY_PREFIX`。
 
+使用 WSL + K3s + Longhorn 时，启动 mixm 前先按[集群存储说明](#kubernetes-集群存储)手动执行共享挂载设置脚本。
+
 ```bash
 docker network inspect mixm-services >/dev/null 2>&1 || docker network create mixm-services
 
@@ -137,7 +139,17 @@ REGISTRY_PREFIX=172.18.120.33:55000 bash deploy/templates/build.sh
 
 ## Kubernetes 集群存储
 
-Longhorn 仍作为独立的 Kubernetes 集群初始化清单管理：
+Longhorn 作为独立的 Kubernetes 集群组件部署。
+
+在 WSL + K3s 节点上，每次启动 mixm 前手动执行以下脚本，设置 Longhorn 所需的共享挂载传播，避免 `is not a shared mount` 错误：
+
+```bash
+sudo bash scripts/setup-longhorn-mount-propagation.sh
+```
+
+脚本仅执行 `mount --make-rshared /` 并显示根挂载的传播模式，预期为 `shared`。需要在 K3s 节点上以 root 权限执行，可以重复运行，无需重启 K3s。设置仅对当前运行的系统生效，重启系统或 WSL 后需重新执行；脚本不创建配置文件或开机服务。
+
+已通过 Helm 安装 Longhorn 的集群继续使用 Helm 管理，无需再执行下面的安装清单：
 
 ```bash
 kubectl apply -f deploy/longhorn/longhorn.yaml
@@ -153,6 +165,7 @@ kubectl apply -f scripts/code-server-demo-user.yaml
 docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env config --quiet
 docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env config --quiet
 bash -n deploy/templates/build.sh
+bash -n scripts/setup-longhorn-mount-propagation.sh
 ```
 
 安装 Hadolint 后检查全部 7 个 Dockerfile；错误级检查失败时返回非零状态，版本固定等建议仍会显示：
