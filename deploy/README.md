@@ -15,12 +15,12 @@ deploy/
 ├── middleware/
 │   └── docker-compose.yaml             # PostgreSQL、RabbitMQ、Redis、RustFS、Registry
 └── templates/
-    ├── Dockerfile                      # Ubuntu 基础开发镜像
-    ├── Dockerfile.torch291              # PyTorch 2.9.1 镜像
-    ├── Dockerfile.torch291.codeserver   # PyTorch 2.9.1 + code-server
-    ├── Dockerfile.torch280.codeserver   # PyTorch 2.8.0 + code-server
-    ├── Dockerfile.mixm.codeserver       # mixm code-server 镜像
-    └── build.sh                        # 交互式构建与镜像打标
+    ├── Dockerfile.mixm                       # 基础开发环境 + SSH
+    ├── Dockerfile.mixm.codeserver            # 基础开发环境 + SSH + code-server
+    ├── Dockerfile.mixm.codeserver.torch280   # code-server + PyTorch 2.8.0
+    ├── Dockerfile.mixm.codeserver.torch291   # code-server + PyTorch 2.9.1
+    ├── scripts/                             # 共用用户配置、虚拟环境和启动脚本
+    └── build.sh                             # 交互式构建与镜像打标
 ```
 
 ## 启动顺序
@@ -134,13 +134,39 @@ docker build -f deploy/web/Dockerfile.frontend -t mixm-frontend frontend
 
 `deploy/web/Dockerfile.backend.dockerignore` 和 `deploy/web/Dockerfile.frontend.dockerignore` 分别作用于 `backend/` 与 `frontend/` 构建上下文，排除本地依赖、构建产物和环境文件。前端默认监听 `0.0.0.0:5173`；后端镜像提供 `server`、`worker`、`admin` 和 `initdb` 四个程序。
 
-Ubuntu 模板镜像与构建脚本位于 `deploy/templates`。脚本根据自身位置选择构建上下文，可以从其他工作目录调用；通过交互输入或 `REGISTRY_PREFIX` 环境变量设置推送地址：
+实验模板均基于 Docker Hub 的 `ubuntu:24.04`，可分别独立构建，无需先构建其他模板镜像。共用脚本集中在 `deploy/templates/scripts/`；构建上下文必须为 `deploy/templates`，以便复制这些脚本。
+
+| 模板 | Python 环境 | code-server | PyTorch / torchvision | 默认计算设备 |
+| --- | --- | --- | --- | --- |
+| `Dockerfile.mixm` | uv、`/opt/venv` | 无 | 无 | — |
+| `Dockerfile.mixm.codeserver` | uv、`/opt/venv` | 有 | 无 | — |
+| `Dockerfile.mixm.codeserver.torch280` | uv、`/opt/venv` | 有 | `2.8.0` / `0.23.0` | CPU |
+| `Dockerfile.mixm.codeserver.torch291` | uv、`/opt/venv` | 有 | `2.9.1` / `0.24.1` | CPU |
+
+PyTorch 与 torchvision 版本按[官方兼容组合](https://pytorch.org/get-started/previous-versions/)固定。所有模板统一基础开发工具、用户 `ubuntu`、工作目录 `/workspace` 和 SSH 配置；code-server 使用全局 standalone 安装，默认监听 `8080`，禁用更新检查。SSH 登录和交互式 Bash 自动使用虚拟环境。普通 Python 包使用 uv 默认的官方 PyPI，PyTorch 使用官方 `download.pytorch.org`。
+
+构建脚本根据自身位置选择构建上下文，可以从其他工作目录调用。菜单对应上述四个模板，PyTorch 模板会询问 CPU/CUDA，选择 CUDA 时再设置通道（默认 `cu128`）。通过交互输入或 `REGISTRY_PREFIX` 环境变量设置推送地址：
 
 ```bash
 REGISTRY_PREFIX=localhost:55000 bash deploy/templates/build.sh
 ```
 
-脚本构建并生成推送标签，推送命令在执行结束时显示。Dockerfile 统一使用 `docker/dockerfile:1`、大写指令、四空格续行缩进和 JSON 格式的 `CMD`；实验镜像使用 Bash `pipefail`，脚本 heredoc 保留运行时变量展开。
+默认镜像名称由模板名转换，例如 `mixm-codeserver-torch291`。基础模板与通用 code-server 模板默认标签为 `v0.0.1`，PyTorch 模板按计算设备使用 `cpu-v0.0.1` 或 `cu128-v0.0.1` 等标签。脚本构建并生成 Registry 标签，推送命令在执行结束时显示，推送需自行执行。
+
+也可以直接构建和推送，例如 PyTorch 2.9.1 + CUDA 12.8 通道：
+
+```bash
+docker build \
+  -f deploy/templates/Dockerfile.mixm.codeserver.torch291 \
+  --build-arg TORCH_DEVICE=cuda \
+  --build-arg TORCH_CUDA_TAG=cu128 \
+  -t localhost:55000/mixm-codeserver-torch291:cu128-v0.0.1 \
+  deploy/templates
+
+docker push localhost:55000/mixm-codeserver-torch291:cu128-v0.0.1
+```
+
+Dockerfile 统一使用 `docker/dockerfile:1`、大写指令、四空格续行缩进和 JSON 格式的 `CMD`；实验镜像使用 Bash `pipefail`。
 
 ## Kubernetes 集群存储
 
@@ -169,10 +195,13 @@ kubectl apply -f scripts/code-server-demo-user.yaml
 docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env config --quiet
 docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env config --quiet
 bash -n deploy/templates/build.sh
+for script in deploy/templates/scripts/*.sh; do
+  bash -n "$script"
+done
 bash -n scripts/setup-longhorn-mount-propagation.sh
 ```
 
-安装 Hadolint 后检查全部 7 个 Dockerfile；错误级检查失败时返回非零状态，版本固定等建议仍会显示：
+安装 Hadolint 后检查全部 6 个 Dockerfile；错误级检查失败时返回非零状态，版本固定等建议仍会显示：
 
 ```bash
 hadolint --failure-threshold error \

@@ -1,0 +1,70 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:24.04
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG USERNAME=ubuntu
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV USERNAME="${USERNAME}" \
+    VIRTUAL_ENV=/opt/venv
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+
+# APT 缓存由 BuildKit 管理，四个模板保持相同的基础开发工具。
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        git \
+        less \
+        libssl-dev \
+        nano \
+        openssh-server \
+        pkg-config \
+        python3 \
+        python3-pip \
+        python3-venv \
+        sudo \
+        vim \
+        wget
+
+RUN curl -fsSL https://astral.sh/uv/install.sh -o /tmp/install-uv.sh \
+    && env UV_INSTALL_DIR=/usr/local/bin sh /tmp/install-uv.sh \
+    && rm -f /tmp/install-uv.sh \
+    && uv venv "${VIRTUAL_ENV}"
+
+COPY scripts/activate-venv.sh /etc/profile.d/mixm-venv.sh
+COPY scripts/setup-user.sh /tmp/setup-user.sh
+RUN bash /tmp/setup-user.sh "${USERNAME}" \
+    && rm -f /tmp/setup-user.sh
+
+WORKDIR /workspace
+
+# 所有 code-server 模板使用全局 standalone 安装。
+RUN curl -fsSL https://code-server.dev/install.sh -o /tmp/install-code-server.sh \
+    && sh /tmp/install-code-server.sh --method=standalone --prefix=/usr/local \
+    && rm -f /tmp/install-code-server.sh
+
+ENV CODE_SERVER_PORT=8080 \
+    CODE_SERVER_PASSWORD=ubuntu \
+    CS_DISABLE_UPDATE_CHECK=1
+
+COPY --chmod=0755 scripts/start-services.sh /usr/local/bin/start-services.sh
+
+ARG TORCH_VERSION=2.8.0
+ARG TORCHVISION_VERSION=0.23.0
+ARG TORCH_DEVICE=cpu
+ARG TORCH_CUDA_TAG=cu128
+
+COPY scripts/install-torch.sh /tmp/install-torch.sh
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    bash /tmp/install-torch.sh \
+        "${TORCH_VERSION}" "${TORCHVISION_VERSION}" "${TORCH_DEVICE}" "${TORCH_CUDA_TAG}" \
+    && rm -f /tmp/install-torch.sh
+
+EXPOSE 22 8080
+
+CMD ["/usr/local/bin/start-services.sh"]

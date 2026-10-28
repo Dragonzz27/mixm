@@ -8,116 +8,100 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 prompt_with_default() {
-	local message="$1"
-	local default_value="$2"
-	local input
-	read -r -p "${message} [${default_value}]: " input
-	if [ -z "${input}" ]; then
-		echo "${default_value}"
-	else
-		echo "${input}"
-	fi
+    local message="$1"
+    local default_value="$2"
+    local input
+    read -r -p "${message} [${default_value}]: " input || return 1
+    printf '%s\n' "${input:-${default_value}}"
 }
 
-echo "========================================"
-echo " Ubuntu 镜像交互式构建"
-echo " 当前目录: ${SCRIPT_DIR}"
-echo "========================================"
+TEMPLATES=(
+    mixm
+    mixm.codeserver
+    mixm.codeserver.torch280
+    mixm.codeserver.torch291
+)
+DESCRIPTIONS=(
+    "基础开发环境 + SSH"
+    "基础开发环境 + SSH + code-server"
+    "code-server + PyTorch 2.8.0"
+    "code-server + PyTorch 2.9.1"
+)
 
+echo "mixm 实验镜像构建"
+echo "构建目录: ${SCRIPT_DIR}"
 echo
-echo "请选择要构建的镜像模板："
-echo "  1) Dockerfile (基础开发镜像)"
-echo "  2) Dockerfile.torch291 (含 torch 2.9.1)"
-echo "  3) Dockerfile.torch291.codeserver (含 torch 2.9.1 + code-server)"
-echo "  4) Dockerfile.torch280.codeserver (含 torch 2.8.0 + code-server)"
-echo "  5) Dockerfile.mixm.codeserver (mixm官方 code-server 镜像)"
-
-while true; do
-	read -r -p "输入选项 [1-5] (默认 1): " dockerfile_choice
-	dockerfile_choice="${dockerfile_choice:-1}"
-	case "${dockerfile_choice}" in
-		1)
-			DOCKERFILE="Dockerfile"
-			break
-			;;
-		2)
-			DOCKERFILE="Dockerfile.torch291"
-			break
-			;;
-		3)
-			DOCKERFILE="Dockerfile.torch291.codeserver"
-			break
-			;;
-		4)
-			DOCKERFILE="Dockerfile.torch280.codeserver"
-			break
-			;;
-		5)
-			DOCKERFILE="Dockerfile.mixm.codeserver"
-			break
-			;;
-		*)
-			echo "无效选项，请输入 1、2、3、4 或 5。"
-			;;
-	esac
+for index in "${!TEMPLATES[@]}"; do
+    printf '  %d) Dockerfile.%s (%s)\n' "$((index + 1))" "${TEMPLATES[index]}" "${DESCRIPTIONS[index]}"
 done
 
-case "${DOCKERFILE}" in
-	"Dockerfile")
-		DEFAULT_IMAGE_NAME="ubuntu"
-		DEFAULT_IMAGE_TAG="24.04.dev"
-		;;
-	"Dockerfile.torch291")
-		DEFAULT_IMAGE_NAME="torch291"
-		DEFAULT_IMAGE_TAG="cuda-v0.0.1"
-		;;
-	"Dockerfile.torch291.codeserver")
-		DEFAULT_IMAGE_NAME="torch291-codeserver"
-		DEFAULT_IMAGE_TAG="cuda-v0.0.1"
-		;;
-	"Dockerfile.torch280.codeserver")
-		DEFAULT_IMAGE_NAME="torch280-codeserver"
-		DEFAULT_IMAGE_TAG="v0.0.1"
-		;;
-	"Dockerfile.mixm.codeserver")
-		DEFAULT_IMAGE_NAME="mixm-codeserver"
-		DEFAULT_IMAGE_TAG="v0.0.1"
-		;;
-	*)
-		DEFAULT_IMAGE_NAME="ubuntu"
-		DEFAULT_IMAGE_TAG="24.04.dev"
-		;;
+while true; do
+    choice="$(prompt_with_default "选择模板 1-4" "1")"
+    case "${choice}" in
+        [1-4])
+            TEMPLATE="${TEMPLATES[choice - 1]}"
+            break
+            ;;
+        *) echo "无效选项，请输入 1、2、3 或 4。" >&2 ;;
+    esac
+done
+
+DOCKERFILE="Dockerfile.${TEMPLATE}"
+BUILD_ARGS=()
+DEFAULT_IMAGE_TAG=v0.0.1
+
+if [[ "${TEMPLATE}" == *.torch* ]]; then
+    while true; do
+        DEVICE="$(prompt_with_default "PyTorch 计算设备 cpu/cuda" "${TORCH_DEVICE:-cpu}")"
+        case "${DEVICE}" in
+            cpu|cuda) break ;;
+            *) echo "计算设备只能是 cpu 或 cuda。" >&2 ;;
+        esac
+    done
+    BUILD_ARGS+=(--build-arg "TORCH_DEVICE=${DEVICE}")
+    DEFAULT_IMAGE_TAG="cpu-v0.0.1"
+    if [[ "${DEVICE}" == cuda ]]; then
+        while true; do
+            CUDA_TAG="$(prompt_with_default "CUDA 通道" "${TORCH_CUDA_TAG:-cu128}")"
+            if [[ "${CUDA_TAG}" =~ ^cu[0-9]+$ ]]; then
+                break
+            fi
+            echo "CUDA 通道格式应为 cu128 等。" >&2
+        done
+        BUILD_ARGS+=(--build-arg "TORCH_CUDA_TAG=${CUDA_TAG}")
+        DEFAULT_IMAGE_TAG="${CUDA_TAG}-v0.0.1"
+    fi
+fi
+
+IMAGE_NAME="$(prompt_with_default "镜像名称" "${TEMPLATE//./-}")"
+IMAGE_TAG="$(prompt_with_default "镜像 Tag" "${DEFAULT_IMAGE_TAG}")"
+REGISTRY_DOMAIN="$(prompt_with_default "Registry 地址，不含 http:// 或 https://" "${REGISTRY_PREFIX:-localhost:55000}")"
+REGISTRY_DOMAIN="${REGISTRY_DOMAIN%/}"
+case "${REGISTRY_DOMAIN}" in
+    *://*)
+        echo "Registry 地址不能包含协议，请使用 localhost:55000 等地址。" >&2
+        exit 1
+        ;;
 esac
 
-echo
-IMAGE_NAME="$(prompt_with_default "请输入镜像名称" "${DEFAULT_IMAGE_NAME}")"
-IMAGE_TAG="$(prompt_with_default "请输入镜像 Tag" "${DEFAULT_IMAGE_TAG}")"
-
-REGISTRY_DOMAIN="$(prompt_with_default "请输入推送域名" "${REGISTRY_PREFIX:-localhost:55000}")"
-
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
-PUSH_IMAGE="${REGISTRY_DOMAIN}/${IMAGE_NAME}:${IMAGE_TAG}"
-
+PUSH_IMAGE="${REGISTRY_DOMAIN}/${FULL_IMAGE}"
 CMD=(docker build -f "${DOCKERFILE}" -t "${FULL_IMAGE}")
-CMD+=(.)
+CMD+=("${BUILD_ARGS[@]}" .)
 
 echo
-echo "将执行以下命令："
+printf '将执行:'
 printf ' %q' "${CMD[@]}"
-echo
-echo
+printf '\n推送标签: %s\n' "${PUSH_IMAGE}"
 
 read -r -p "确认执行构建？[y/N]: " confirm
 if [[ ! "${confirm}" =~ ^[Yy]$ ]]; then
-	echo "已取消构建。"
-	exit 0
+    echo "已取消构建。"
+    exit 0
 fi
 
 "${CMD[@]}"
-
 docker tag "${FULL_IMAGE}" "${PUSH_IMAGE}"
 
-echo
-echo "构建完成：${FULL_IMAGE}"
-echo "已打推送 Tag：${PUSH_IMAGE}"
-echo "可直接推送：docker push ${PUSH_IMAGE}"
+echo "构建完成: ${FULL_IMAGE}"
+printf '推送命令: docker push %q\n' "${PUSH_IMAGE}"

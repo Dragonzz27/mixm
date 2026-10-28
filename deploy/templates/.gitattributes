@@ -1,7 +1,5 @@
 * text=auto
 
 # Keep Docker and shell scripts LF to avoid \r runtime issues in Linux containers
-Dockerfile text eol=lf
-**/Dockerfile text eol=lf
-**/Dockerfile.* text eol=lf
+Dockerfile.* text eol=lf
 *.sh text eol=lf
