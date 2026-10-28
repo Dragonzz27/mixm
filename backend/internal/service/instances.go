@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"mixm/backend/internal/dto"
@@ -103,8 +102,7 @@ func (s *Instances) enqueue(ctx context.Context, actor model.Actor, v model.Reco
 		v["name"] = "instance"
 	}
 	v["name"] = fmt.Sprintf("%s-%d", v["name"], time.Now().UnixNano())
-	id := uuid.NewString()
-	v["ssh_username"] = model.String(u, "username") + strings.ReplaceAll(id, "-", "")[:8]
+	delete(v, "ssh_username")
 	v["ssh_port"] = s.Config.SSHPort
 	v["status"] = "pending"
 	b := make([]byte, 24)
@@ -121,6 +119,11 @@ func (s *Instances) enqueue(ctx context.Context, actor model.Actor, v model.Reco
 	defer tx.Rollback(ctx)
 	instance, err := repository.Write(ctx, tx, "instances", "", v)
 	if err != nil {
+		return nil, err
+	}
+	id := model.String(instance, "id")
+	v["ssh_username"] = model.String(u, "username") + strings.ReplaceAll(id, "-", "")[:8]
+	if _, err = repository.Write(ctx, tx, "instances", id, model.Record{"ssh_username": v["ssh_username"]}); err != nil {
 		return nil, err
 	}
 	task, err := repository.Write(ctx, tx, "instance_tasks", "", model.Record{"user_id": uid, "instance_id": instance["id"], "payload": v})
