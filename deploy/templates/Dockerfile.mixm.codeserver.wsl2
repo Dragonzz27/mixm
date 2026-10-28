@@ -1,0 +1,69 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:24.04
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG USERNAME=ubuntu
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV USERNAME="${USERNAME}" \
+    VIRTUAL_ENV=/opt/venv
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+
+# APT 缓存由 BuildKit 管理，四个模板保持相同的基础开发工具。
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        git \
+        less \
+        libssl-dev \
+        nano \
+        openssh-server \
+        pkg-config \
+        python3 \
+        python3-pip \
+        python3-venv \
+        sudo \
+        vim \
+        wget
+
+RUN curl -fsSL https://astral.sh/uv/install.sh -o /tmp/install-uv.sh \
+    && env UV_INSTALL_DIR=/usr/local/bin sh /tmp/install-uv.sh \
+    && rm -f /tmp/install-uv.sh \
+    && uv venv "${VIRTUAL_ENV}"
+
+COPY scripts/activate-venv.sh /etc/profile.d/mixm-venv.sh
+COPY scripts/setup-user.sh /tmp/setup-user.sh
+RUN bash /tmp/setup-user.sh "${USERNAME}" \
+    && rm -f /tmp/setup-user.sh
+
+WORKDIR /workspace
+
+# 所有 code-server 模板使用全局 standalone 安装。
+RUN curl -fsSL https://code-server.dev/install.sh -o /tmp/install-code-server.sh \
+    && sh /tmp/install-code-server.sh --method=standalone --prefix=/usr/local \
+    && rm -f /tmp/install-code-server.sh
+
+ENV CODE_SERVER_PORT=8080 \
+    CODE_SERVER_PASSWORD=ubuntu \
+    CS_DISABLE_UPDATE_CHECK=1
+
+COPY --chmod=0755 scripts/start-services.sh /usr/local/bin/start-services.sh
+
+# su 会清除 LD_PRELOAD；登录终端与 code-server 启动时重新加载镜像内固定的值。
+RUN cat >> /etc/profile.d/mixm-venv.sh <<'EOF'
+
+export LD_PRELOAD=/usr/local/vgpu/libvgpu.so:/usr/lib/wsl/drivers/nv_dispi.inf_amd64_b20cc8aeaed64fc2/libcuda.so.1.1
+EOF
+
+# 共享库由 HAMi 和 WSL2 GPU 运行环境在容器启动时提供。
+# 放在最后一个 RUN 之后，避免构建阶段预加载尚未挂载的库。
+ENV LD_PRELOAD=/usr/local/vgpu/libvgpu.so:/usr/lib/wsl/drivers/nv_dispi.inf_amd64_b20cc8aeaed64fc2/libcuda.so.1.1
+
+EXPOSE 22 8080
+
+CMD ["/usr/local/bin/start-services.sh"]

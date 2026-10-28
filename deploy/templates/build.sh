@@ -20,12 +20,14 @@ TEMPLATES=(
     mixm.codeserver
     mixm.codeserver.torch280
     mixm.codeserver.torch291
+    mixm.codeserver.wsl2
 )
 DESCRIPTIONS=(
     "基础开发环境 + SSH"
     "基础开发环境 + SSH + code-server"
     "code-server + PyTorch 2.8.0"
     "code-server + PyTorch 2.9.1"
+    "WSL2 测试镜像：基础 code-server + HAMi 预加载"
 )
 
 echo "mixm 实验镜像构建"
@@ -36,13 +38,13 @@ for index in "${!TEMPLATES[@]}"; do
 done
 
 while true; do
-    choice="$(prompt_with_default "选择模板 1-4" "1")"
+    choice="$(prompt_with_default "选择模板 1-5" "1")"
     case "${choice}" in
-        [1-4])
+        [1-5])
             TEMPLATE="${TEMPLATES[choice - 1]}"
             break
             ;;
-        *) echo "无效选项，请输入 1、2、3 或 4。" >&2 ;;
+        *) echo "无效选项，请输入 1、2、3、4 或 5。" >&2 ;;
     esac
 done
 

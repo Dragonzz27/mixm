@@ -19,6 +19,7 @@ deploy/
     ├── Dockerfile.mixm.codeserver            # 基础开发环境 + SSH + code-server
     ├── Dockerfile.mixm.codeserver.torch280   # code-server + PyTorch 2.8.0
     ├── Dockerfile.mixm.codeserver.torch291   # code-server + PyTorch 2.9.1
+    ├── Dockerfile.mixm.codeserver.wsl2       # WSL2 / HAMi GPU 测试镜像
     ├── scripts/                             # 共用用户配置、虚拟环境和启动脚本
     └── build.sh                             # 交互式构建与镜像打标
 ```
@@ -142,16 +143,17 @@ docker build -f deploy/web/Dockerfile.frontend -t mixm-frontend frontend
 | `Dockerfile.mixm.codeserver` | uv、`/opt/venv` | 有 | 无 | — |
 | `Dockerfile.mixm.codeserver.torch280` | uv、`/opt/venv` | 有 | `2.8.0` / `0.23.0` | CPU |
 | `Dockerfile.mixm.codeserver.torch291` | uv、`/opt/venv` | 有 | `2.9.1` / `0.24.1` | CPU |
+| `Dockerfile.mixm.codeserver.wsl2` | uv、`/opt/venv` | 有 | 无 | — |
 
 PyTorch 与 torchvision 版本按[官方兼容组合](https://pytorch.org/get-started/previous-versions/)固定。所有模板统一基础开发工具、用户 `ubuntu`、工作目录 `/workspace` 和 SSH 配置；code-server 使用全局 standalone 安装，默认监听 `8080`，禁用更新检查。SSH 登录和交互式 Bash 自动使用虚拟环境。普通 Python 包使用 uv 默认的官方 PyPI，PyTorch 使用官方 `download.pytorch.org`。
 
-构建脚本根据自身位置选择构建上下文，可以从其他工作目录调用。菜单对应上述四个模板，PyTorch 模板会询问 CPU/CUDA，选择 CUDA 时再设置通道（默认 `cu128`）。通过交互输入或 `REGISTRY_PREFIX` 环境变量设置推送地址：
+构建脚本根据自身位置选择构建上下文，可以从其他工作目录调用。菜单对应上述五个模板，两个 `torch280`、`torch291` 模板会询问 CPU/CUDA，选择 CUDA 时再设置通道（默认 `cu128`）；选项 5 为基础 code-server 的 WSL2 测试镜像，不安装 PyTorch 或 CUDA。通过交互输入或 `REGISTRY_PREFIX` 环境变量设置推送地址：
 
 ```bash
 REGISTRY_PREFIX=localhost:55000 bash deploy/templates/build.sh
 ```
 
-默认镜像名称由模板名转换，例如 `mixm-codeserver-torch291`。基础模板与通用 code-server 模板默认标签为 `v0.0.1`，PyTorch 模板按计算设备使用 `cpu-v0.0.1` 或 `cu128-v0.0.1` 等标签。脚本构建并生成 Registry 标签，推送命令在执行结束时显示，推送需自行执行。
+默认镜像名称由模板名转换，例如 `mixm-codeserver-torch291`。基础模板与通用 code-server 模板默认标签为 `v0.0.1`，PyTorch 模板按计算设备使用 `cpu-v0.0.1` 或 `cu128-v0.0.1` 等标签；WSL2 测试镜像默认为 `mixm-codeserver-wsl2:v0.0.1`。脚本构建并生成 Registry 标签，推送命令在执行结束时显示，推送需自行执行。
 
 也可以直接构建和推送，例如 PyTorch 2.9.1 + CUDA 12.8 通道：
 
@@ -166,11 +168,32 @@ docker build \
 docker push localhost:55000/mixm-codeserver-torch291:cu128-v0.0.1
 ```
 
+WSL2 + HAMi 测试使用独立的 `Dockerfile.mixm.codeserver.wsl2`，内容沿用 `Dockerfile.mixm.codeserver`，仅补充预加载变量及用户切换后的恢复逻辑，不安装 PyTorch 或 CUDA。该镜像内置以下变量，并在用户切换后通过虚拟环境加载脚本恢复，无需后端配置或 Pod 环境变量注入：
+
+```dockerfile
+ENV LD_PRELOAD=/usr/local/vgpu/libvgpu.so:/usr/lib/wsl/drivers/nv_dispi.inf_amd64_b20cc8aeaed64fc2/libcuda.so.1.1
+```
+
+构建并推送：
+
+```bash
+docker build \
+  -f deploy/templates/Dockerfile.mixm.codeserver.wsl2 \
+  -t localhost:55000/mixm-codeserver-wsl2:v0.0.1 \
+  deploy/templates
+
+docker push localhost:55000/mixm-codeserver-wsl2:v0.0.1
+```
+
+在前端创建仓库记录 `mixm-codeserver-wsl2`，创建实例时选择该镜像标签，并申请 GPU 和单卡显存。共享库由 HAMi 和 NVIDIA 容器运行环境在启动时提供，不复制进镜像；这个测试镜像固定了当前 WSL2 驱动路径，驱动目录变化后需修改 Dockerfile 并重新构建。进入 code-server 终端后可执行 `printf '%s\n' "$LD_PRELOAD"` 检查预加载变量。
+
 Dockerfile 统一使用 `docker/dockerfile:1`、大写指令、四空格续行缩进和 JSON 格式的 `CMD`；实验镜像使用 Bash `pipefail`。
 
 ## Kubernetes 集群存储
 
 Longhorn 作为独立的 Kubernetes 集群组件，通过 Helm 安装和管理。
+
+Windows 浏览器访问 WSL 内的实例时，若 `localhost:80` 无法连接，但 WSL 节点 IP 的 `80` 端口可以打开 code-server 登录页，将本地 `backend/.env` 的 `K8S_CODE_SERVER_HOST` 设置为该节点 IP。可通过 `kubectl get nodes -o wide` 查看 `INTERNAL-IP`。修改后重启 Go API 并刷新实例详情页，已有实例的访问地址也会更新。WSL 节点 IP 改变后需同步修改；`.env.example` 保留 `localhost` 开发默认值。
 
 在 WSL + K3s 节点上，每次启动 mixm 前手动执行以下脚本，设置 Longhorn 所需的共享挂载传播，避免 `is not a shared mount` 错误：
 
@@ -201,7 +224,7 @@ done
 bash -n scripts/setup-longhorn-mount-propagation.sh
 ```
 
-安装 Hadolint 后检查全部 6 个 Dockerfile；错误级检查失败时返回非零状态，版本固定等建议仍会显示：
+安装 Hadolint 后检查全部 7 个 Dockerfile；错误级检查失败时返回非零状态，版本固定等建议仍会显示：
 
 ```bash
 hadolint --failure-threshold error \
