@@ -1,96 +1,116 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1
 FROM ubuntu:24.04
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# 使用基础镜像中已有的用户。
+ARG USERNAME=ubuntu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 直接使用镜像自带的 ubuntu 用户
-ARG USERNAME=ubuntu
-
+# APT 索引和下载缓存保存在 BuildKit 挂载中。
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-	--mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-	ca-certificates \
-	curl \
-	git \
-	less \
-	vim \
-	sudo \
-    nano \
-    wget \
-	openssh-server \
-    python3 && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        less \
+        nano \
+        openssh-server \
+        python3 \
+        sudo \
+        vim \
+        wget
+
+RUN curl -fsSL https://astral.sh/uv/install.sh -o /tmp/install-uv.sh \
+    && env UV_INSTALL_DIR=/usr/local/bin sh /tmp/install-uv.sh \
+    && rm -f /tmp/install-uv.sh
+
+RUN mkdir -p /etc/uv \
+    && printf '%s\n' \
+        '[[index]]' \
+        'url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"' \
+        'default = true' > /etc/uv/uv.toml
 
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    set -eux; \
-    curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh; \
-    mkdir -p /etc/uv; \
-    printf '%s\n' \
-      '[[index]]' \
-      'url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/"' \
-      'default = true' > /etc/uv/uv.toml; \
-    uv venv "${VIRTUAL_ENV}"
+RUN uv venv "${VIRTUAL_ENV}"
 
-# PyTorch 安装参数：
-# 安装 CUDA 版 torch==2.9.1（由 TORCH_CUDA_TAG 指定通道）
 ARG TORCH_VERSION=2.9.1
 ARG TORCH_CUDA_TAG=cu128
 
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-	uv pip install --python "${VIRTUAL_ENV}/bin/python" --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}" "torch==${TORCH_VERSION}" "torchvision"
+    uv pip install \
+        --python "${VIRTUAL_ENV}/bin/python" \
+        --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}" \
+        "torch==${TORCH_VERSION}" torchvision
 
-# 使用 standalone 模式安装 code-server，减少额外包依赖
-RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/usr/local && \
-	rm -rf /root/.cache /tmp/* /var/tmp/*
+RUN curl -fsSL https://code-server.dev/install.sh -o /tmp/install-code-server.sh \
+    && sh /tmp/install-code-server.sh --method=standalone --prefix=/usr/local \
+    && rm -f /tmp/install-code-server.sh \
+    && rm -rf /root/.cache
 
-# 配置用户权限、环境变量和 SSH 服务，合并 RUN 指令以减少镜像层数和构建时间
+# 配置用户权限、默认 SSH 密码和 SSH 服务。
 RUN set -eux; \
+    if ! id -u "${USERNAME}" > /dev/null 2>&1; then \
+        echo "Error: User ${USERNAME} not found" >&2; \
+        exit 1; \
+    fi; \
     usermod -aG sudo "${USERNAME}"; \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${USERNAME}"; \
+    printf '%s ALL=(ALL) NOPASSWD:ALL\n' "${USERNAME}" > "/etc/sudoers.d/${USERNAME}"; \
     chmod 0440 "/etc/sudoers.d/${USERNAME}"; \
-    echo "${USERNAME}:ubuntu" | chpasswd; \
-    USER_HOME="$(getent passwd "${USERNAME}" | cut -d: -f6)"; \
-    if [ -n "${USER_HOME}" ] && [ -d "${USER_HOME}" ]; then \
-        printf '\n# MIXM_AUTO_VENV\nsource /opt/venv/bin/activate\n' >> "${USER_HOME}/.bashrc"; \
-        chown "${USERNAME}:${USERNAME}" "${USER_HOME}/.bashrc"; \
+    printf '%s:ubuntu\n' "${USERNAME}" | chpasswd; \
+    user_home="$(getent passwd "${USERNAME}" | cut -d: -f6)"; \
+    if [ -n "${user_home}" ] && [ -d "${user_home}" ]; then \
+        printf '\n# MIXM_AUTO_VENV\nsource /opt/venv/bin/activate\n' >> "${user_home}/.bashrc"; \
+        chown "${USERNAME}:${USERNAME}" "${user_home}/.bashrc"; \
     fi; \
     mkdir -p /var/run/sshd; \
     ssh-keygen -A; \
-    sed -i -e 's/^#\?PermitRootLogin.*/PermitRootLogin no/' \
-           -e 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' \
-           -e 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication no/' \
-           -e 's/^#\?KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/' \
-           -e 's/^#\?X11Forwarding.*/X11Forwarding yes/' \
-           -e 's/^#\?UsePAM.*/UsePAM yes/' \
-           /etc/ssh/sshd_config; \
-    echo "AllowUsers ${USERNAME}" >> /etc/ssh/sshd_config
+    sed -i \
+        -e 's/^#\?PermitRootLogin.*/PermitRootLogin no/' \
+        -e 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' \
+        -e 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication no/' \
+        -e 's/^#\?KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/' \
+        -e 's/^#\?X11Forwarding.*/X11Forwarding yes/' \
+        -e 's/^#\?UsePAM.*/UsePAM yes/' \
+        /etc/ssh/sshd_config; \
+    printf 'AllowUsers %s\n' "${USERNAME}" >> /etc/ssh/sshd_config
 
 WORKDIR /workspace
 
-# 确保工作目录权限正确
 RUN chown "${USERNAME}:${USERNAME}" /workspace
 
 ARG CODE_SERVER_PORT=8080
 ARG CODE_SERVER_PASSWORD=ubuntu
-ENV USERNAME=${USERNAME}
-ENV CODE_SERVER_PORT=${CODE_SERVER_PORT}
-ENV CODE_SERVER_PASSWORD=${CODE_SERVER_PASSWORD}
-ENV CS_DISABLE_UPDATE_CHECK=1
 
-# 解决环境变量在构建时被固化的问题，延迟到运行时生效，并用一行接力合并 RUN
+ENV USERNAME="${USERNAME}" \
+    CODE_SERVER_PORT="${CODE_SERVER_PORT}" \
+    CODE_SERVER_PASSWORD="${CODE_SERVER_PASSWORD}" \
+    CS_DISABLE_UPDATE_CHECK=1
+
+# 保留运行时变量，并通过环境传递密码，避免再次进行 Shell 解析。
 RUN cat > /usr/local/bin/start-services.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
 /usr/sbin/sshd -D -e &
 
-exec su -s /bin/bash -c "source /opt/venv/bin/activate; PASSWORD=\"${CODE_SERVER_PASSWORD}\" code-server --bind-addr 0.0.0.0:${CODE_SERVER_PORT} --auth password --disable-update-check /workspace" "${USERNAME}"
+export PASSWORD="${CODE_SERVER_PASSWORD}"
+exec su -s /bin/bash -c '
+    source /opt/venv/bin/activate && exec code-server \
+        --bind-addr "0.0.0.0:${CODE_SERVER_PORT}" \
+        --auth password \
+        --disable-update-check \
+        /workspace
+' "${USERNAME}"
 EOF
 
-RUN sed -i 's/\r$//' /usr/local/bin/start-services.sh && chmod +x /usr/local/bin/start-services.sh
+RUN sed -i 's/\r$//' /usr/local/bin/start-services.sh \
+    && chmod 0755 /usr/local/bin/start-services.sh
 
 EXPOSE 22 8080
 

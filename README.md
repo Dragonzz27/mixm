@@ -47,14 +47,24 @@ cp backend/.env.example backend/.env
 
 ### 2. 启动应用
 
-启动前端、API 和基础服务：
+先创建共享网络，再分别启动四个独立中间件：
 
 ```bash
-docker compose -f deploy/docker-compose.yaml --env-file backend/.env \
-  up -d --build postgres rabbitmq redis rustfs backend frontend
+docker network inspect mixm-services >/dev/null 2>&1 || docker network create mixm-services
+
+docker compose -f deploy/postgres/docker-compose.yaml --env-file backend/.env up -d --wait
+docker compose -f deploy/rabbitmq/docker-compose.yaml --env-file backend/.env up -d --wait
+docker compose -f deploy/redis/docker-compose.yaml --env-file backend/.env up -d --wait
+docker compose -f deploy/rustfs/docker-compose.yaml --env-file backend/.env up -d --wait
 ```
 
-此配置使用容器服务名连接 PostgreSQL、RabbitMQ、Redis 和 RustFS；环境示例中的 `localhost` 地址用于本地开发。
+再启动前端与 API：
+
+```bash
+docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --build backend frontend
+```
+
+主 Compose 只包含 `backend`、`frontend` 和 `worker`。独立中间件与应用容器通过 `mixm-services` 网络和服务名互通；环境示例中的 `localhost` 地址用于本地 Go 开发。已有部署切换前，先参阅[中间件迁移说明](deploy/README.md#已有部署切换)。
 
 ### 3. 初始化数据与管理员
 
@@ -93,18 +103,17 @@ docker compose -f deploy/docker-compose.yaml --env-file backend/.env logs -f bac
 docker compose -f deploy/docker-compose.yaml --env-file backend/.env down
 ```
 
+应用的 `down` 只停止前端、后端和 worker；中间件使用各自的 Compose 配置管理，见[部署指南](deploy/README.md)。
+
 ## 本地开发
 
 准备 Go 1.25.0、Node.js 24（与前端镜像一致）和 pnpm，并按快速开始的第 1 步创建、编辑 `backend/.env`。
 
 ### 后端
 
-仅启动开发所需的基础服务：
+先按快速开始第 2 步创建网络并启动四个独立中间件，再运行本地后端：
 
 ```bash
-docker compose -f deploy/docker-compose.yaml --env-file backend/.env \
-  up -d postgres rabbitmq redis rustfs
-
 cd backend
 go mod download
 go run ./cmd/initdb
@@ -156,6 +165,7 @@ docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --bui
 | --- | --- |
 | `SECRET_KEY` | JWT 签名密钥 |
 | `DATABASE_URL`、`REDIS_URL`、`RABBITMQ_URL` | 本地开发的数据库、缓存与消息队列连接地址 |
+| `DEPLOY_DATABASE_URL`、`DEPLOY_REDIS_URL`、`DEPLOY_RABBITMQ_URL`、`DEPLOY_RUSTFS_ENDPOINT` | 覆盖应用容器的中间件连接地址，用于已有或远程服务 |
 | `ACCESS_TOKEN_EXPIRE_MINUTES`、`REFRESH_TOKEN_EXPIRE_DAYS` | 访问令牌与刷新令牌有效期 |
 | `K8S_CONFIG_PATH` | Kubernetes 配置文件路径 |
 | `K8S_SSH_GATEWAY_HOST`、`K8S_CODE_SERVER_HOST` | 用户访问实验环境的主机地址 |
@@ -164,7 +174,7 @@ docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --bui
 | `RUSTFS_ENDPOINT`、`RUSTFS_BUCKET` | S3 兼容存储地址与桶名 |
 | `LLM_API_URL`、`LLM_API_KEY`、`LLM_MODEL` | 大语言模型接口配置 |
 
-Compose 会覆盖部分服务地址，具体值见 [Compose 配置](deploy/docker-compose.yaml)。环境文件和集群凭据应保留在本地。
+应用 Compose 默认通过共享网络连接独立中间件；可用 `DEPLOY_*` 变量覆盖容器内的连接地址，具体值见 [Compose 配置](deploy/docker-compose.yaml)。环境文件和集群凭据应保留在本地。
 
 ## 测试与构建
 

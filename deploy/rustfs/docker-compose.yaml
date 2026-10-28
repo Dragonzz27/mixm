@@ -4,16 +4,19 @@ services:
   rustfs:
     image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/rustfs:v1
     container_name: rustfs-server
-    ports:
-      - "19000:9000"  # S3 API 端口
-      - "19001:9001"  # Console 管理端口
-    volumes:
-      - ../../RustFS/data:/data  # 数据持久化目录，请确保宿主机的 ../../RustFS/data 目录存在且权限正确
-    environment:
-      - RUSTFS_ACCESS_KEY=rustfsadmin
-      - RUSTFS_SECRET_KEY=rustfsadmin
-      - RUSTFS_CONSOLE_ENABLE=true
-    command:
-      - --console-enable
-      - /data
     restart: unless-stopped
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    volumes:
+      - ../../RustFS/data:/data
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    command: ["--console-enable", "/data"]
+
+networks:
+  default:
+    name: mixm-services
+    external: true

@@ -1,107 +1,101 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1
 FROM ubuntu:24.04
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# 使用基础镜像中已有的用户。
+ARG USERNAME=ubuntu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 直接使用镜像自带的 ubuntu 用户 (UID/GID 通常为 1000)
-ARG USERNAME=ubuntu
-ARG USER_UID=1000
-ARG USER_GID=1000
-
+# APT 索引和下载缓存保存在 BuildKit 挂载中。
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-	--mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-	apt-get update && apt-get install -y --no-install-recommends \
-	ca-certificates \
-	curl \
-	git \
-	less \
-	vim \
-	sudo \
-	openssh-server \
-	python3 \
-	python3-pip \
-	build-essential \
-	pkg-config \
-	libssl-dev
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        git \
+        less \
+        libssl-dev \
+        openssh-server \
+        pkg-config \
+        python3 \
+        python3-pip \
+        sudo \
+        vim
 
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+RUN curl -fsSL https://astral.sh/uv/install.sh -o /tmp/install-uv.sh \
+    && env UV_INSTALL_DIR=/usr/local/bin sh /tmp/install-uv.sh \
+    && rm -f /tmp/install-uv.sh
 
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-RUN uv venv ${VIRTUAL_ENV}
+RUN uv venv "${VIRTUAL_ENV}"
 
-# 登录 shell 自动注入 venv（SSH 登录、su -）
-RUN cat > /etc/profile.d/auto-venv.sh <<EOF
+# 延迟展开 PATH，保留 SSH 登录和交互式 Bash 的运行时环境。
+RUN cat > /etc/profile.d/auto-venv.sh <<'EOF'
 if [ -d /opt/venv ]; then
-	export VIRTUAL_ENV=/opt/venv
-	case ":${PATH}:" in
-		*:/opt/venv/bin:*) ;;
-		*) export PATH="/opt/venv/bin:${PATH}" ;;
-	esac
+    export VIRTUAL_ENV=/opt/venv
+    case ":${PATH}:" in
+        *:/opt/venv/bin:*) ;;
+        *) export PATH="/opt/venv/bin:${PATH}" ;;
+    esac
 fi
 EOF
 
-# 交互式非登录 bash（如 docker exec -it ... bash）也自动注入 venv
-RUN cat >> /etc/bash.bashrc <<EOF
+RUN cat /etc/profile.d/auto-venv.sh >> /etc/bash.bashrc \
+    && sed -i 's/\r$//' /etc/profile.d/auto-venv.sh /etc/bash.bashrc
 
-if [ -d /opt/venv ]; then
-	export VIRTUAL_ENV=/opt/venv
-	case ":${PATH}:" in
-		*:/opt/venv/bin:*) ;;
-		*) export PATH="/opt/venv/bin:${PATH}" ;;
-	esac
-fi
-EOF
-
-# PyTorch 安装参数：
-# TORCH_DEVICE=cpu   -> 安装 CPU 版 torch==2.9.1
-# TORCH_DEVICE=cuda  -> 安装 CUDA 版 torch==2.9.1（由 TORCH_CUDA_TAG 指定通道）
 ARG TORCH_VERSION=2.9.1
 ARG TORCH_DEVICE=cpu
 ARG TORCH_CUDA_TAG=cu128
 
+# TORCH_DEVICE 支持 cpu 和 cuda；CUDA 通道由 TORCH_CUDA_TAG 指定。
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-	set -eux; \
-	if [ "${TORCH_DEVICE}" = "cpu" ]; then \
-		uv pip install --python "${VIRTUAL_ENV}/bin/python" --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"; \
-	elif [ "${TORCH_DEVICE}" = "cuda" ]; then \
-		uv pip install --python "${VIRTUAL_ENV}/bin/python" --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}" "torch==${TORCH_VERSION}"; \
-	else \
-		echo "Invalid TORCH_DEVICE=${TORCH_DEVICE}, expected: cpu or cuda"; \
-		exit 1; \
-	fi
+    set -eux; \
+    if [ "${TORCH_DEVICE}" = "cpu" ]; then \
+        uv pip install \
+            --python "${VIRTUAL_ENV}/bin/python" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch==${TORCH_VERSION}"; \
+    elif [ "${TORCH_DEVICE}" = "cuda" ]; then \
+        uv pip install \
+            --python "${VIRTUAL_ENV}/bin/python" \
+            --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_TAG}" \
+            "torch==${TORCH_VERSION}"; \
+    else \
+        echo "Invalid TORCH_DEVICE=${TORCH_DEVICE}, expected: cpu or cuda" >&2; \
+        exit 1; \
+    fi
 
-# 兼容 Windows CRLF 工作区：避免 bash 读取到 \r 导致语法错误
-RUN sed -i 's/\r$//' /etc/profile.d/auto-venv.sh /etc/bash.bashrc
-
+# 配置用户权限、默认 SSH 密码和 SSH 服务。
 RUN set -eux; \
     if ! id -u "${USERNAME}" > /dev/null 2>&1; then \
-        echo "Error: User ${USERNAME} not found"; exit 1; \
+        echo "Error: User ${USERNAME} not found" >&2; \
+        exit 1; \
     fi; \
     usermod -aG sudo "${USERNAME}"; \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${USERNAME}"; \
+    printf '%s ALL=(ALL) NOPASSWD:ALL\n' "${USERNAME}" > "/etc/sudoers.d/${USERNAME}"; \
     chmod 0440 "/etc/sudoers.d/${USERNAME}"; \
-    # 设置密码为 "ubuntu" (用户名和密码相同，方便测试)
-    echo "${USERNAME}:ubuntu" | chpasswd
-
-# 准备 sshd 运行目录与主机密钥
-RUN mkdir -p /var/run/sshd \
-	&& ssh-keygen -A
-
-# 【修改点 2】修改 SSH 配置：允许密码、允许 X11、其余保持安全限制
-RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config \
-    && sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config \
-	&& sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication no/' /etc/ssh/sshd_config \
-    && sed -i 's/^#\?KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/' /etc/ssh/sshd_config \
-    && sed -i 's/^#\?X11Forwarding.*/X11Forwarding yes/' /etc/ssh/sshd_config \
-    && sed -i 's/^#\?UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config \
-    && echo "AllowUsers ${USERNAME}" >> /etc/ssh/sshd_config
+    printf '%s:ubuntu\n' "${USERNAME}" | chpasswd; \
+    mkdir -p /var/run/sshd; \
+    ssh-keygen -A; \
+    sed -i \
+        -e 's/^#\?PermitRootLogin.*/PermitRootLogin no/' \
+        -e 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' \
+        -e 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication no/' \
+        -e 's/^#\?KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/' \
+        -e 's/^#\?X11Forwarding.*/X11Forwarding yes/' \
+        -e 's/^#\?UsePAM.*/UsePAM yes/' \
+        /etc/ssh/sshd_config; \
+    printf 'AllowUsers %s\n' "${USERNAME}" >> /etc/ssh/sshd_config
 
 WORKDIR /workspace
 
-# 确保工作目录权限正确
-RUN chown ${USERNAME}:${USERNAME} /workspace
+RUN chown "${USERNAME}:${USERNAME}" /workspace
 
 EXPOSE 22
 
