@@ -20,10 +20,13 @@ RUN apk add --no-cache \
         tzdata \
     && addgroup -g 10001 app \
     && adduser -D -u 10001 -G app app \
-    && mkdir -p /app/uploads/assignments /app/static/export /app/data /app/kubeconfig \
+    && mkdir -p /app/backend /app/kubeconfig \
+        /app/.mixm/backend/uploads/assignments \
+        /app/.mixm/backend/static/export \
+        /app/.mixm/backend/data \
     && chown -R app:app /app
 
-WORKDIR /app
+WORKDIR /app/backend
 
 COPY --from=build /out/ /usr/local/bin/
 

@@ -49,9 +49,11 @@ cp backend/.env.example backend/.env
 
 中间件由 `deploy/middleware/docker-compose.yaml` 统一管理，包含 PostgreSQL、RabbitMQ、Redis、RustFS 和 Registry。环境示例默认用于本地开发，Registry 绑定 `127.0.0.1:55000`，通过 `localhost:55000` 访问；跨主机部署时调整 `backend/.env` 中的 `REGISTRY_BIND_ADDRESS`，并将 `REGISTRY_URL`、`REGISTRY_PREFIX` 设置为相关主机与 Kubernetes 节点可访问的地址。
 
-镜像默认从 Docker Hub 拉取。启动前按[部署指南](deploy/README.md#启动顺序)准备 RustFS 数据目录权限，再创建共享网络并启动中间件：
+镜像默认从 Docker Hub 拉取。RustFS、Registry 和后端本地文件分别存放在项目根目录的 `.mixm/rustfs`、`.mixm/registry`、`.mixm/backend` 下。先以当前开发用户创建目录，再创建共享网络并启动中间件：
 
 ```bash
+mkdir -p .mixm/{rustfs,registry,backend}
+
 docker network inspect mixm-services >/dev/null 2>&1 || docker network create mixm-services
 
 docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env up -d --wait
@@ -63,7 +65,7 @@ docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env 
 docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env up -d --build backend frontend
 ```
 
-主 Compose 只包含 `backend`、`frontend` 和 `worker`。中间件项目与应用项目通过 `mixm-services` 网络和服务名互通；环境示例中的 `localhost` 地址用于本地 Go 开发。已有部署切换前，先参阅[中间件迁移说明](deploy/README.md#已有部署切换)。
+主 Compose 只包含 `backend`、`frontend` 和 `worker`。中间件项目与应用项目通过 `mixm-services` 网络和服务名互通；环境示例中的 `localhost` 地址用于本地 Go 开发。开发数据目录说明见[部署指南](deploy/README.md#持久化目录)。
 
 ### 3. 初始化数据与管理员
 
@@ -110,7 +112,7 @@ docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env down
 
 ### 后端
 
-先按快速开始第 2 步创建网络并启动中间件，再运行本地后端：
+先按快速开始第 2 步创建目录、网络并启动中间件。如已运行应用容器，先停止其中的 `backend`、`frontend` 和 `worker`，再启动 Go 服务：
 
 ```bash
 cd backend
@@ -120,9 +122,9 @@ ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='replace-with-your-password' go run
 go run ./cmd/server
 ```
 
-如果已通过快速开始初始化数据库，可跳过 `initdb` 和 `admin`。如果已运行应用容器，请先停止容器中的 `backend`、`frontend` 和 `worker`，避免端口占用或重复消费任务。
+如果已通过快速开始初始化数据库，可跳过 `initdb` 和 `admin`。
 
-后端从当前工作目录读取 `.env`，因此 Go 命令需在 `backend/` 下执行。若修改了基础服务密码，请同步调整 `.env` 中的 `DATABASE_URL` 与 `RABBITMQ_URL`。
+后端从当前工作目录读取 `.env`，因此 Go 命令需在 `backend/` 下执行。作业附件、导出文件、SSH 主机私钥统一保存在项目根目录的 `.mixm/backend`，后端会按需创建对应目录，具体路径见 `.env.example`。`.mixm` 已加入 Git 忽略规则。若修改了基础服务密码，请同步调整 `.env` 中的 `DATABASE_URL` 与 `RABBITMQ_URL`。
 
 ### 前端
 

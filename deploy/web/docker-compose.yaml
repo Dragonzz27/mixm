@@ -14,7 +14,9 @@ x-backend-env: &backend-env
   K8S_SSH_GATEWAY_HOST: ${K8S_SSH_GATEWAY_HOST:-localhost}
   K8S_CODE_SERVER_HOST: ${K8S_CODE_SERVER_HOST:-localhost}
   K8S_SSH_PORT: 30022
-  SSH_HOST_KEY_PATH: /app/data/ssh_host_key
+  SSH_HOST_KEY_PATH: ../.mixm/backend/data/ssh_host_key
+  UPLOAD_DIR: ../.mixm/backend/uploads/assignments
+  EXPORT_DIR: ../.mixm/backend/static/export
   STORAGE_CLASS_NAME: ${STORAGE_CLASS_NAME:-longhorn}
   PVC_ACCESS_MODE: ${PVC_ACCESS_MODE:-ReadWriteMany}
   USER_PERSONAL_PVC_CAPACITY: ${USER_PERSONAL_PVC_CAPACITY:-10Gi}
@@ -32,6 +34,7 @@ x-backend-env: &backend-env
 
 services:
   backend:
+    user: "${MIXM_UID:-1000}:${MIXM_GID:-1000}"
     build:
       context: ../../backend
       dockerfile: ../deploy/web/Dockerfile.backend
@@ -39,9 +42,7 @@ services:
     ports: ["8002:8002", "30022:30022"]
     volumes:
       - ../../backend/kubeconfig:/app/kubeconfig:ro
-      - backend_uploads:/app/uploads
-      - backend_static:/app/static
-      - backend_data:/app/data
+      - ../../.mixm/backend:/app/.mixm/backend
     environment: *backend-env
     extra_hosts: ["host.docker.internal:host-gateway"]
     networks: [default, middleware]
@@ -52,6 +53,7 @@ services:
       retries: 10
 
   worker:
+    user: "${MIXM_UID:-1000}:${MIXM_GID:-1000}"
     build:
       context: ../../backend
       dockerfile: ../deploy/web/Dockerfile.backend
@@ -78,14 +80,6 @@ services:
       VITE_API_BASE_URL: /api
     depends_on:
       backend: {condition: service_healthy}
-
-volumes:
-  backend_uploads:
-    name: ${BACKEND_UPLOADS_VOLUME_NAME:-mixm_backend_uploads}
-  backend_static:
-    name: ${BACKEND_STATIC_VOLUME_NAME:-mixm_backend_static}
-  backend_data:
-    name: ${BACKEND_DATA_VOLUME_NAME:-mixm_backend_data}
 
 networks:
   default:

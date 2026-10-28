@@ -273,7 +273,8 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Export files
+# Local runtime data
+.mixm/
 backend/static/export/
 backend/uploads/
 
@@ -286,6 +287,6 @@ backend/kubeconfig/*
 !backend/kubeconfig/.gitkeep
 
 
-# Deployment-generated manifests and existing service data
+# Deployment-generated manifests and local service data
 scripts/code-server-*.yaml
 registry/registry-data/
