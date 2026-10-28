@@ -68,7 +68,7 @@ services:
     image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/registry:3.0.0-rc.3
     restart: always
     ports:
-      - "${REGISTRY_BIND_ADDRESS:-172.18.120.33}:${REGISTRY_PORT:-55000}:5000"
+      - "${REGISTRY_BIND_ADDRESS:-127.0.0.1}:${REGISTRY_PORT:-55000}:5000"
     volumes:
       - ../../registry/registry-data:/var/lib/registry
     environment:

@@ -26,7 +26,7 @@ deploy/
 
 应用部署文件统一位于 `deploy/web`，应用项目为 `mixm`，中间件项目为 `mixm-middleware`。五个中间件统一由 `deploy/middleware/docker-compose.yaml` 管理，两个项目通过外部 Docker 网络 `mixm-services` 互通。
 
-先按[项目 README](../README.md)创建并编辑 `backend/.env`。Registry 默认保留原有的 `172.18.120.33:55000` 绑定；更换部署主机时设置 `REGISTRY_BIND_ADDRESS`、`REGISTRY_PORT`，并同步 `REGISTRY_URL` 和 `REGISTRY_PREFIX`。
+先按[项目 README](../README.md)创建并编辑 `backend/.env`。环境示例默认用于本地开发，Registry 绑定 `127.0.0.1:55000`，通过 `localhost:55000` 访问；跨主机部署时设置 `REGISTRY_BIND_ADDRESS`、`REGISTRY_PORT`，并将 `REGISTRY_URL` 和 `REGISTRY_PREFIX` 调整为相关主机与 Kubernetes 节点可访问的地址。
 
 使用 WSL + K3s + Longhorn 时，启动 mixm 前先按[集群存储说明](#kubernetes-集群存储)手动执行共享挂载设置脚本。
 
@@ -55,7 +55,7 @@ docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env up -d -
 | RabbitMQ | `mixm-middleware` | 命名卷 `mixm_rabbitmq_data` | `127.0.0.1:5672`、管理界面 `127.0.0.1:15672` |
 | Redis | `mixm-middleware` | 命名卷 `mixm_redis_data` | `127.0.0.1:6379` |
 | RustFS | `mixm-middleware` | 根目录 `RustFS/data` | S3 API `19000`、控制台 `19001` |
-| Registry | `mixm-middleware` | 根目录 `registry/registry-data` | `172.18.120.33:55000`，可通过环境变量调整 |
+| Registry | `mixm-middleware` | 根目录 `registry/registry-data` | `127.0.0.1:55000`，可通过环境变量调整 |
 
 查看状态、日志或单独管理一个服务：
 
@@ -85,7 +85,7 @@ docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env 
 | `RUSTFS_ENDPOINT` | `http://rustfs:9000` | `DEPLOY_RUSTFS_ENDPOINT` |
 | `REGISTRY_URL` | `http://registry:5000` | `DEPLOY_REGISTRY_URL` |
 
-`REGISTRY_URL` 在 `backend/.env` 中供本地 Go 使用；应用容器使用共享网络中的 `registry:5000`，通过 `DEPLOY_REGISTRY_URL` 覆盖。`REGISTRY_PREFIX` 是镜像名称中的仓库地址，必须能被构建主机与 Kubernetes 节点访问，默认与原 Registry 发布地址一致。改变发布端口时需同步调整本地 API 地址和镜像前缀。
+`REGISTRY_URL` 在 `backend/.env` 中供本地 Go 使用，默认值为 `http://localhost:55000`；应用容器使用共享网络中的 `registry:5000`，通过 `DEPLOY_REGISTRY_URL` 覆盖。`REGISTRY_PREFIX` 是镜像名称中的仓库地址，默认值为 `localhost:55000`，用于同机开发。跨主机或多节点集群需改为构建主机与各 Kubernetes 节点均可访问的地址，并调整 Registry 端口绑定。改变发布端口时需同步调整本地 API 地址和镜像前缀。
 
 共享桥接网络仅用于同机部署。PostgreSQL、RabbitMQ 和 Redis 默认只发布到宿主机 `127.0.0.1`；跨主机使用时，需调整端口绑定及应用的连接地址。
 
@@ -132,7 +132,7 @@ docker build -f deploy/web/Dockerfile.frontend -t mixm-frontend frontend
 Ubuntu 模板镜像与构建脚本位于 `deploy/templates`。脚本根据自身位置选择构建上下文，可以从其他工作目录调用；通过交互输入或 `REGISTRY_PREFIX` 环境变量设置推送地址：
 
 ```bash
-REGISTRY_PREFIX=172.18.120.33:55000 bash deploy/templates/build.sh
+REGISTRY_PREFIX=localhost:55000 bash deploy/templates/build.sh
 ```
 
 脚本构建并生成推送标签，推送命令在执行结束时显示。Dockerfile 统一使用 `docker/dockerfile:1`、大写指令、四空格续行缩进和 JSON 格式的 `CMD`；实验镜像使用 Bash `pipefail`，脚本 heredoc 保留运行时变量展开。
