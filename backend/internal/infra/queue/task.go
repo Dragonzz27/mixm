@@ -9,9 +9,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 func process(ctx context.Context, db *repository.DB, cache *redis.Client, k *cluster.Client, id string) error {

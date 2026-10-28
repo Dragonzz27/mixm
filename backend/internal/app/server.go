@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/infra/queue"
-	"mixm-edu/backend/internal/infra/ssh"
-	"mixm-edu/backend/internal/router"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/infra/queue"
+	"mixm/backend/internal/infra/ssh"
+	"mixm/backend/internal/router"
 )
 
 func RunServer() error {

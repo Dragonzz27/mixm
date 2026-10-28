@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 // UserInput contains the writable fields for this business contract.

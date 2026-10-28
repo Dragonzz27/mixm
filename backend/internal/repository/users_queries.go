@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 func AllRoles(ctx context.Context, db *DB) ([]model.Record, error) {

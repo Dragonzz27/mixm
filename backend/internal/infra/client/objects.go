@@ -6,7 +6,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"mixm-edu/backend/internal/config"
+	"mixm/backend/internal/config"
 )
 
 type ObjectStore struct {

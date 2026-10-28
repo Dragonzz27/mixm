@@ -93,8 +93,8 @@ func (r *Router) OpenAPI(c *gin.Context) {
 		item[strings.ToLower(route.Method)] = operation
 		paths[path] = item
 	}
-	c.JSON(http.StatusOK, gin.H{"openapi": "3.0.3", "info": gin.H{"title": "MutiM Gin API", "version": "3.0.0"}, "paths": paths, "components": gin.H{"securitySchemes": gin.H{"bearerAuth": gin.H{"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}}, "schemas": gin.H{"Envelope": gin.H{"type": "object", "required": []string{"code", "message", "data"}, "properties": gin.H{"code": gin.H{"type": "integer"}, "message": gin.H{"type": "string"}, "data": gin.H{"nullable": true}}}}}})
+	c.JSON(http.StatusOK, gin.H{"openapi": "3.0.3", "info": gin.H{"title": "mixm Gin API", "version": "3.0.0"}, "paths": paths, "components": gin.H{"securitySchemes": gin.H{"bearerAuth": gin.H{"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}}, "schemas": gin.H{"Envelope": gin.H{"type": "object", "required": []string{"code", "message", "data"}, "properties": gin.H{"code": gin.H{"type": "integer"}, "message": gin.H{"type": "string"}, "data": gin.H{"nullable": true}}}}}})
 }
 func (r *Router) Docs(c *gin.Context) {
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>MutiM API</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'/openapi.json',dom_id:'#swagger-ui',persistAuthorization:true})</script></body></html>`))
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>mixm API</title><link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script><script>SwaggerUIBundle({url:'/openapi.json',dom_id:'#swagger-ui',persistAuthorization:true})</script></body></html>`))
 }

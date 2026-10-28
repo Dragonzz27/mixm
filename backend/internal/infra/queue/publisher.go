@@ -8,9 +8,9 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 func Dispatch(ctx context.Context, c config.Config, db *repository.DB) {

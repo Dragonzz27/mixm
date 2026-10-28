@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/repository"
 )
 
 func Database(t *testing.T) *repository.DB {

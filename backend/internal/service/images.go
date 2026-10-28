@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"strings"
 
-	"mixm-edu/backend/internal/apperror"
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/apperror"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 type Images struct{ *Core }

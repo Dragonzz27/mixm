@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 func (s *Core) saveResource(ctx context.Context, actor model.Actor, db *repository.DB, table, id string, v model.Record) (model.Record, error) {

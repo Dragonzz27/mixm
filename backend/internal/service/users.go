@@ -11,10 +11,10 @@ import (
 
 	"github.com/xuri/excelize/v2"
 
-	"mixm-edu/backend/internal/auth"
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/auth"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 //go:embed navigation.json

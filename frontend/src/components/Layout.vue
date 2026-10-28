@@ -4,7 +4,7 @@
       <div class="header-left">
         <a href="https://mixm.yoobit.cn" class="logo" target="_blank" rel="noopener noreferrer">
           <n-icon :size="24" :component="UnlinkSharp" />
-          <span>MutiM</span>
+          <span>mixm</span>
         </a>
       </div>
       <div class="header-right">

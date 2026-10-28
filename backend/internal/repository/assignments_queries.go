@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 func SubmissionExport(ctx context.Context, db *DB, assignmentID string) ([]model.Record, error) {

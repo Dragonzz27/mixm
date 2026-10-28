@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard">
-    <n-card title="欢迎使用 MutiM">
+    <n-card title="欢迎使用 mixm">
       <template #header-extra>
         <n-tag type="success">系统运行中</n-tag>
       </template>

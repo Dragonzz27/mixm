@@ -9,12 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"mixm-edu/backend/internal/apperror"
-	"mixm-edu/backend/internal/auth"
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/handler"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/apperror"
+	"mixm/backend/internal/auth"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/handler"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 func CORS(c *gin.Context) {

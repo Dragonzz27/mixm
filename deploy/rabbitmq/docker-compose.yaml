@@ -6,8 +6,8 @@ services:
     hostname: ${RABBITMQ_HOSTNAME:-rabbitmq}
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: mutim
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-mutim}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-mixm}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-mixm}
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
@@ -21,7 +21,7 @@ services:
 
 volumes:
   rabbitmq_data:
-    name: mixm-edu_rabbitmq_data
+    name: ${RABBITMQ_VOLUME_NAME:-mixm_rabbitmq_data}
 
 networks:
   default:

@@ -9,7 +9,7 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/process"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 
 	"time"
 )

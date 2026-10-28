@@ -13,10 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"mixm-edu/backend/internal/apperror"
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/apperror"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 func Failure(c *gin.Context, err error) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"mixm-edu/backend/internal/config"
+	"mixm/backend/internal/config"
 )
 
 //go:embed routes.json

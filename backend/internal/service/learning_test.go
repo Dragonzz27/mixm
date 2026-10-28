@@ -5,7 +5,7 @@ import (
 
 	"testing"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 func TestGrading(t *testing.T) {

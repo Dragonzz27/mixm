@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strings"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 // Optional preserves absent, explicit null, and zero-valued PATCH fields.

@@ -1,6 +1,6 @@
 package handler
 
-import "mixm-edu/backend/internal/service"
+import "mixm/backend/internal/service"
 
 func NewResources(s *service.Resources, spec service.ResourceSpec) *Resources {
 	return &Resources{Service: s, spec: spec}

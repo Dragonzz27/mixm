@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 
 	"net/http"
 	"net/url"

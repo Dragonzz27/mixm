@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/model"
 )
 
 type transportFunc func(*http.Request) (*http.Response, error)

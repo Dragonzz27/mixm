@@ -1,4 +1,4 @@
-# 智泉 · Mixm
+# 智泉 · mixm
 
 面向教学与在线实验的教育平台，将教学内容、作业、题库、模拟测试和容器实验环境集中到同一工作流中。
 
@@ -43,7 +43,7 @@ cp backend/.env.example backend/.env
 
 编辑 `backend/.env`，将 `SECRET_KEY` 替换为自己的随机密钥。初次体验无需准备 Kubernetes 集群。
 
-如果需要修改数据库、消息队列和对象存储凭据，可在该文件中设置 `POSTGRES_PASSWORD`、`RABBITMQ_PASSWORD`、`RUSTFS_ACCESS_KEY` 和 `RUSTFS_SECRET_KEY`。数据库与 RabbitMQ 密码用于拼接连接 URL，需使用适合 URL 的值。
+默认数据库名、PostgreSQL 用户和 RabbitMQ 用户均为 `mixm`。如需调整，可在该文件中设置 `POSTGRES_DB`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`RABBITMQ_USER`、`RABBITMQ_PASSWORD` 以及 RustFS 凭据。数据库与 RabbitMQ 密码用于拼接连接 URL，需使用适合 URL 的值。
 
 ### 2. 启动应用
 
@@ -197,11 +197,11 @@ pnpm test
 pnpm build
 ```
 
-后端集成测试需显式提供独立测试服务；未设置对应变量时会跳过相关测试。先准备测试数据库 `mutim_test`，再从 `backend/` 执行：
+后端集成测试需显式提供独立测试服务；未设置对应变量时会跳过相关测试。先准备测试数据库 `mixm_test`，再从 `backend/` 执行：
 
 ```bash
-TEST_DATABASE_URL='postgres://mutim:mutim@localhost:5432/mutim_test?sslmode=disable' \
-TEST_RABBITMQ_URL='amqp://mutim:mutim@localhost:5672/' \
+TEST_DATABASE_URL='postgres://mixm:mixm@localhost:5432/mixm_test?sslmode=disable' \
+TEST_RABBITMQ_URL='amqp://mixm:mixm@localhost:5672/' \
 TEST_REDIS_URL='redis://localhost:6379/15' \
 go test ./...
 ```

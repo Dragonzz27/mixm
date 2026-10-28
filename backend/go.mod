@@ -1,4 +1,4 @@
-module mixm-edu/backend
+module mixm/backend
 
 go 1.25.0
 

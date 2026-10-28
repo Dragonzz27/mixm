@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"mixm-edu/backend/internal/app"
+	"mixm/backend/internal/app"
 )
 
 func main() {

@@ -7,13 +7,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/apperror"
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/handler"
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/middleware"
-	"mixm-edu/backend/internal/repository"
-	"mixm-edu/backend/internal/service"
+	"mixm/backend/internal/apperror"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/handler"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/middleware"
+	"mixm/backend/internal/repository"
+	"mixm/backend/internal/service"
 )
 
 type Router struct {

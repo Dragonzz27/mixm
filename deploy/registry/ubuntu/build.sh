@@ -30,7 +30,7 @@ echo "  1) Dockerfile (基础开发镜像)"
 echo "  2) Dockerfile.torch291 (含 torch 2.9.1)"
 echo "  3) Dockerfile.torch291.codeserver (含 torch 2.9.1 + code-server)"
 echo "  4) Dockerfile.torch280.codeserver (含 torch 2.8.0 + code-server)"
-echo "  5) Dockerfile.mixm.codeserver (Mixm官方 code-server 镜像)"
+echo "  5) Dockerfile.mixm.codeserver (mixm官方 code-server 镜像)"
 
 while true; do
 	read -r -p "输入选项 [1-5] (默认 1): " dockerfile_choice

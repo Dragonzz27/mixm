@@ -17,7 +17,7 @@ services:
 
 volumes:
   redis_data:
-    name: mixm-edu_redis_data
+    name: ${REDIS_VOLUME_NAME:-mixm_redis_data}
 
 networks:
   default:

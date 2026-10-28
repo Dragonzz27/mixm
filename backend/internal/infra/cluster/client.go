@@ -23,8 +23,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/model"
 )
 
 type Client struct {

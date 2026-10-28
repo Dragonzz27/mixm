@@ -67,11 +67,11 @@ Dockerfile 统一使用 `docker/dockerfile:1` 语法、大写指令、四空格�
 
 ## 独立中间件管理
 
-| 服务 | Compose 配置 | 项目名 | 数据位置 |
+| 服务 | Compose 配置 | 项目名 | 默认数据位置 |
 | --- | --- | --- | --- |
-| PostgreSQL | `deploy/postgres/docker-compose.yaml` | `postgres` | 命名卷 `mixm-edu_postgres_data` |
-| RabbitMQ | `deploy/rabbitmq/docker-compose.yaml` | `rabbitmq` | 命名卷 `mixm-edu_rabbitmq_data` |
-| Redis | `deploy/redis/docker-compose.yaml` | `redis` | 命名卷 `mixm-edu_redis_data` |
+| PostgreSQL | `deploy/postgres/docker-compose.yaml` | `postgres` | 命名卷 `mixm_postgres_data` |
+| RabbitMQ | `deploy/rabbitmq/docker-compose.yaml` | `rabbitmq` | 命名卷 `mixm_rabbitmq_data` |
+| Redis | `deploy/redis/docker-compose.yaml` | `redis` | 命名卷 `mixm_redis_data` |
 | RustFS | `deploy/rustfs/docker-compose.yaml` | `rustfs` | 根目录 `RustFS/data` |
 | Registry | `deploy/registry/docker-compose.yaml` | `registry` | 根目录 `registry/registry-data` |
 
@@ -93,21 +93,41 @@ docker compose -f deploy/registry/docker-compose.yaml up -d
 
 Registry 保留现有主机 IP 和端口绑定，可按部署主机修改其配置。它通过宿主机端口访问，不依赖 `mixm-services` 网络。
 
-所有中间件配置都能分别启动；同机默认使用共享网络。应用和中间件统一使用 `--env-file backend/.env`，使 `POSTGRES_PASSWORD`、`RABBITMQ_PASSWORD` 和 RustFS 凭据一致。本地 Go 开发若修改密码，也需同步修改 `DATABASE_URL` 与 `RABBITMQ_URL`。
+所有中间件配置都能分别启动；同机默认使用共享网络。应用和中间件统一使用 `--env-file backend/.env`，使 PostgreSQL 数据库名、账号密码、RabbitMQ 账号密码和 RustFS 凭据一致。默认数据库名、PostgreSQL 用户和 RabbitMQ 用户均为 `mixm`；可分别使用 `POSTGRES_DB`、`POSTGRES_USER`、`RABBITMQ_USER` 覆盖。本地 Go 开发若修改这些值，也需同步修改 `DATABASE_URL` 与 `RABBITMQ_URL`。
 
 应用容器默认连接 `postgres:5432`、`rabbitmq:5672`、`redis:6379` 和 `http://rustfs:9000`。已有或远程服务可通过 `DEPLOY_DATABASE_URL`、`DEPLOY_RABBITMQ_URL`、`DEPLOY_REDIS_URL`、`DEPLOY_RUSTFS_ENDPOINT` 指定地址；这些变量只影响应用连接，不会修改独立中间件的配置。同机桥接网络不跨主机；PostgreSQL、RabbitMQ 和 Redis 默认仅发布到宿主机 `127.0.0.1`，跨主机部署时需要相应调整端口绑定。
 
 ### 已有部署切换
 
-三个命名卷显式使用旧 `mixm-edu` 项目的卷名，RustFS 也保留原有目录。应用的 `backend_uploads`、`backend_static` 和 `backend_data` 仍属于 `mixm-edu`。如果历史部署使用了自定义项目名，应先把独立配置中的卷名改为实际已有的卷名。
-
-RabbitMQ 数据与节点 hostname 关联，复用数据时需保留原节点名，见[官方迁移说明](https://www.rabbitmq.com/docs/backup)。切换前记录旧容器的 hostname（默认容器名示例如下，以实际名称为准），将输出写入 `backend/.env` 的 `RABBITMQ_HOSTNAME`：
+应用 Compose 项目名统一为 `mixm`，六个数据卷默认使用 `mixm_` 前缀。已有部署升级前先查看实际资源，记录原容器、卷、数据库和账号名称：
 
 ```bash
-docker inspect --format '{{.Config.Hostname}}' mixm-edu-rabbitmq-1
+docker ps -a
+docker volume ls
 ```
 
-然后先停止旧的四个中间件容器，再按启动顺序启动独立配置。保留原数据卷与目录，不要同时运行两个使用同一数据卷的实例。新部署默认使用稳定的 `RABBITMQ_HOSTNAME=rabbitmq`。
+复用现有数据时，在 `backend/.env` 中设置以下参数为实际旧卷名；这些参数只改变挂载目标，不会复制或重命名数据：
+
+| 参数 | 默认卷名 |
+| --- | --- |
+| `POSTGRES_VOLUME_NAME` | `mixm_postgres_data` |
+| `RABBITMQ_VOLUME_NAME` | `mixm_rabbitmq_data` |
+| `REDIS_VOLUME_NAME` | `mixm_redis_data` |
+| `BACKEND_UPLOADS_VOLUME_NAME` | `mixm_backend_uploads` |
+| `BACKEND_STATIC_VOLUME_NAME` | `mixm_backend_static` |
+| `BACKEND_DATA_VOLUME_NAME` | `mixm_backend_data` |
+
+修改初始化环境变量不会自动重命名已有 PostgreSQL 数据库和角色，也不会更新已有 RabbitMQ 账号。首次切换可以将 `POSTGRES_DB`、`POSTGRES_USER`、`RABBITMQ_USER` 及对应密码设为现有值，或使用 `DEPLOY_DATABASE_URL`、`DEPLOY_RABBITMQ_URL` 连接已有服务。需要把实际数据库和账号也统一为 `mixm` 时，应单独完成数据库与账号迁移，再更新连接配置。
+
+RustFS 和 Registry 继续使用原有数据目录。Vite 默认允许的域名为 `mixm.yoobit.cn`；现有部署需按实际访问域名同步调整 DNS、反向代理和 `frontend/vite.config.js`，配置改名不会修改外部域名资源。
+
+RabbitMQ 数据与节点 hostname 关联，复用数据时需保留原节点名，见[官方迁移说明](https://www.rabbitmq.com/docs/backup)。切换前记录旧容器的 hostname，将下面命令中的容器名称替换为实际值，并把输出写入 `backend/.env` 的 `RABBITMQ_HOSTNAME`：
+
+```bash
+docker inspect --format '{{.Config.Hostname}}' YOUR_EXISTING_RABBITMQ_CONTAINER
+```
+
+切换前先停止旧项目的应用容器和四个中间件容器，再按启动顺序启动新项目与独立配置，避免旧应用继续连接和写入。保留原数据卷与目录，不要同时运行两个使用同一数据卷的实例。新部署默认使用稳定的 `RABBITMQ_HOSTNAME=rabbitmq`。
 
 ## Kubernetes 与实验镜像
 

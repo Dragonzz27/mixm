@@ -8,8 +8,8 @@ import (
 
 	"io"
 
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/model"
 
 	"net/http"
 	"os"

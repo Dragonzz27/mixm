@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"mixm-edu/backend/internal/apperror"
-	"mixm-edu/backend/internal/config"
+	"mixm/backend/internal/apperror"
+	"mixm/backend/internal/config"
 )
 
 // Clients is constructed once and injects independently configured external adapters.

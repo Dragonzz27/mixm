@@ -12,8 +12,8 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/model"
 )
 
 func TestResourceValidation(t *testing.T) {

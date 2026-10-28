@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 func CategoryCycle(ctx context.Context, db *DB, table, parentID, id string) (model.Record, error) {

@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 type Instances struct{ *Core }

@@ -7,7 +7,7 @@
           <div class="brand-icon">
             <n-icon :size="24" :component="UnlinkSharp" />
           </div>
-          <span class="brand-name">MutiM</span>
+          <span class="brand-name">mixm</span>
         </div>
         <div class="testimonial">
           <p class="quote">"Efficiency is doing things right; effectiveness is doing the right things."</p>

@@ -3,7 +3,7 @@ package dto
 import (
 	"encoding/json"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 // LearningInput contains the writable fields for this business contract.

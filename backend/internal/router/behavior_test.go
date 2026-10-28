@@ -16,11 +16,11 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/auth"
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
-	"mixm-edu/backend/internal/testutil"
+	"mixm/backend/internal/auth"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
+	"mixm/backend/internal/testutil"
 )
 
 func TestCollectionFiltersUpdatesAndBindingTransactions(t *testing.T) {

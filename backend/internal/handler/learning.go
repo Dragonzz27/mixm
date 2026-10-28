@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/service"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/service"
 )
 
 type Learning struct{ Service *service.Learning }

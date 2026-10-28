@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"mixm-edu/backend/internal/config"
+	"mixm/backend/internal/config"
 )
 
 type RegistryClient struct {

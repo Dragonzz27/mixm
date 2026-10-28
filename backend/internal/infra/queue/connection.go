@@ -6,7 +6,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	"mixm-edu/backend/internal/config"
+	"mixm/backend/internal/config"
 )
 
 func channel(c config.Config) (*amqp.Connection, *amqp.Channel, error) {

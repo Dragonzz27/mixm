@@ -16,11 +16,11 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
-	"mixm-edu/backend/internal/testutil"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
+	"mixm/backend/internal/testutil"
 )
 
 func TestRabbitMQOutboxAndDuplicateDelivery(t *testing.T) {

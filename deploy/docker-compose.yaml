@@ -1,13 +1,13 @@
-name: mixm-edu
+name: mixm
 
 x-backend-env: &backend-env
-  DATABASE_URL: ${DEPLOY_DATABASE_URL:-postgres://mutim:${POSTGRES_PASSWORD:-mutim}@postgres:5432/mutim?sslmode=disable}
+  DATABASE_URL: ${DEPLOY_DATABASE_URL:-postgres://${POSTGRES_USER:-mixm}:${POSTGRES_PASSWORD:-mixm}@postgres:5432/${POSTGRES_DB:-mixm}?sslmode=disable}
   SECRET_KEY: ${SECRET_KEY:-local-development-secret-change-before-deployment}
   ALGORITHM: HS256
   ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-180}
   REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
   REDIS_URL: ${DEPLOY_REDIS_URL:-redis://redis:6379/2}
-  RABBITMQ_URL: ${DEPLOY_RABBITMQ_URL:-amqp://mutim:${RABBITMQ_PASSWORD:-mutim}@rabbitmq:5672/}
+  RABBITMQ_URL: ${DEPLOY_RABBITMQ_URL:-amqp://${RABBITMQ_USER:-mixm}:${RABBITMQ_PASSWORD:-mixm}@rabbitmq:5672/}
   RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-instance_create}
   WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
   K8S_CONFIG_PATH: /app/kubeconfig/k3s.yaml
@@ -81,8 +81,11 @@ services:
 
 volumes:
   backend_uploads:
+    name: ${BACKEND_UPLOADS_VOLUME_NAME:-mixm_backend_uploads}
   backend_static:
+    name: ${BACKEND_STATIC_VOLUME_NAME:-mixm_backend_static}
   backend_data:
+    name: ${BACKEND_DATA_VOLUME_NAME:-mixm_backend_data}
 
 networks:
   default:

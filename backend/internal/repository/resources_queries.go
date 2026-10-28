@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 func CategoryTreeRows(ctx context.Context, db *DB, order, table string) ([]model.Record, error) {

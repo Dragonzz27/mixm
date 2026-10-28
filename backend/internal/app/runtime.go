@@ -7,8 +7,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/repository"
 )
 
 func Open(ctx context.Context) (config.Config, *repository.DB, *redis.Client, error) {

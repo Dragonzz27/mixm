@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/model"
 )
 
 type LLMClient struct {

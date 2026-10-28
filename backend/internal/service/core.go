@@ -9,12 +9,12 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/apperror"
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/infra/client"
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/apperror"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/infra/client"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 type Core struct {

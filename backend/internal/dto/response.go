@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 type Envelope struct {

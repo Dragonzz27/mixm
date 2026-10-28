@@ -10,13 +10,13 @@ import (
 
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
-	"mixm-edu/backend/internal/auth"
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
-	"mixm-edu/backend/internal/service"
-	"mixm-edu/backend/internal/testutil"
+	"mixm/backend/internal/auth"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
+	"mixm/backend/internal/service"
+	"mixm/backend/internal/testutil"
 )
 
 func TestPostgresAPIWorkflow(t *testing.T) {

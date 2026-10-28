@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"mixm-edu/backend/internal/apperror"
-	"mixm-edu/backend/internal/dto"
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/apperror"
+	"mixm/backend/internal/dto"
+	"mixm/backend/internal/model"
 )
 
 func HasPermission(ctx context.Context, db *DB, actor model.Actor, key string) (bool, error) {

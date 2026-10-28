@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
-	"mixm-edu/backend/internal/testutil"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
+	"mixm/backend/internal/testutil"
 )
 
 func TestRemoveKnowledgeTracingMigrationPreservesTests(t *testing.T) {

@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/repository"
 
 	"github.com/google/uuid"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/model"
 )
 
 func Seed() error {

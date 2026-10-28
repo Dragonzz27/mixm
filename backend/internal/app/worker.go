@@ -7,8 +7,8 @@ import (
 	"sync"
 	"syscall"
 
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/infra/queue"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/infra/queue"
 )
 
 func RunWorker() error {

@@ -7,9 +7,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/infra/cluster"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/infra/cluster"
+	"mixm/backend/internal/repository"
 )
 
 func Work(ctx context.Context, c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Client) error {

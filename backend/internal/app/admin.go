@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"mixm-edu/backend/internal/auth"
-	"mixm-edu/backend/internal/config"
-	"mixm-edu/backend/internal/model"
-	"mixm-edu/backend/internal/repository"
+	"mixm/backend/internal/auth"
+	"mixm/backend/internal/config"
+	"mixm/backend/internal/model"
+	"mixm/backend/internal/repository"
 )
 
 func CreateAdmin() error {

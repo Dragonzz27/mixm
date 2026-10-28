@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 func QuestionCandidates(ctx context.Context, db *DB, actor model.Actor, v model.Record) ([]model.Record, error) {

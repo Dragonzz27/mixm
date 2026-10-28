@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"mixm-edu/backend/internal/service"
+	"mixm/backend/internal/service"
 )
 
 type Cluster struct{ Service *service.Cluster }

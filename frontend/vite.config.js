@@ -12,7 +12,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
-    allowedHosts: ['mixm-edu.yoobit.cn', 'https://mixm-edu.yoobit.cn/'],
+    allowedHosts: ['mixm.yoobit.cn'],
     proxy: {
       '/api': {
         target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://backend:8002',

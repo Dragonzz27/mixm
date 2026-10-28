@@ -10,7 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"mixm-edu/backend/internal/model"
+	"mixm/backend/internal/model"
 )
 
 var placeholder = regexp.MustCompile(`\$(\d+)`)
