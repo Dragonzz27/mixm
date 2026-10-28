@@ -12,14 +12,13 @@ deploy/
 │   └── Dockerfile.frontend.dockerignore # 前端构建上下文排除规则
 ├── middleware/
 │   └── docker-compose.yaml             # PostgreSQL、RabbitMQ、Redis、RustFS、Registry
-├── templates/
-│   ├── Dockerfile                      # Ubuntu 基础开发镜像
-│   ├── Dockerfile.torch291              # PyTorch 2.9.1 镜像
-│   ├── Dockerfile.torch291.codeserver   # PyTorch 2.9.1 + code-server
-│   ├── Dockerfile.torch280.codeserver   # PyTorch 2.8.0 + code-server
-│   ├── Dockerfile.mixm.codeserver       # mixm code-server 镜像
-│   └── build.sh                        # 交互式构建与镜像打标
-└── longhorn/longhorn.yaml               # Kubernetes 集群存储安装清单
+└── templates/
+    ├── Dockerfile                      # Ubuntu 基础开发镜像
+    ├── Dockerfile.torch291              # PyTorch 2.9.1 镜像
+    ├── Dockerfile.torch291.codeserver   # PyTorch 2.9.1 + code-server
+    ├── Dockerfile.torch280.codeserver   # PyTorch 2.8.0 + code-server
+    ├── Dockerfile.mixm.codeserver       # mixm code-server 镜像
+    └── build.sh                        # 交互式构建与镜像打标
 ```
 
 ## 启动顺序
@@ -139,7 +138,7 @@ REGISTRY_PREFIX=localhost:55000 bash deploy/templates/build.sh
 
 ## Kubernetes 集群存储
 
-Longhorn 作为独立的 Kubernetes 集群组件部署。
+Longhorn 作为独立的 Kubernetes 集群组件，通过 Helm 安装和管理。
 
 在 WSL + K3s 节点上，每次启动 mixm 前手动执行以下脚本，设置 Longhorn 所需的共享挂载传播，避免 `is not a shared mount` 错误：
 
@@ -149,10 +148,9 @@ sudo bash scripts/setup-longhorn-mount-propagation.sh
 
 脚本仅执行 `mount --make-rshared /` 并显示根挂载的传播模式，预期为 `shared`。需要在 K3s 节点上以 root 权限执行，可以重复运行，无需重启 K3s。设置仅对当前运行的系统生效，重启系统或 WSL 后需重新执行；脚本不创建配置文件或开机服务。
 
-已通过 Helm 安装 Longhorn 的集群继续使用 Helm 管理，无需再执行下面的安装清单：
+Longhorn 就绪后，可生成并部署演示实例：
 
 ```bash
-kubectl apply -f deploy/longhorn/longhorn.yaml
 bash scripts/create-demo-pod.sh demo-user
 kubectl apply -f scripts/code-server-demo-user.yaml
 ```
