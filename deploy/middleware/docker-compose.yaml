@@ -1,0 +1,94 @@
+name: mixm-middleware
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mixm}
+      POSTGRES_USER: ${POSTGRES_USER:-mixm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mixm}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    hostname: ${RABBITMQ_HOSTNAME:-rabbitmq}
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-mixm}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-mixm}
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:8.4.0-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rustfs:
+    image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/rustfs:v1
+    restart: unless-stopped
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    volumes:
+      - ../../RustFS/data:/data
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    command: ["--console-enable", "/data"]
+
+  registry:
+    image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/registry:3.0.0-rc.3
+    restart: always
+    ports:
+      - "${REGISTRY_BIND_ADDRESS:-172.18.120.33}:${REGISTRY_PORT:-55000}:5000"
+    volumes:
+      - ../../registry/registry-data:/var/lib/registry
+    environment:
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: '["*"]'
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+    name: ${POSTGRES_VOLUME_NAME:-mixm_postgres_data}
+  rabbitmq_data:
+    name: ${RABBITMQ_VOLUME_NAME:-mixm_rabbitmq_data}
+  redis_data:
+    name: ${REDIS_VOLUME_NAME:-mixm_redis_data}
+
+networks:
+  default:
+    name: mixm-services
+    external: true

@@ -18,8 +18,8 @@ x-backend-env: &backend-env
   STORAGE_CLASS_NAME: ${STORAGE_CLASS_NAME:-longhorn}
   PVC_ACCESS_MODE: ${PVC_ACCESS_MODE:-ReadWriteMany}
   USER_PERSONAL_PVC_CAPACITY: ${USER_PERSONAL_PVC_CAPACITY:-10Gi}
-  REGISTRY_URL: ${REGISTRY_URL:-http://host.docker.internal:5000}
-  REGISTRY_PREFIX: ${REGISTRY_PREFIX:-localhost:5000}
+  REGISTRY_URL: ${DEPLOY_REGISTRY_URL:-http://registry:5000}
+  REGISTRY_PREFIX: ${REGISTRY_PREFIX:-172.18.120.33:55000}
   REGISTRY_USERNAME: ${REGISTRY_USERNAME:-}
   REGISTRY_PASSWORD: ${REGISTRY_PASSWORD:-}
   RUSTFS_ENDPOINT: ${DEPLOY_RUSTFS_ENDPOINT:-http://rustfs:9000}
@@ -33,12 +33,12 @@ x-backend-env: &backend-env
 services:
   backend:
     build:
-      context: ../backend
-      dockerfile: ../deploy/backend/Dockerfile
+      context: ../../backend
+      dockerfile: ../deploy/web/Dockerfile.backend
     restart: unless-stopped
     ports: ["8002:8002", "30022:30022"]
     volumes:
-      - ../backend/kubeconfig:/app/kubeconfig:ro
+      - ../../backend/kubeconfig:/app/kubeconfig:ro
       - backend_uploads:/app/uploads
       - backend_static:/app/static
       - backend_data:/app/data
@@ -53,26 +53,26 @@ services:
 
   worker:
     build:
-      context: ../backend
-      dockerfile: ../deploy/backend/Dockerfile
+      context: ../../backend
+      dockerfile: ../deploy/web/Dockerfile.backend
     restart: unless-stopped
     command: ["worker"]
-    volumes: ["../backend/kubeconfig:/app/kubeconfig:ro"]
+    volumes: ["../../backend/kubeconfig:/app/kubeconfig:ro"]
     environment: *backend-env
     extra_hosts: ["host.docker.internal:host-gateway"]
     networks: [default, middleware]
 
   frontend:
     build:
-      context: ../frontend
-      dockerfile: ../deploy/frontend/Dockerfile
+      context: ../../frontend
+      dockerfile: ../deploy/web/Dockerfile.frontend
     restart: unless-stopped
     ports: ["5173:5173"]
     volumes:
-      - ../frontend/src:/app/src
-      - ../frontend/public:/app/public
-      - ../frontend/index.html:/app/index.html
-      - ../frontend/vite.config.js:/app/vite.config.js
+      - ../../frontend/src:/app/src
+      - ../../frontend/public:/app/public
+      - ../../frontend/index.html:/app/index.html
+      - ../../frontend/vite.config.js:/app/vite.config.js
     command: pnpm dev --host 0.0.0.0 --port 5173
     environment:
       VITE_API_BASE_URL: /api

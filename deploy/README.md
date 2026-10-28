@@ -4,109 +4,104 @@
 
 ```text
 deploy/
-├── docker-compose.yaml                 # 仅 frontend、backend 和 worker
-├── backend/
-│   ├── Dockerfile                      # Go server、worker 和管理命令
-│   └── Dockerfile.dockerignore         # 后端构建上下文排除规则
-├── frontend/
-│   ├── Dockerfile                      # Vue 开发服务镜像
-│   └── Dockerfile.dockerignore         # 前端构建上下文排除规则
-├── postgres/docker-compose.yaml        # 独立 PostgreSQL
-├── rabbitmq/docker-compose.yaml        # 独立 RabbitMQ
-├── redis/docker-compose.yaml           # 独立 Redis
-├── registry/
-│   ├── docker-compose.yaml            # 独立镜像仓库
-│   └── ubuntu/                        # 实验镜像 Dockerfile 和 build.sh
-├── rustfs/docker-compose.yaml          # 独立 RustFS 对象存储
-└── longhorn/longhorn.yaml               # Longhorn 安装清单
+├── web/
+│   ├── docker-compose.yaml             # frontend、backend 和 worker
+│   ├── Dockerfile.backend              # Go server、worker 和管理命令
+│   ├── Dockerfile.backend.dockerignore  # 后端构建上下文排除规则
+│   ├── Dockerfile.frontend             # Vue 开发服务镜像
+│   └── Dockerfile.frontend.dockerignore # 前端构建上下文排除规则
+├── middleware/
+│   └── docker-compose.yaml             # PostgreSQL、RabbitMQ、Redis、RustFS、Registry
+├── templates/
+│   ├── Dockerfile                      # Ubuntu 基础开发镜像
+│   ├── Dockerfile.torch291              # PyTorch 2.9.1 镜像
+│   ├── Dockerfile.torch291.codeserver   # PyTorch 2.9.1 + code-server
+│   ├── Dockerfile.torch280.codeserver   # PyTorch 2.8.0 + code-server
+│   ├── Dockerfile.mixm.codeserver       # mixm code-server 镜像
+│   └── build.sh                        # 交互式构建与镜像打标
+└── longhorn/longhorn.yaml               # Kubernetes 集群存储安装清单
 ```
 
 ## 启动顺序
 
-应用与四个中间件各自使用独立的 Compose 项目。以下同机部署方式通过外部 Docker 网络 `mixm-services` 提供服务名解析，该网络只需创建一次。
+应用部署文件统一位于 `deploy/web`，应用项目为 `mixm`，中间件项目为 `mixm-middleware`。五个中间件统一由 `deploy/middleware/docker-compose.yaml` 管理，两个项目通过外部 Docker 网络 `mixm-services` 互通。
 
-先按[项目 README](../README.md)创建并编辑 `backend/.env`，再启动中间件：
+先按[项目 README](../README.md)创建并编辑 `backend/.env`。Registry 默认保留原有的 `172.18.120.33:55000` 绑定；更换部署主机时设置 `REGISTRY_BIND_ADDRESS`、`REGISTRY_PORT`，并同步 `REGISTRY_URL` 和 `REGISTRY_PREFIX`。
 
 ```bash
 docker network inspect mixm-services >/dev/null 2>&1 || docker network create mixm-services
 
-docker compose -f deploy/postgres/docker-compose.yaml --env-file backend/.env up -d --wait
-docker compose -f deploy/rabbitmq/docker-compose.yaml --env-file backend/.env up -d --wait
-docker compose -f deploy/redis/docker-compose.yaml --env-file backend/.env up -d --wait
-docker compose -f deploy/rustfs/docker-compose.yaml --env-file backend/.env up -d --wait
+docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env up -d --wait
+docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env up -d --build backend frontend
 ```
 
-PostgreSQL、RabbitMQ 和 Redis 使用各自的健康检查；RustFS 的 `--wait` 等待容器进入运行状态。四个服务准备好后，启动应用：
-
-```bash
-docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --build backend frontend
-```
+PostgreSQL、RabbitMQ 和 Redis 使用健康检查；RustFS 和 Registry 的 `--wait` 等待容器进入运行状态。应用配置不声明跨项目 `depends_on`，因此需先启动中间件。本地 Go 开发也使用这一份中间件配置。
 
 实验功能需要可用的 Kubernetes 配置；将 kubeconfig 放到 `backend/kubeconfig/k3s.yaml` 后，单独启动 worker：
 
 ```bash
-docker compose -f deploy/docker-compose.yaml --env-file backend/.env up -d --build worker
+docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env up -d --build worker
 ```
 
-主 Compose 不声明中间件，也不包含跨项目 `depends_on`；需先启动中间件，再启动应用。本地 Go 开发只需要上面的四份中间件配置。
+首次初始化数据与管理员的命令见[项目 README](../README.md)。后端启动时会自动执行 SQL 迁移；`003_remove_knowledge_tracing.sql` 删除已停用的掌握度与作答轨迹表，并清理历史测试中的掌握度和 Q 矩阵字段，试卷、答案和成绩保留。
 
-升级时，后端启动会自动执行新增的 SQL 迁移。`003_remove_knowledge_tracing.sql` 删除已停用的掌握度与作答轨迹表，并清理历史测试结果中的掌握度和 Q 矩阵字段；试卷、答案、成绩与单次测试知识点正确率保留。
+## 中间件管理与连接
 
-Dockerfile 位于此目录，构建上下文仍为原应用目录，因此 `COPY` 路径保持原样。单独构建镜像：
-
-```bash
-docker build -f deploy/backend/Dockerfile -t mixm-backend backend
-docker build -f deploy/frontend/Dockerfile -t mixm-frontend frontend
-```
-
-前后端排除规则均采用与 Dockerfile 同目录的 `Dockerfile.dockerignore`，匹配的路径分别相对于 `backend/` 和 `frontend/` 构建上下文。前端会排除本地 `node_modules`、构建产物和环境文件，避免覆盖镜像内安装的依赖。
-
-前端镜像默认监听 `0.0.0.0:5173`，与 Compose 配置一致；后端默认运行 `server`，同一镜像也提供 `worker`、`admin` 和 `initdb`。
-
-Dockerfile 统一使用 `docker/dockerfile:1` 语法、大写指令、四空格续行缩进和 JSON 格式的 `CMD`。实验镜像使用 Bash 的 `pipefail`，脚本 heredoc 使用带引号的分隔符，让环境变量在容器运行时展开。
-
-## 独立中间件管理
-
-| 服务 | Compose 配置 | 项目名 | 默认数据位置 |
+| 服务 | 项目 | 默认数据位置 | 宿主机端口 |
 | --- | --- | --- | --- |
-| PostgreSQL | `deploy/postgres/docker-compose.yaml` | `postgres` | 命名卷 `mixm_postgres_data` |
-| RabbitMQ | `deploy/rabbitmq/docker-compose.yaml` | `rabbitmq` | 命名卷 `mixm_rabbitmq_data` |
-| Redis | `deploy/redis/docker-compose.yaml` | `redis` | 命名卷 `mixm_redis_data` |
-| RustFS | `deploy/rustfs/docker-compose.yaml` | `rustfs` | 根目录 `RustFS/data` |
-| Registry | `deploy/registry/docker-compose.yaml` | `registry` | 根目录 `registry/registry-data` |
+| PostgreSQL | `mixm-middleware` | 命名卷 `mixm_postgres_data` | `127.0.0.1:5432` |
+| RabbitMQ | `mixm-middleware` | 命名卷 `mixm_rabbitmq_data` | `127.0.0.1:5672`、管理界面 `127.0.0.1:15672` |
+| Redis | `mixm-middleware` | 命名卷 `mixm_redis_data` | `127.0.0.1:6379` |
+| RustFS | `mixm-middleware` | 根目录 `RustFS/data` | S3 API `19000`、控制台 `19001` |
+| Registry | `mixm-middleware` | 根目录 `registry/registry-data` | `172.18.120.33:55000`，可通过环境变量调整 |
 
-例如单独查看、停止或重建 Redis：
-
-```bash
-docker compose -f deploy/redis/docker-compose.yaml --env-file backend/.env logs -f
-docker compose -f deploy/redis/docker-compose.yaml --env-file backend/.env down
-docker compose -f deploy/redis/docker-compose.yaml --env-file backend/.env up -d --wait
-```
-
-`deploy/docker-compose.yaml` 的 `down` 只管理前端、后端和 worker，不会停止独立中间件，也不会删除共享网络。中间件的 `down` 保留数据，`down -v` 会删除其管理的命名卷。
-
-独立部署镜像仓库：
+查看状态、日志或单独管理一个服务：
 
 ```bash
-docker compose -f deploy/registry/docker-compose.yaml up -d
+docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env ps
+docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env logs -f registry
+docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env stop redis
+docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env up -d --wait redis
 ```
 
-Registry 保留现有主机 IP 和端口绑定，可按部署主机修改其配置。它通过宿主机端口访问，不依赖 `mixm-services` 网络。
+停止两个项目：
 
-所有中间件配置都能分别启动；同机默认使用共享网络。应用和中间件统一使用 `--env-file backend/.env`，使 PostgreSQL 数据库名、账号密码、RabbitMQ 账号密码和 RustFS 凭据一致。默认数据库名、PostgreSQL 用户和 RabbitMQ 用户均为 `mixm`；可分别使用 `POSTGRES_DB`、`POSTGRES_USER`、`RABBITMQ_USER` 覆盖。本地 Go 开发若修改这些值，也需同步修改 `DATABASE_URL` 与 `RABBITMQ_URL`。
+```bash
+docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env down
+docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env down
+```
 
-应用容器默认连接 `postgres:5432`、`rabbitmq:5672`、`redis:6379` 和 `http://rustfs:9000`。已有或远程服务可通过 `DEPLOY_DATABASE_URL`、`DEPLOY_RABBITMQ_URL`、`DEPLOY_REDIS_URL`、`DEPLOY_RUSTFS_ENDPOINT` 指定地址；这些变量只影响应用连接，不会修改独立中间件的配置。同机桥接网络不跨主机；PostgreSQL、RabbitMQ 和 Redis 默认仅发布到宿主机 `127.0.0.1`，跨主机部署时需要相应调整端口绑定。
+应用的 `down` 只停止前端、后端和 worker；中间件的 `down` 停止五个中间件。普通 `down` 保留数据和共享网络；中间件的 `down -v` 会删除其管理的命名卷。
+
+两个项目统一使用 `--env-file backend/.env`，保持数据库、消息队列和 RustFS 凭据一致。默认 PostgreSQL 数据库名、PostgreSQL 用户和 RabbitMQ 用户均为 `mixm`；分别用 `POSTGRES_DB`、`POSTGRES_USER`、`RABBITMQ_USER` 覆盖。本地 Go 开发修改这些值后，也需同步更新 `DATABASE_URL` 和 `RABBITMQ_URL`。
+
+| 应用容器配置 | 默认地址 | 连接其他服务时的覆盖参数 |
+| --- | --- | --- |
+| `DATABASE_URL` | `postgres:5432`，数据库 `mixm` | `DEPLOY_DATABASE_URL` |
+| `RABBITMQ_URL` | `rabbitmq:5672` | `DEPLOY_RABBITMQ_URL` |
+| `REDIS_URL` | `redis:6379`，数据库 2 | `DEPLOY_REDIS_URL` |
+| `RUSTFS_ENDPOINT` | `http://rustfs:9000` | `DEPLOY_RUSTFS_ENDPOINT` |
+| `REGISTRY_URL` | `http://registry:5000` | `DEPLOY_REGISTRY_URL` |
+
+`REGISTRY_URL` 在 `backend/.env` 中供本地 Go 使用；应用容器使用共享网络中的 `registry:5000`，通过 `DEPLOY_REGISTRY_URL` 覆盖。`REGISTRY_PREFIX` 是镜像名称中的仓库地址，必须能被构建主机与 Kubernetes 节点访问，默认与原 Registry 发布地址一致。改变发布端口时需同步调整本地 API 地址和镜像前缀。
+
+共享桥接网络仅用于同机部署。PostgreSQL、RabbitMQ 和 Redis 默认只发布到宿主机 `127.0.0.1`；跨主机使用时，需调整端口绑定及应用的连接地址。
 
 ### 已有部署切换
 
-应用 Compose 项目名统一为 `mixm`，六个数据卷默认使用 `mixm_` 前缀。已有部署升级前先查看实际资源，记录原容器、卷、数据库和账号名称：
+合并只调整部署定义和模板位置，三个中间件命名卷及 RustFS、Registry 数据目录保持原位置。应用项目名仍为 `mixm`，中间件项目统一改为 `mixm-middleware`，新容器名由 Compose 自动生成。
+
+切换前记录原容器、卷、数据库、账号和 RabbitMQ hostname：
 
 ```bash
 docker ps -a
 docker volume ls
+docker inspect --format '{{.Config.Hostname}}' YOUR_EXISTING_RABBITMQ_CONTAINER
 ```
 
-复用现有数据时，在 `backend/.env` 中设置以下参数为实际旧卷名；这些参数只改变挂载目标，不会复制或重命名数据：
+将 RabbitMQ hostname 写入 `backend/.env` 的 `RABBITMQ_HOSTNAME`，复用数据时保留原节点名，参阅[官方迁移说明](https://www.rabbitmq.com/docs/backup)。再停止原先分别部署的五个中间件容器，保留数据卷和目录，使用新配置启动。不要同时运行两个使用同一数据卷的实例。
+
+如果现有卷名与默认值不同，使用以下参数指定实际旧卷名；这些参数不会复制或重命名数据：
 
 | 参数 | 默认卷名 |
 | --- | --- |
@@ -117,56 +112,64 @@ docker volume ls
 | `BACKEND_STATIC_VOLUME_NAME` | `mixm_backend_static` |
 | `BACKEND_DATA_VOLUME_NAME` | `mixm_backend_data` |
 
-修改初始化环境变量不会自动重命名已有 PostgreSQL 数据库和角色，也不会更新已有 RabbitMQ 账号。首次切换可以将 `POSTGRES_DB`、`POSTGRES_USER`、`RABBITMQ_USER` 及对应密码设为现有值，或使用 `DEPLOY_DATABASE_URL`、`DEPLOY_RABBITMQ_URL` 连接已有服务。需要把实际数据库和账号也统一为 `mixm` 时，应单独完成数据库与账号迁移，再更新连接配置。
+初始化环境变量不会自动重命名已有 PostgreSQL 数据库、角色或 RabbitMQ 账号。复用旧数据库和账号时，保留实际名称与密码，或通过 `DEPLOY_*` 地址连接已有服务；实际账号改名需单独完成迁移。
 
-RustFS 和 Registry 继续使用原有数据目录。Vite 默认允许的域名为 `mixm.yoobit.cn`；现有部署需按实际访问域名同步调整 DNS、反向代理和 `frontend/vite.config.js`，配置改名不会修改外部域名资源。
+Vite 默认允许的域名为 `mixm.yoobit.cn`，DNS 和反向代理按实际部署配置。配置改名不会修改外部域名资源。
 
-RabbitMQ 数据与节点 hostname 关联，复用数据时需保留原节点名，见[官方迁移说明](https://www.rabbitmq.com/docs/backup)。切换前记录旧容器的 hostname，将下面命令中的容器名称替换为实际值，并把输出写入 `backend/.env` 的 `RABBITMQ_HOSTNAME`：
+## 应用镜像与实验模板
+
+应用构建上下文分别为 `backend/` 和 `frontend/`：
 
 ```bash
-docker inspect --format '{{.Config.Hostname}}' YOUR_EXISTING_RABBITMQ_CONTAINER
+docker build -f deploy/web/Dockerfile.backend -t mixm-backend backend
+docker build -f deploy/web/Dockerfile.frontend -t mixm-frontend frontend
 ```
 
-切换前先停止旧项目的应用容器和四个中间件容器，再按启动顺序启动新项目与独立配置，避免旧应用继续连接和写入。保留原数据卷与目录，不要同时运行两个使用同一数据卷的实例。新部署默认使用稳定的 `RABBITMQ_HOSTNAME=rabbitmq`。
+`deploy/web/Dockerfile.backend.dockerignore` 和 `deploy/web/Dockerfile.frontend.dockerignore` 分别作用于 `backend/` 与 `frontend/` 构建上下文，排除本地依赖、构建产物和环境文件。前端默认监听 `0.0.0.0:5173`；后端镜像提供 `server`、`worker`、`admin` 和 `initdb` 四个程序。
 
-## Kubernetes 与实验镜像
+Ubuntu 模板镜像与构建脚本位于 `deploy/templates`。脚本根据自身位置选择构建上下文，可以从其他工作目录调用；通过交互输入或 `REGISTRY_PREFIX` 环境变量设置推送地址：
+
+```bash
+REGISTRY_PREFIX=172.18.120.33:55000 bash deploy/templates/build.sh
+```
+
+脚本构建并生成推送标签，推送命令在执行结束时显示。Dockerfile 统一使用 `docker/dockerfile:1`、大写指令、四空格续行缩进和 JSON 格式的 `CMD`；实验镜像使用 Bash `pipefail`，脚本 heredoc 保留运行时变量展开。
+
+## Kubernetes 集群存储
+
+Longhorn 仍作为独立的 Kubernetes 集群初始化清单管理：
 
 ```bash
 kubectl apply -f deploy/longhorn/longhorn.yaml
-bash deploy/registry/ubuntu/build.sh
 bash scripts/create-demo-pod.sh demo-user
 kubectl apply -f scripts/code-server-demo-user.yaml
 ```
 
-演示脚本位于根目录的 [`scripts/create-demo-pod.sh`](../scripts/create-demo-pod.sh)，生成的清单直接保存到 `scripts/`，文件名为 `code-server-<user_id>.yaml`；生成文件包含实例密码，已加入 Git 忽略规则。镜像构建脚本通过自身位置选择 Dockerfile，不依赖调用时的工作目录。
+演示脚本生成的 `scripts/code-server-<user_id>.yaml` 包含实例密码，已加入 Git 忽略规则。
 
 ## 配置校验
 
 ```bash
-docker compose -f deploy/docker-compose.yaml --env-file backend/.env config --quiet
-docker compose -f deploy/postgres/docker-compose.yaml --env-file backend/.env config --quiet
-docker compose -f deploy/rabbitmq/docker-compose.yaml --env-file backend/.env config --quiet
-docker compose -f deploy/redis/docker-compose.yaml --env-file backend/.env config --quiet
-docker compose -f deploy/rustfs/docker-compose.yaml --env-file backend/.env config --quiet
-docker compose -f deploy/registry/docker-compose.yaml config --quiet
+docker compose -f deploy/middleware/docker-compose.yaml --env-file backend/.env config --quiet
+docker compose -f deploy/web/docker-compose.yaml --env-file backend/.env config --quiet
+bash -n deploy/templates/build.sh
 ```
 
-安装 Hadolint 后，可检查全部 7 个 Dockerfile；以下命令在发现语法或 Shell 错误时失败，版本固定等建议仍会显示：
+安装 Hadolint 后检查全部 7 个 Dockerfile；错误级检查失败时返回非零状态，版本固定等建议仍会显示：
 
 ```bash
 hadolint --failure-threshold error \
-  deploy/backend/Dockerfile \
-  deploy/frontend/Dockerfile \
-  deploy/registry/ubuntu/Dockerfile*
-bash -n deploy/registry/ubuntu/build.sh
+  deploy/web/Dockerfile.backend \
+  deploy/web/Dockerfile.frontend \
+  deploy/templates/Dockerfile*
 ```
 
 Docker daemon 可用时，还可以运行原生构建检查：
 
 ```bash
-docker buildx build --check -f deploy/backend/Dockerfile backend
-docker buildx build --check -f deploy/frontend/Dockerfile frontend
-for dockerfile in deploy/registry/ubuntu/Dockerfile*; do
-  docker buildx build --check -f "$dockerfile" deploy/registry/ubuntu
+docker buildx build --check -f deploy/web/Dockerfile.backend backend
+docker buildx build --check -f deploy/web/Dockerfile.frontend frontend
+for dockerfile in deploy/templates/Dockerfile*; do
+  docker buildx build --check -f "$dockerfile" deploy/templates
 done
 ```

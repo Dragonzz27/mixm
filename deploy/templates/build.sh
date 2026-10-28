@@ -93,7 +93,7 @@ echo
 IMAGE_NAME="$(prompt_with_default "请输入镜像名称" "${DEFAULT_IMAGE_NAME}")"
 IMAGE_TAG="$(prompt_with_default "请输入镜像 Tag" "${DEFAULT_IMAGE_TAG}")"
 
-REGISTRY_DOMAIN="$(prompt_with_default "请输入推送域名" "localhost:5000")"
+REGISTRY_DOMAIN="$(prompt_with_default "请输入推送域名" "${REGISTRY_PREFIX:-localhost:55000}")"
 
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 PUSH_IMAGE="${REGISTRY_DOMAIN}/${IMAGE_NAME}:${IMAGE_TAG}"
