@@ -37,7 +37,7 @@ services:
       retries: 20
 
   redis:
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:8.4.0-alpine
+    image: redis:8.4.0-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
@@ -51,7 +51,7 @@ services:
       retries: 5
 
   rustfs:
-    image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/rustfs:v1
+    image: rustfs/rustfs:1.0.4
     restart: unless-stopped
     ports:
       - "19000:9000"
@@ -65,7 +65,7 @@ services:
     command: ["--console-enable", "/data"]
 
   registry:
-    image: registry.cn-hangzhou.aliyuncs.com/yoobit_docker/registry:3.0.0-rc.3
+    image: registry:3.0.0-rc.3
     restart: always
     ports:
       - "${REGISTRY_BIND_ADDRESS:-127.0.0.1}:${REGISTRY_PORT:-55000}:5000"

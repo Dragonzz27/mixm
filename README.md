@@ -49,7 +49,7 @@ cp backend/.env.example backend/.env
 
 中间件由 `deploy/middleware/docker-compose.yaml` 统一管理，包含 PostgreSQL、RabbitMQ、Redis、RustFS 和 Registry。环境示例默认用于本地开发，Registry 绑定 `127.0.0.1:55000`，通过 `localhost:55000` 访问；跨主机部署时调整 `backend/.env` 中的 `REGISTRY_BIND_ADDRESS`，并将 `REGISTRY_URL`、`REGISTRY_PREFIX` 设置为相关主机与 Kubernetes 节点可访问的地址。
 
-先创建共享网络并启动中间件：
+镜像默认从 Docker Hub 拉取。启动前按[部署指南](deploy/README.md#启动顺序)准备 RustFS 数据目录权限，再创建共享网络并启动中间件：
 
 ```bash
 docker network inspect mixm-services >/dev/null 2>&1 || docker network create mixm-services

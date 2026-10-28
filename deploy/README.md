@@ -2,6 +2,8 @@
 
 所有部署命令默认从项目根目录执行。
 
+Compose 和 Dockerfile 中的基础镜像默认从 Docker Hub 拉取。RustFS 使用项目维护的官方镜像 `rustfs/rustfs:1.0.4`，固定版本避免随 `latest` 标签更新；PostgreSQL、RabbitMQ、Redis、Registry、Node.js、Go、Alpine 和 Ubuntu 使用 Docker Official Images。
+
 ```text
 deploy/
 ├── web/
@@ -28,6 +30,13 @@ deploy/
 先按[项目 README](../README.md)创建并编辑 `backend/.env`。环境示例默认用于本地开发，Registry 绑定 `127.0.0.1:55000`，通过 `localhost:55000` 访问；跨主机部署时设置 `REGISTRY_BIND_ADDRESS`、`REGISTRY_PORT`，并将 `REGISTRY_URL` 和 `REGISTRY_PREFIX` 调整为相关主机与 Kubernetes 节点可访问的地址。
 
 使用 WSL + K3s + Longhorn 时，启动 mixm 前先按[集群存储说明](#kubernetes-集群存储)手动执行共享挂载设置脚本。
+
+RustFS 官方镜像使用 UID/GID `10001:10001` 运行。首次启动或从原私人仓库镜像切换时，先准备绑定的数据目录权限，已有数据目录也需将所有者调整为该用户：
+
+```bash
+sudo mkdir -p RustFS/data
+sudo chown -R 10001:10001 RustFS/data
+```
 
 ```bash
 docker network inspect mixm-services >/dev/null 2>&1 || docker network create mixm-services
