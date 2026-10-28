@@ -79,19 +79,19 @@ defineEmits(['toggle', 'add-child', 'edit', 'delete', 'bind'])
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--mixm-border);
   transition: background 0.2s;
 }
 
 .tree-node:hover {
-  background: #fafafa;
+  background: var(--mixm-surface-muted);
 }
 
 .expand-icon {
   width: 20px;
   height: 20px;
   cursor: pointer;
-  color: #666;
+  color: var(--mixm-muted);
   flex-shrink: 0;
 }
 
@@ -108,19 +108,19 @@ defineEmits(['toggle', 'add-child', 'edit', 'delete', 'bind'])
 
 .node-name {
   font-weight: 500;
-  color: #333;
+  color: var(--mixm-ink);
   margin-right: 8px;
 }
 
 .node-level {
   font-size: 12px;
-  color: #999;
+  color: var(--mixm-faint);
   margin-right: 8px;
 }
 
 .node-count {
   font-size: 12px;
-  color: #18a058;
+  color: var(--mixm-accent);
   margin-right: 12px;
 }
 
@@ -137,6 +137,6 @@ defineEmits(['toggle', 'add-child', 'edit', 'delete', 'bind'])
 }
 
 .tree-children {
-  background: #fafafa;
+  background: var(--mixm-surface-muted);
 }
 </style>

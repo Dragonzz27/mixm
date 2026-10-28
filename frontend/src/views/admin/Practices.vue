@@ -623,6 +623,6 @@ onMounted(() => {
 .sub-text {
   margin-left: 8px;
   font-weight: 400;
-  color: #888;
+  color: var(--mixm-muted);
 }
 </style>

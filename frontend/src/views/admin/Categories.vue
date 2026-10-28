@@ -575,7 +575,7 @@ async function handleSaveTree() {
 
 .transfer-panel {
   flex: 1;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--mixm-border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -585,8 +585,8 @@ async function handleSaveTree() {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--mixm-surface-muted);
+  border-bottom: 1px solid var(--mixm-border);
   font-weight: 500;
 }
 
@@ -627,8 +627,8 @@ async function handleSaveTree() {
   overflow-y: auto;
   max-height: 55vh;
   padding: 12px;
-  background: #fafafa;
-  border-radius: 8px;
+  background: var(--mixm-surface-muted);
+  border-radius: 6px;
 }
 
 .tree-list {
@@ -648,8 +648,8 @@ async function handleSaveTree() {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
-  background: #e0e0e0;
-  color: #666;
+  background: var(--mixm-border);
+  color: var(--mixm-muted);
   font-weight: 500;
 }
 
@@ -660,15 +660,15 @@ async function handleSaveTree() {
 
 .tree-chapter {
   padding: 12px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #e8e8e8;
+  background: var(--mixm-surface);
+  border-radius: 6px;
+  border: 1px solid var(--mixm-border);
 }
 
 .tree-section {
   margin-left: 24px;
   padding: 10px;
-  background: #f9f9f9;
+  background: var(--mixm-surface-muted);
   border-radius: 6px;
   margin-top: 8px;
 }
@@ -676,7 +676,7 @@ async function handleSaveTree() {
 .tree-kp {
   margin-left: 20px;
   padding: 8px;
-  background: #f5f5f5;
+  background: var(--mixm-surface-muted);
   border-radius: 4px;
   margin-top: 8px;
 }
@@ -704,12 +704,12 @@ async function handleSaveTree() {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  color: #666;
+  color: var(--mixm-muted);
   font-size: 14px;
 }
 
 .streaming-content {
-  background: #f5f5f5;
+  background: var(--mixm-surface-muted);
   padding: 12px;
   border-radius: 6px;
   max-height: 400px;
@@ -718,7 +718,7 @@ async function handleSaveTree() {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
-  color: #333;
+  color: var(--mixm-ink);
 }
 
 .json-viewer {

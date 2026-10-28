@@ -277,7 +277,7 @@ const columns = computed(() => [
     width: 180,
     render: (row) => {
       const overdue = isOverdue(row.deadline) && row.status === 'active'
-      return h('span', { style: { color: overdue ? '#d03050' : 'inherit' } }, formatDate(row.deadline))
+      return h('span', { style: { color: overdue ? 'var(--mixm-error)' : 'inherit' } }, formatDate(row.deadline))
     }
   },
   {
@@ -351,7 +351,7 @@ const submissionColumns = computed(() => [
     key: 'grade',
     width: 80,
     render: (row) => row.grade != null
-      ? h('span', { style: { color: row.grade >= 60 ? '#18a058' : '#d03050', fontWeight: 'bold' } }, row.grade)
+      ? h('span', { style: { color: row.grade >= 60 ? 'var(--mixm-success)' : 'var(--mixm-error)', fontWeight: 'bold' } }, row.grade)
       : '-'
   },
   {
@@ -646,7 +646,7 @@ onMounted(() => {
 }
 
 .attachment-tip {
-  color: #666;
+  color: var(--mixm-muted);
   font-size: 12px;
 }
 
@@ -656,7 +656,7 @@ onMounted(() => {
 }
 
 .attachment-card {
-  background: #fafafc;
+  background: var(--mixm-paper);
 }
 
 .attachment-card-header {
@@ -682,14 +682,14 @@ onMounted(() => {
 }
 
 .attachment-file-name {
-  color: #333;
+  color: var(--mixm-ink);
   font-weight: 500;
   word-break: break-all;
 }
 
 .attachment-file-size,
 .attachment-hint {
-  color: #999;
+  color: var(--mixm-faint);
   font-size: 12px;
 }
 </style>

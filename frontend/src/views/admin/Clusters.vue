@@ -10,7 +10,7 @@
         <n-card>
           <n-statistic label="运行中" :value="summary.running_pods">
             <template #prefix>
-              <span style="color: #18a058;">●</span>
+              <span style="color: var(--mixm-success);">●</span>
             </template>
           </n-statistic>
         </n-card>
@@ -19,7 +19,7 @@
         <n-card>
           <n-statistic label="节点数" :value="summary.total_nodes">
             <template #prefix>
-              <span style="color: #2080f0;">●</span>
+              <span style="color: var(--mixm-info);">●</span>
             </template>
           </n-statistic>
         </n-card>
@@ -431,7 +431,7 @@ onMounted(loadData)
 <style scoped>
 .log-viewer {
   background: #1a1a1a;
-  color: #e0e0e0;
+  color: var(--mixm-border);
   padding: 12px;
   border-radius: 4px;
   max-height: 500px;

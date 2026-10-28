@@ -4,12 +4,13 @@ import axios from 'axios'
 import { useUserStore } from '@/stores/user'
 import { createDiscreteApi } from 'naive-ui'
 import router, { resetRouter } from '@/router'
+import { themeOverrides } from '@/styles/theme'
 
 let message
 try {
   const msgApi = createDiscreteApi(['message'], {
     configProviderProps: {
-      themePreset: 'light'
+      themeOverrides
     }
   })
   message = msgApi.message

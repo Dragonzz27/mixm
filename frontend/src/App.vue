@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :theme-overrides="themeOverrides">
+  <n-config-provider :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <n-notification-provider>
         <n-dialog-provider>
@@ -11,13 +11,6 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-
-const themeOverrides = ref({
-  common: {
-    primaryColor: '#18a058',
-    primaryColorHover: '#36ad6a',
-    primaryColorPressed: '#0c7a43'
-  }
-})
+import { zhCN, dateZhCN } from 'naive-ui'
+import { themeOverrides } from './styles/theme'
 </script>

@@ -1,12 +1,12 @@
-$primary-color: #18a058;
-$primary-hover: #36ad6a;
-$primary-pressed: #0c7a43;
+$primary-color: var(--mixm-accent);
+$primary-hover: var(--mixm-accent-hover);
+$primary-pressed: var(--mixm-accent-pressed);
 
-$text-color: #333639;
-$text-secondary: #666;
+$text-color: var(--mixm-ink);
+$text-secondary: var(--mixm-muted);
 
-$border-color: #e0e0e6;
-$bg-color: #f5f7fa;
+$border-color: var(--mixm-border);
+$bg-color: var(--mixm-paper);
 
-$header-height: 64px;
-$sidebar-width: 240px;
+$header-height: 76px;
+$sidebar-width: 232px;

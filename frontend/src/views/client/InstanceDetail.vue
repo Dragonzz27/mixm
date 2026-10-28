@@ -360,7 +360,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e0e0e6;
+  border-bottom: 1px solid var(--mixm-border);
   margin-bottom: 16px;
 }
 
@@ -369,16 +369,16 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 14px;
-  color: #666;
+  color: var(--mixm-muted);
   text-decoration: none;
 }
-.back-link:hover { color: #18a058; }
+.back-link:hover { color: var(--mixm-accent); }
 
 .detail-header h1 {
   flex: 1;
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin: 0;
 }
 
@@ -420,8 +420,8 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #0f172a;
-  border-radius: 8px;
+  background: var(--mixm-ink);
+  border-radius: 6px;
   overflow: hidden;
   position: relative;
 }
@@ -435,13 +435,13 @@ onUnmounted(() => {
   top: 1px;
   left: 1px;
   z-index: 100;
-  background-color: rgba(255, 255, 255, 1);
-  color: #000000;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--mixm-surface);
+  color: var(--mixm-ink);
+  border: 1px solid var(--mixm-border);
 }
 
 .fullscreen-toggle:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--mixm-surface-muted);
 }
 
 .preview-content {
@@ -468,11 +468,11 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f172a;
+  background: var(--mixm-ink);
 }
 
 .placeholder-text {
-  color: #64748b;
+  color: var(--mixm-border);
   font-size: 14px;
   margin-top: 8px;
 }
@@ -481,7 +481,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   border: none;
-  background: #fff;
+  background: var(--mixm-surface);
 }
 
 .iframe-mask {
@@ -490,7 +490,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgb(41 41 35 / 55%);
   backdrop-filter: blur(2px);
   color: #ffffff;
   font-size: 20px;
@@ -501,6 +501,6 @@ onUnmounted(() => {
 }
 
 .iframe-mask:hover {
-  background: rgba(15, 23, 42, 0.45);
+  background: rgb(41 41 35 / 45%);
 }
 </style>

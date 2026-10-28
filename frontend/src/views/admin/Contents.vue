@@ -273,7 +273,7 @@ onMounted(() => {
 
 .editor-label {
   font-size: 14px;
-  color: #666;
+  color: var(--mixm-muted);
   margin-bottom: 8px;
 }
 </style>

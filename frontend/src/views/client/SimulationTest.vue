@@ -4,7 +4,7 @@
       <div class="hero-main">
         <div class="eyebrow">Student</div>
         <h1>模拟测试</h1>
-  <p>支持题库随机出题，也可尝试智能体生成。</p>
+        <p>支持题库随机出题，也可尝试智能体生成。</p>
       </div>
       <div class="hero-stats">
         <div class="stat-item">
@@ -25,12 +25,23 @@
         <n-grid :cols="2" :x-gap="16" :y-gap="12">
           <n-gi>
             <n-form-item label="课程 / 分类ID">
-              <n-select v-model:value="form.course_id" :options="courseOptions" filterable clearable placeholder="可选：选择课程范围" />
+              <n-select
+                v-model:value="form.course_id"
+                :options="courseOptions"
+                filterable
+                clearable
+                placeholder="可选：选择课程范围"
+              />
             </n-form-item>
           </n-gi>
           <n-gi>
             <n-form-item label="题目数量">
-              <n-input-number v-model:value="form.question_count" :min="1" :max="50" style="width: 100%" />
+              <n-input-number
+                v-model:value="form.question_count"
+                :min="1"
+                :max="50"
+                style="width: 100%"
+              />
             </n-form-item>
           </n-gi>
           <n-gi>
@@ -40,7 +51,13 @@
           </n-gi>
           <n-gi>
             <n-form-item label="时间限制（分钟）">
-              <n-input-number v-model:value="form.time_limit_minutes" :min="1" :max="180" style="width: 100%" clearable />
+              <n-input-number
+                v-model:value="form.time_limit_minutes"
+                :min="1"
+                :max="180"
+                style="width: 100%"
+                clearable
+              />
             </n-form-item>
           </n-gi>
         </n-grid>
@@ -85,27 +102,52 @@
           <n-grid :cols="5" :x-gap="12" :y-gap="12">
             <n-gi>
               <n-form-item label="单选题">
-                <n-input-number v-model:value="form.type_counts.single_choice" :min="0" :max="50" style="width: 100%" />
+                <n-input-number
+                  v-model:value="form.type_counts.single_choice"
+                  :min="0"
+                  :max="50"
+                  style="width: 100%"
+                />
               </n-form-item>
             </n-gi>
             <n-gi>
               <n-form-item label="多选题">
-                <n-input-number v-model:value="form.type_counts.multi_choice" :min="0" :max="50" style="width: 100%" />
+                <n-input-number
+                  v-model:value="form.type_counts.multi_choice"
+                  :min="0"
+                  :max="50"
+                  style="width: 100%"
+                />
               </n-form-item>
             </n-gi>
             <n-gi>
               <n-form-item label="判断题">
-                <n-input-number v-model:value="form.type_counts.true_false" :min="0" :max="50" style="width: 100%" />
+                <n-input-number
+                  v-model:value="form.type_counts.true_false"
+                  :min="0"
+                  :max="50"
+                  style="width: 100%"
+                />
               </n-form-item>
             </n-gi>
             <n-gi>
               <n-form-item label="填空题">
-                <n-input-number v-model:value="form.type_counts.fill_blank" :min="0" :max="50" style="width: 100%" />
+                <n-input-number
+                  v-model:value="form.type_counts.fill_blank"
+                  :min="0"
+                  :max="50"
+                  style="width: 100%"
+                />
               </n-form-item>
             </n-gi>
             <n-gi>
               <n-form-item label="简答题">
-                <n-input-number v-model:value="form.type_counts.short_answer" :min="0" :max="50" style="width: 100%" />
+                <n-input-number
+                  v-model:value="form.type_counts.short_answer"
+                  :min="0"
+                  :max="50"
+                  style="width: 100%"
+                />
               </n-form-item>
             </n-gi>
           </n-grid>
@@ -117,7 +159,9 @@
     <n-spin :show="loading">
       <div v-if="started && questions.length > 0" class="test-area">
         <div class="test-main">
-          <n-alert v-if="timeLeftText" type="info" class="timer">剩余时间：{{ timeLeftText }}</n-alert>
+          <n-alert v-if="timeLeftText" type="info" class="timer"
+            >剩余时间：{{ timeLeftText }}</n-alert
+          >
 
           <n-card
             v-for="(q, index) in questions"
@@ -129,7 +173,9 @@
               <div class="question-head">
                 <span>第 {{ index + 1 }} 题</span>
                 <n-space>
-                  <n-tag size="small">{{ questionTypeLabelMap[q.question_type] || q.question_type }}</n-tag>
+                  <n-tag size="small">{{
+                    questionTypeLabelMap[q.question_type] || q.question_type
+                  }}</n-tag>
                   <n-tag size="small" type="warning">{{ Number(q.score || 0).toFixed(2) }}分</n-tag>
                 </n-space>
               </div>
@@ -138,7 +184,11 @@
             <template v-if="q.question_type === 'multi_choice'">
               <n-checkbox-group v-model:value="multiAnswers[q.id]">
                 <n-space vertical>
-                  <n-checkbox v-for="(opt, optIndex) in q.options" :key="optIndex" :value="optIndex">
+                  <n-checkbox
+                    v-for="(opt, optIndex) in q.options"
+                    :key="optIndex"
+                    :value="optIndex"
+                  >
                     {{ String.fromCharCode(65 + optIndex) }}. {{ opt }}
                   </n-checkbox>
                 </n-space>
@@ -187,12 +237,8 @@
 
         <aside class="answer-sheet">
           <n-card title="答题卡" size="small" class="sheet-card">
-            <div class="sheet-summary">
-              已答 {{ answeredCount }} / {{ questions.length }}
-            </div>
-            <div class="sheet-summary">
-              总分：{{ totalPaperScore }} 分
-            </div>
+            <div class="sheet-summary">已答 {{ answeredCount }} / {{ questions.length }}</div>
+            <div class="sheet-summary">总分：{{ totalPaperScore }} 分</div>
             <div class="sheet-grid">
               <button
                 v-for="(q, index) in questions"
@@ -201,14 +247,20 @@
                 :class="{
                   answered: ['fill_blank', 'short_answer'].includes(q.question_type)
                     ? Boolean(textAnswers[q.id])
-                    : (answers[q.id] !== undefined && answers[q.id] !== null)
+                    : answers[q.id] !== undefined && answers[q.id] !== null
                 }"
                 @click="scrollToQuestion(q.id)"
               >
                 {{ index + 1 }}
               </button>
             </div>
-            <n-button block type="primary" style="margin-top: 12px" :disabled="isSubmitted" @click="submitTest">
+            <n-button
+              block
+              type="primary"
+              style="margin-top: 12px"
+              :disabled="isSubmitted"
+              @click="submitTest"
+            >
               {{ isSubmitted ? '已交卷' : '交卷' }}
             </n-button>
           </n-card>
@@ -228,9 +280,13 @@
         <n-descriptions-item label="试卷总分">{{ result?.total_score ?? 100 }}</n-descriptions-item>
         <n-descriptions-item label="本次得分">{{ result?.score ?? 0 }}</n-descriptions-item>
         <n-descriptions-item label="正确率">{{ result?.accuracy }}%</n-descriptions-item>
-        <n-descriptions-item label="答对题数">{{ result?.correct_count }}/{{ result?.total_questions }}</n-descriptions-item>
+        <n-descriptions-item label="答对题数"
+          >{{ result?.correct_count }}/{{ result?.total_questions }}</n-descriptions-item
+        >
         <n-descriptions-item label="已答题数">{{ result?.answered_questions }}</n-descriptions-item>
-        <n-descriptions-item label="薄弱知识点">{{ result?.weak_knowledge_points?.join('、') || '无' }}</n-descriptions-item>
+        <n-descriptions-item label="薄弱知识点">{{
+          result?.weak_knowledge_points?.join('、') || '无'
+        }}</n-descriptions-item>
       </n-descriptions>
       <n-divider />
       <n-space vertical class="result-list">
@@ -457,23 +513,24 @@ async function startTest() {
               Object.entries(form.value.type_counts || {}).filter(([, v]) => Number(v) > 0)
             )
           : null,
-      practice_id: form.value.generation_mode === 'practice' ? (form.value.practice_id || null) : null,
+      practice_id:
+        form.value.generation_mode === 'practice' ? form.value.practice_id || null : null,
       course_id: form.value.course_id || null,
       difficulty: form.value.difficulty || null,
       time_limit_minutes: form.value.time_limit_minutes || null,
       question_count:
         form.value.generation_mode === 'random' && typeCountTotal.value > 0
           ? typeCountTotal.value
-          : (form.value.question_count || 10)
+          : form.value.question_count || 10
     }
     const res = await simulationApi.generate(payload)
     questions.value = res.questions || []
     currentAttemptId.value = res.attempt_id || ''
     isSubmitted.value = (res.attempt_status || '') === 'submitted'
     answers.value = {}
-  textAnswers.value = {}
-  multiAnswers.value = {}
-  judgeAnswers.value = {}
+    textAnswers.value = {}
+    multiAnswers.value = {}
+    judgeAnswers.value = {}
     started.value = true
 
     clearTimer()
@@ -547,7 +604,9 @@ function getReviewAnswerByQuestionId(questionId) {
 function reviewCorrectAnswer(q) {
   if (q.question_type === 'multi_choice') {
     const ids = q.correct_indices?.length ? q.correct_indices : [q.correct_index]
-    return ids.map((i) => `${String.fromCharCode(65 + i)}${q.options?.[i] ? `. ${q.options[i]}` : ''}`).join('；')
+    return ids
+      .map((i) => `${String.fromCharCode(65 + i)}${q.options?.[i] ? `. ${q.options[i]}` : ''}`)
+      .join('；')
   }
   if (q.question_type === 'true_false') return q.correct_index === 0 ? '对' : '错'
   if (['fill_blank', 'short_answer'].includes(q.question_type)) return q.correct_answer || '无'
@@ -565,15 +624,19 @@ function reviewUserAnswer(q) {
     } catch (e) {
       picks = []
     }
-    if (!picks.length && ans.selected_index !== undefined && ans.selected_index !== null) picks = [ans.selected_index]
+    if (!picks.length && ans.selected_index !== undefined && ans.selected_index !== null)
+      picks = [ans.selected_index]
     if (!picks.length) return '未作答'
-    return picks.map((i) => `${String.fromCharCode(65 + i)}${q.options?.[i] ? `. ${q.options[i]}` : ''}`).join('；')
+    return picks
+      .map((i) => `${String.fromCharCode(65 + i)}${q.options?.[i] ? `. ${q.options[i]}` : ''}`)
+      .join('；')
   }
   if (q.question_type === 'true_false') {
     if (ans.selected_index === undefined || ans.selected_index === null) return '未作答'
     return ans.selected_index === 0 ? '对' : '错'
   }
-  if (['fill_blank', 'short_answer'].includes(q.question_type)) return (ans.answer_text || '').trim() || '未作答'
+  if (['fill_blank', 'short_answer'].includes(q.question_type))
+    return (ans.answer_text || '').trim() || '未作答'
   if (ans.selected_index === undefined || ans.selected_index === null) return '未作答'
   return `${String.fromCharCode(65 + ans.selected_index)}${q.options?.[ans.selected_index] ? `. ${q.options[ans.selected_index]}` : ''}`
 }
@@ -588,19 +651,28 @@ function reviewIsCorrect(q) {
     } catch (e) {
       picks = []
     }
-    if (!picks.length && ans.selected_index !== undefined && ans.selected_index !== null) picks = [ans.selected_index]
+    if (!picks.length && ans.selected_index !== undefined && ans.selected_index !== null)
+      picks = [ans.selected_index]
     const expected = new Set(q.correct_indices?.length ? q.correct_indices : [q.correct_index])
     return picks.length > 0 && picks.length === expected.size && picks.every((x) => expected.has(x))
   }
   if (q.question_type === 'true_false') {
-    return ans.selected_index !== undefined && ans.selected_index !== null && ans.selected_index === q.correct_index
+    return (
+      ans.selected_index !== undefined &&
+      ans.selected_index !== null &&
+      ans.selected_index === q.correct_index
+    )
   }
   if (['fill_blank', 'short_answer'].includes(q.question_type)) {
-    const userText = ((ans.answer_text || '').toLowerCase()).replace(/\s+/g, '')
-    const correctText = ((q.correct_answer || '').toLowerCase()).replace(/\s+/g, '')
+    const userText = (ans.answer_text || '').toLowerCase().replace(/\s+/g, '')
+    const correctText = (q.correct_answer || '').toLowerCase().replace(/\s+/g, '')
     return Boolean(userText) && userText === correctText
   }
-  return ans.selected_index !== undefined && ans.selected_index !== null && ans.selected_index === q.correct_index
+  return (
+    ans.selected_index !== undefined &&
+    ans.selected_index !== null &&
+    ans.selected_index === q.correct_index
+  )
 }
 
 async function openAnswerReview() {
@@ -657,28 +729,21 @@ loadPractices()
 .simulation-page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 10px;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 10% 10%, #e7f1ff 0, transparent 35%),
-    radial-gradient(circle at 90% 20%, #dff3ff 0, transparent 28%),
-    linear-gradient(180deg, #f5faff 0%, #ffffff 45%);
+  gap: 24px;
 }
 .hero {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  padding: 26px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #f8fbff 0%, #ecf5ff 50%, #dcecff 100%);
-  color: #0f172a;
-  border: 1px solid #cfe3ff;
-  box-shadow: 0 14px 30px rgba(50, 115, 220, 0.12);
+  gap: 24px;
+  padding: 30px;
+  border-radius: 6px;
+  background: var(--mixm-surface-muted);
+  border: 1px solid var(--mixm-border);
 }
 .hero-main {
   flex: 1;
+  min-width: 0;
 }
 .hero-stats {
   display: flex;
@@ -686,91 +751,89 @@ loadPractices()
 }
 .stat-item {
   min-width: 76px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid #d8e9ff;
+  padding: 12px;
+  border-radius: 4px;
+  background: var(--mixm-surface);
+  border: 1px solid var(--mixm-border);
   text-align: center;
 }
 .stat-item strong {
-  color: #1e40af;
-  font-size: 20px;
+  font-family: var(--mixm-font-display);
+  font-weight: 400;
+  font-size: 26px;
+  color: var(--mixm-ink);
 }
 .stat-label {
   display: block;
-  color: #64748b;
-  font-size: 12px;
+  color: var(--mixm-muted);
+  font-size: 11px;
 }
 .eyebrow {
-  font-size: 12px;
-  color: #2563eb;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-weight: 600;
+  font-size: 10px;
+  color: var(--mixm-accent);
+  letter-spacing: 0.15em;
+  font-weight: 500;
 }
 .hero h1 {
-  margin: 8px 0;
+  margin: 12px 0;
+  font-family: var(--mixm-font-display);
+  font-weight: 400;
   font-size: 34px;
-  color: #12284a;
+  color: var(--mixm-ink);
+  letter-spacing: -0.025em;
 }
 .hero p {
   margin: 0;
-  color: #45617f;
+  color: var(--mixm-muted);
+  font-size: 13px;
 }
 .config-card,
 .question-card {
-  border-radius: 18px;
-  border: 1px solid #deebff;
-  box-shadow: 0 10px 28px rgba(31, 84, 168, 0.08);
-}
-
-.config-card {
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
-  border: 1px solid #cfe3ff;
-  box-shadow: 0 12px 30px rgba(52, 108, 195, 0.1);
+  border-radius: 6px;
+  border: 1px solid var(--mixm-border);
+  background: var(--mixm-surface);
 }
 .question-card {
-  margin-bottom: 16px;
-  background: linear-gradient(180deg, #fbfdff 0%, #f2f8ff 100%);
-  border: 1px solid #d7e6ff;
-  box-shadow: 0 8px 20px rgba(56, 108, 196, 0.08);
+  margin-bottom: 18px;
 }
 .question-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   width: 100%;
 }
 .stem {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   font-size: 16px;
-  font-weight: 600;
-  color: #14325d;
-  line-height: 1.6;
-  background: rgba(255, 255, 255, 0.62);
-  border: 1px solid #dbe9ff;
-  border-radius: 10px;
-  padding: 10px 12px;
+  font-weight: 500;
+  color: var(--mixm-ink);
+  line-height: 1.8;
+  background: var(--mixm-paper);
+  border-left: 2px solid var(--mixm-accent);
+  padding: 14px 16px;
 }
 .knowledge {
-  margin-top: 14px;
-  color: #35587d;
-  font-size: 13px;
-  background: #eaf3ff;
-  border: 1px dashed #bcd4f6;
-  border-radius: 10px;
-  padding: 8px 10px;
+  margin-top: 16px;
+  color: var(--mixm-muted);
+  font-size: 12px;
+  background: var(--mixm-paper);
+  border: 1px dashed var(--mixm-border);
+  border-radius: 4px;
+  padding: 10px 14px;
 }
 .actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 22px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
 }
 .test-area {
   display: grid;
   width: 100%;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 24%);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 27%);
+  gap: 20px;
   align-items: start;
 }
 .test-main {
@@ -782,164 +845,117 @@ loadPractices()
 }
 .sheet-card {
   width: 100%;
-  border-radius: 14px;
+  border-radius: 6px;
 }
 .sheet-summary {
-  color: #31527b;
-  font-weight: 600;
-  margin-bottom: 10px;
+  color: var(--mixm-muted);
+  font-size: 13px;
+  margin-bottom: 14px;
 }
 .sheet-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 .sheet-item {
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid #cfe1ff;
-  background: #f3f8ff;
-  color: #24446e;
-  font-weight: 600;
+  height: 36px;
+  border-radius: 3px;
+  border: 1px solid var(--mixm-border);
+  background: var(--mixm-paper);
+  color: var(--mixm-ink);
+  font-weight: 500;
   cursor: pointer;
 }
 .sheet-item.answered {
-  background: #dbeafe;
-  border-color: #60a5fa;
-  color: #1d4ed8;
+  background: var(--mixm-accent-soft);
+  border-color: var(--mixm-accent);
+  color: var(--mixm-accent-pressed);
 }
 .sheet-item:hover {
-  border-color: #3b82f6;
+  border-color: var(--mixm-accent);
 }
 .timer {
   margin-bottom: 16px;
 }
 .count-tip {
-  color: #35587d;
-  font-size: 13px;
-  margin-top: 4px;
+  color: var(--mixm-muted);
+  font-size: 12px;
+  margin-top: 6px;
 }
 .type-pills :deep(.n-checkbox) {
   padding: 8px 12px;
-  background: #f4f9ff;
-  border: 1px solid #cfe1ff;
-  border-radius: 999px;
-  transition: all 0.2s ease;
+  background: var(--mixm-paper);
+  border: 1px solid var(--mixm-border);
+  border-radius: 4px;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 .type-pills :deep(.n-checkbox:hover) {
-  border-color: #7fb0f8;
-  background: #eaf3ff;
+  border-color: var(--mixm-accent);
 }
 .type-pills :deep(.n-checkbox.n-checkbox--checked) {
-  background: #e1eeff;
-  border-color: #78a8f0;
+  background: var(--mixm-accent-soft);
+  border-color: var(--mixm-accent);
 }
-
-:deep(.config-card .n-card-header) {
-  background: linear-gradient(90deg, rgba(220, 237, 255, 0.9), rgba(239, 247, 255, 0.55));
-  border-radius: 14px;
-  margin: -2px -2px 14px;
-  padding: 12px 14px;
+:deep(.config-card .n-card-header),
+:deep(.question-card .n-card-header) {
+  border-bottom: 1px solid var(--mixm-border);
 }
-
-:deep(.config-card .n-form-item-label__text) {
-  color: #1f3f72;
-  font-weight: 600;
-}
-
-:deep(.config-card .n-base-selection),
-:deep(.config-card .n-input-number),
-:deep(.config-card .n-input-number .n-input__input-el) {
-  background: #f8fbff;
-}
-
-:deep(.config-card .n-base-selection) {
-  border: 1px solid #cfe0fa;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
-}
-
-:deep(.config-card .n-input-number) {
-  border: 1px solid #cfe0fa;
-}
-
-:deep(.config-card .n-base-selection:hover),
-:deep(.config-card .n-input-number:hover) {
-  border-color: #8cb7f3;
-}
-
-:deep(.config-card .n-base-selection.n-base-selection--focus),
-:deep(.config-card .n-input-number.n-input-number--focus) {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+:deep(.n-card-header__main) {
+  color: var(--mixm-ink);
+  font-weight: 500;
 }
 .result-list {
-  background: #f8fbff;
-  border: 1px solid #e3eeff;
-  border-radius: 12px;
-  padding: 10px;
+  background: var(--mixm-paper);
+  border: 1px solid var(--mixm-border);
+  border-radius: 4px;
+  padding: 14px;
 }
 .result-row {
-  color: #1f3656;
+  color: var(--mixm-ink);
 }
 .analysis-item {
-  border: 1px solid #dbe8ff;
-  border-radius: 10px;
-  background: #f7fbff;
-  padding: 10px;
+  border: 1px solid var(--mixm-border);
+  border-radius: 4px;
+  background: var(--mixm-paper);
+  padding: 14px;
 }
 .analysis-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 .analysis-line {
-  color: #334155;
+  color: var(--mixm-muted);
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.8;
 }
-:deep(.hero .n-button--primary-type) {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  border: none;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
-}
-
-:deep(.hero .n-button--secondary-type) {
-  background: #ffffff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-}
-:deep(.n-card-header__main) {
-  color: #183b72;
-  font-weight: 700;
-}
-:deep(.question-card .n-card-header) {
-  background: linear-gradient(90deg, rgba(221, 236, 255, 0.82), rgba(235, 244, 255, 0.52));
-  border-radius: 12px;
-  margin: -2px -2px 10px;
-  padding: 10px 12px;
-}
-:deep(.n-input-number),
-:deep(.n-base-selection) {
-  border-radius: 10px;
-}
-
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .test-area {
     grid-template-columns: 1fr;
   }
   .answer-sheet {
     position: static;
   }
+}
+@media (max-width: 680px) {
   .hero {
+    padding: 24px;
     flex-direction: column;
     align-items: flex-start;
+  }
+  .hero h1 {
+    font-size: 29px;
   }
   .hero-stats {
     width: 100%;
   }
   .stat-item {
     flex: 1;
+    min-width: 0;
   }
 }
 </style>

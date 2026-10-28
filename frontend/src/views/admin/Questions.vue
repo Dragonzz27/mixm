@@ -909,7 +909,7 @@ onMounted(() => {
   font-size: 16px;
   line-height: 1.8;
   padding: 12px;
-  background: #f9f9f9;
+  background: var(--mixm-surface-muted);
   border-radius: 4px;
 }
 
@@ -918,9 +918,9 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #f5f5f5;
+  background: var(--mixm-surface-muted);
   border-radius: 4px;
   font-size: 12px;
-  color: #666;
+  color: var(--mixm-muted);
 }
 </style>

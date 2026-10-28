@@ -236,7 +236,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 0;
-  border-bottom: 1px solid #e0e0e6;
+  border-bottom: 1px solid var(--mixm-border);
   margin-bottom: 16px;
 }
 
@@ -249,7 +249,7 @@ onMounted(() => {
 .page-main-title {
   font-size: 24px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin: 0;
   white-space: nowrap;
   flex-shrink: 0;
@@ -259,7 +259,7 @@ onMounted(() => {
 .title-divider {
   width: 1px;
   height: 16px;
-  background: #e0e0e6;
+  background: var(--mixm-border);
   flex-shrink: 0;
 }
 
@@ -287,7 +287,7 @@ onMounted(() => {
 }
 
 .repo-name {
-  color: #18a058;
+  color: var(--mixm-accent);
   text-decoration: none;
   font-weight: 500;
 }
@@ -303,13 +303,13 @@ onMounted(() => {
 }
 
 .creator-avatar {
-  background-color: #18a058;
+  background-color: var(--mixm-accent);
   color: #fff;
   font-size: 12px;
 }
 
 .action-link {
-  color: #18a058;
+  color: var(--mixm-accent);
   text-decoration: none;
   font-size: 14px;
 }
@@ -327,7 +327,7 @@ onMounted(() => {
 }
 
 .pagination span {
-  color: #666;
+  color: var(--mixm-muted);
   font-size: 14px;
 }
 </style>

@@ -75,7 +75,7 @@ function handleClose() {
 
 <style scoped>
 .step-item {
-  background: #f5f7fa;
+  background: var(--mixm-paper);
   padding: 12px;
   border-radius: 6px;
 }
@@ -83,6 +83,6 @@ function handleClose() {
 .step-label {
   font-weight: 600;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--mixm-ink);
 }
 </style>

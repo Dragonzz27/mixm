@@ -10,10 +10,10 @@
           <span>选择分类</span>
         </div>
         <div class="tree-wrapper">
-          <n-input 
-            v-model:value="searchKey" 
-            placeholder="搜索分类..." 
-            clearable 
+          <n-input
+            v-model:value="searchKey"
+            placeholder="搜索分类..."
+            clearable
             size="small"
             style="margin-bottom: 12px"
           />
@@ -33,9 +33,11 @@
 
       <main class="content-main">
         <div class="section-cards" v-if="level3Categories.length > 0">
-          <h3 class="section-title">{{ selectedLevel2Name || selectedLevel1Name || '请选择分类' }}</h3>
-          <n-grid :cols="3" :x-gap="20" :y-gap="20" :item-responsive="true">
-            <n-gi :span="1" :xs="24" :sm="12" :md="8" :lg="6" v-for="cat in level3Categories" :key="cat.id">
+          <h3 class="section-title">
+            {{ selectedLevel2Name || selectedLevel1Name || '请选择分类' }}
+          </h3>
+          <n-grid cols="1 s:2 l:3" responsive="screen" :x-gap="20" :y-gap="20">
+            <n-gi v-for="cat in level3Categories" :key="cat.id">
               <div class="category-card" @click="goToDetail(cat.id)">
                 <div class="card-cover" :style="{ background: getCoverColor(cat.id) }">
                   <span class="card-level">L{{ cat.level }}</span>
@@ -85,7 +87,7 @@ const selectedKeys = computed(() => {
   return []
 })
 
-const colors = ['#18a058', '#2080f0', '#f0a020', '#d03050', '#9c27b0', '#00bcd4']
+const colors = ['#c78e76', '#91a18c', '#b1a7c1', '#bca578', '#8fa6ab', '#baa28e']
 
 function getCoverColor(id) {
   return colors[id % colors.length]
@@ -93,7 +95,7 @@ function getCoverColor(id) {
 
 const selectedLevel1Name = computed(() => {
   if (!selectedLevel1Id.value) return ''
-  const cat = categoryTree.value.find(c => c.id === selectedLevel1Id.value)
+  const cat = categoryTree.value.find((c) => c.id === selectedLevel1Id.value)
   return cat?.name || ''
 })
 
@@ -101,7 +103,7 @@ const selectedLevel2Name = computed(() => {
   if (!selectedLevel2Id.value) return ''
   for (const cat of categoryTree.value) {
     if (cat.children?.length) {
-      const child = cat.children.find(c => c.id === selectedLevel2Id.value)
+      const child = cat.children.find((c) => c.id === selectedLevel2Id.value)
       if (child) return child.name
     }
   }
@@ -112,7 +114,7 @@ const level3Categories = computed(() => {
   if (!selectedLevel2Id.value) return []
   for (const cat of categoryTree.value) {
     if (cat.children?.length) {
-      const child = cat.children.find(c => c.id === selectedLevel2Id.value)
+      const child = cat.children.find((c) => c.id === selectedLevel2Id.value)
       if (child && child.children) {
         return child.children
       }
@@ -122,10 +124,10 @@ const level3Categories = computed(() => {
 })
 
 const treeData = computed(() => {
-  return categoryTree.value.map(cat => ({
+  return categoryTree.value.map((cat) => ({
     key: cat.id,
     label: cat.name,
-    children: cat.children?.map(child => ({
+    children: cat.children?.map((child) => ({
       key: child.id,
       label: child.name
     }))
@@ -134,9 +136,9 @@ const treeData = computed(() => {
 
 function handleSelect(keys) {
   if (keys.length === 0) return
-  
+
   const selectedId = keys[0]
-  
+
   for (const cat of categoryTree.value) {
     if (cat.id === selectedId) {
       selectedLevel1Id.value = cat.id
@@ -148,7 +150,7 @@ function handleSelect(keys) {
       }
       return
     }
-    
+
     if (cat.children?.length) {
       for (const child of cat.children) {
         if (child.id === selectedId) {
@@ -174,12 +176,12 @@ async function loadCategoryTree() {
   try {
     const res = await categoryApi.getTree({})
     categoryTree.value = res || []
-    
+
     if (categoryTree.value.length > 0) {
       const firstCategory = categoryTree.value[0]
       selectedLevel1Id.value = firstCategory.id
       expandedKeys.value = [firstCategory.id]
-      
+
       if (firstCategory.children?.length) {
         selectedLevel2Id.value = firstCategory.children[0].id
       }
@@ -206,9 +208,9 @@ onMounted(() => {
 }
 
 .page-header h1 {
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 400;
+  color: var(--mixm-ink);
   margin: 0;
 }
 
@@ -220,9 +222,9 @@ onMounted(() => {
 .category-sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e0e0e6;
+  background: var(--mixm-surface);
+  border-radius: 6px;
+  border: 1px solid var(--mixm-border);
   max-height: calc(100vh - 200px);
   overflow-y: auto;
 }
@@ -231,8 +233,8 @@ onMounted(() => {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 600;
-  color: #333;
-  border-bottom: 1px solid #e0e0e6;
+  color: var(--mixm-ink);
+  border-bottom: 1px solid var(--mixm-border);
 }
 
 .tree-wrapper {
@@ -247,27 +249,26 @@ onMounted(() => {
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin: 0 0 16px;
 }
 
 .category-card {
-  background: white;
-  border-radius: 8px;
+  background: var(--mixm-surface);
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid #e0e0e6;
+  border: 1px solid var(--mixm-border);
 }
 
 .category-card:hover {
-  border-color: #18a058;
+  border-color: var(--mixm-accent);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .card-cover {
-  height: 100px;
+  height: 120px;
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
@@ -289,14 +290,14 @@ onMounted(() => {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin: 0 0 8px;
   line-height: 1.4;
 }
 
 .card-desc {
   font-size: 13px;
-  color: #666;
+  color: var(--mixm-muted);
   margin: 0;
   line-height: 1.5;
   display: -webkit-box;
@@ -316,7 +317,7 @@ onMounted(() => {
   .content-layout {
     flex-direction: column;
   }
-  
+
   .category-sidebar {
     width: 100%;
     max-height: 300px;

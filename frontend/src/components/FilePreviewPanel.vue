@@ -222,14 +222,14 @@ function handleDownload() {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e6;
+  border-bottom: 1px solid var(--mixm-border);
   margin-bottom: 12px;
   gap: 12px;
 }
 
 .file-info-text {
   overflow: hidden;
-  color: #666;
+  color: var(--mixm-muted);
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -239,7 +239,7 @@ function handleDownload() {
   position: relative;
   flex: 1;
   overflow: hidden;
-  background: #f5f5f5;
+  background: var(--mixm-surface-muted);
   border-radius: 4px;
 }
 
@@ -251,7 +251,7 @@ function handleDownload() {
 
 .docx-preview {
   overflow: auto;
-  background: white;
+  background: var(--mixm-surface);
 }
 
 .preview-video {
@@ -262,7 +262,7 @@ function handleDownload() {
   overflow: auto;
   box-sizing: border-box;
   padding: 24px;
-  background: #fff;
+  background: var(--mixm-surface);
 }
 
 .plain-text {
@@ -281,7 +281,7 @@ function handleDownload() {
 .markdown-body :deep(pre) {
   padding: 12px;
   overflow: auto;
-  background: #f6f8fa;
+  background: var(--mixm-surface-muted);
   border-radius: 6px;
 }
 
@@ -295,7 +295,7 @@ function handleDownload() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(245, 245, 245, 0.85);
+  background: rgb(247 245 239 / 85%);
   z-index: 1;
 }
 

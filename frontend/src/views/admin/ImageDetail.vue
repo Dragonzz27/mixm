@@ -204,12 +204,12 @@ onMounted(() => {
 .header-left h1 {
   font-size: 24px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin-bottom: 4px;
 }
 
 .header-left p {
-  color: #666;
+  color: var(--mixm-muted);
   font-size: 14px;
 }
 
@@ -229,11 +229,11 @@ onMounted(() => {
 }
 
 .meta-label {
-  color: #666;
+  color: var(--mixm-muted);
 }
 
 .meta-value {
-  color: #333;
+  color: var(--mixm-ink);
 }
 
 .header-actions {

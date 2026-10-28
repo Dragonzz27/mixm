@@ -1,99 +1,96 @@
 <template>
   <div class="dashboard">
-    <n-card title="欢迎使用 mixm">
-      <template #header-extra>
-        <n-tag type="success">系统运行中</n-tag>
-      </template>
-      <n-descriptions :columns="4" label-placement="left">
-        <n-descriptions-item label="版本">1.0.0</n-descriptions-item>
-        <n-descriptions-item label="用户总数">{{ stats.userCount }}</n-descriptions-item>
-        <n-descriptions-item label="分类总数">{{ stats.categoryCount }}</n-descriptions-item>
-        <n-descriptions-item label="内容总数">{{ stats.contentCount }}</n-descriptions-item>
-      </n-descriptions>
-    </n-card>
+    <section class="dashboard-intro">
+      <div>
+        <p class="eyebrow">MIXM / OVERVIEW</p>
+        <h1 class="editorial-title">教学与实践，一目了然。</h1>
+        <p class="intro-description">连接学习者、知识与实验，为每一次成长创造空间。</p>
+      </div>
+      <span class="dashboard-edition">教学与实验平台<span>WORKSPACE / 1.0</span></span>
+    </section>
 
-    <n-divider />
+    <section class="overview-grid" aria-label="平台数据概览">
+      <article v-for="stat in statCards" :key="stat.path" class="overview-card">
+        <div class="overview-caption">
+          <span>{{ stat.index }} / {{ stat.label }}</span
+          ><span>{{ stat.title }}</span>
+        </div>
+        <span class="overview-number">{{ stat.value }}</span>
+        <router-link :to="stat.path" class="overview-link"
+          >{{ stat.link }} <span aria-hidden="true">↗</span></router-link
+        >
+      </article>
+    </section>
 
-    <n-grid :cols="3" :x-gap="24" :y-gap="24">
-      <n-gi>
-        <n-card>
-          <n-statistic label="用户总数" :value="stats.userCount" />
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card>
-          <n-statistic label="分类总数" :value="stats.categoryCount" />
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card>
-          <n-statistic label="内容总数" :value="stats.contentCount" />
-        </n-card>
-      </n-gi>
-    </n-grid>
-
-    <n-divider />
-
-    <n-grid :cols="3" :x-gap="24" :y-gap="24">
-      <n-gi>
-        <n-card title="CPU使用率">
+    <section class="resource-section">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">SYSTEM RESOURCES</p>
+          <h2>系统资源</h2>
+        </div>
+        <span class="refresh-note"><span></span>每 30 秒更新</span>
+      </div>
+      <div class="resource-grid">
+        <n-card v-for="resource in resourceCards" :key="resource.label" class="resource-card">
+          <div class="resource-caption">
+            <span>{{ resource.title }}</span
+            ><span class="eyebrow">{{ resource.label }}</span>
+          </div>
+          <p class="resource-number">{{ resource.value }}<span>%</span></p>
           <n-progress
             type="line"
-            :percentage="system.cpu"
-            :color="getCpuColor(system.cpu)"
+            :percentage="resource.value"
+            :color="resource.color"
+            :show-indicator="false"
+            :height="4"
           />
-          <div class="stat-value">{{ system.cpu }}%</div>
+          <p class="resource-detail">{{ resource.detail }}</p>
         </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card title="内存使用率">
-          <n-progress
-            type="line"
-            :percentage="system.memoryPercent"
-            :color="getMemoryColor(system.memoryPercent)"
-          />
-          <div class="stat-value">{{ system.memoryPercent }}% ({{ formatBytes(system.memoryUsed) }}/{{ formatBytes(system.memoryTotal) }})</div>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card title="磁盘使用率">
-          <n-progress
-            type="line"
-            :percentage="system.diskPercent"
-            :color="getDiskColor(system.diskPercent)"
-          />
-          <div class="stat-value">{{ system.diskPercent }}% ({{ formatBytes(system.diskUsed) }}/{{ formatBytes(system.diskTotal) }})</div>
-        </n-card>
-      </n-gi>
-    </n-grid>
+      </div>
+    </section>
 
-    <n-divider />
-
-    <n-grid :cols="2" :x-gap="24">
-      <n-gi>
-        <n-card title="系统信息">
-          <n-descriptions :column="1" label-placement="left">
-            <n-descriptions-item label="进程数">{{ system.processes }}</n-descriptions-item>
-            <n-descriptions-item label="更新时间">{{ system.timestamp }}</n-descriptions-item>
-          </n-descriptions>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card title="系统负载">
-          <n-descriptions :column="1" label-placement="left">
-            <n-descriptions-item label="1分钟"> {{ load.load1?.toFixed(2) || '-' }}</n-descriptions-item>
-            <n-descriptions-item label="5分钟"> {{ load.load5?.toFixed(2) || '-' }}</n-descriptions-item>
-            <n-descriptions-item label="15分钟"> {{ load.load15?.toFixed(2) || '-' }}</n-descriptions-item>
-          </n-descriptions>
-        </n-card>
-      </n-gi>
-    </n-grid>
+    <section class="system-details">
+      <div class="system-info">
+        <p class="eyebrow">SYSTEM INFORMATION</p>
+        <h2>运行概况</h2>
+        <dl>
+          <div>
+            <dt>进程数量</dt>
+            <dd>{{ system.processes }}</dd>
+          </div>
+          <div>
+            <dt>最近采集</dt>
+            <dd class="timestamp">{{ system.timestamp }}</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="system-load">
+        <p class="eyebrow">SYSTEM LOAD</p>
+        <h2>系统负载</h2>
+        <div class="load-values">
+          <div>
+            <span>过去 1 分钟</span><strong>{{ load.load1?.toFixed(2) ?? '—' }}</strong>
+          </div>
+          <div>
+            <span>过去 5 分钟</span><strong>{{ load.load5?.toFixed(2) ?? '—' }}</strong>
+          </div>
+          <div>
+            <span>过去 15 分钟</span><strong>{{ load.load15?.toFixed(2) ?? '—' }}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+    <footer class="dashboard-footer">
+      <span>让知识流动，让探索发生。</span
+      ><router-link to="/app">前往学习空间 <span aria-hidden="true">↗</span></router-link>
+    </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { NGrid, NGi, NCard, NStatistic, NDivider, NProgress, NDescriptions, NDescriptionsItem, NTag } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { NCard, NProgress } from 'naive-ui'
+import { palette } from '@/styles/theme'
 import { authApi, categoryApi, contentApi, systemApi } from '@/api'
 
 const stats = ref({
@@ -120,24 +117,74 @@ const load = ref({
   load15: 0
 })
 
+const statCards = computed(() => [
+  {
+    title: '平台用户',
+    value: stats.value.userCount,
+    index: '01',
+    label: 'PEOPLE',
+    path: '/admin/users',
+    link: '管理用户'
+  },
+  {
+    title: '知识分类',
+    value: stats.value.categoryCount,
+    index: '02',
+    label: 'KNOWLEDGE',
+    path: '/admin/categories',
+    link: '整理分类'
+  },
+  {
+    title: '教学内容',
+    value: stats.value.contentCount,
+    index: '03',
+    label: 'CONTENTS',
+    path: '/admin/contents',
+    link: '查看内容'
+  }
+])
+const resourceCards = computed(() => [
+  {
+    title: 'CPU 使用率',
+    label: 'COMPUTE',
+    value: system.value.cpu,
+    color: getCpuColor(system.value.cpu),
+    detail: '计算资源使用情况'
+  },
+  {
+    title: '内存使用率',
+    label: 'MEMORY',
+    value: system.value.memoryPercent,
+    color: getMemoryColor(system.value.memoryPercent),
+    detail: `${formatBytes(system.value.memoryUsed)} / ${formatBytes(system.value.memoryTotal)}`
+  },
+  {
+    title: '磁盘使用率',
+    label: 'STORAGE',
+    value: system.value.diskPercent,
+    color: getDiskColor(system.value.diskPercent),
+    detail: `${formatBytes(system.value.diskUsed)} / ${formatBytes(system.value.diskTotal)}`
+  }
+])
+
 let timer = null
 
 function getCpuColor(percent) {
-  if (percent < 50) return '#18a058'
-  if (percent < 80) return '#f0a020'
-  return '#d03050'
+  if (percent < 50) return palette.success
+  if (percent < 80) return palette.warning
+  return palette.error
 }
 
 function getMemoryColor(percent) {
-  if (percent < 70) return '#18a058'
-  if (percent < 90) return '#f0a020'
-  return '#d03050'
+  if (percent < 70) return palette.success
+  if (percent < 90) return palette.warning
+  return palette.error
 }
 
 function getDiskColor(percent) {
-  if (percent < 70) return '#18a058'
-  if (percent < 90) return '#f0a020'
-  return '#d03050'
+  if (percent < 70) return palette.success
+  if (percent < 90) return palette.warning
+  return palette.error
 }
 
 function formatBytes(bytes) {
@@ -213,15 +260,288 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.dashboard {
-  padding: 20px 0;
+.dashboard-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 8px 0 32px;
+  border-bottom: 1px solid var(--mixm-border);
 }
-
-.stat-value {
-  text-align: center;
-  margin-top: 8px;
+.dashboard-intro .eyebrow {
+  margin-bottom: 24px;
+  font-size: 9px;
+}
+.dashboard-intro h1 {
+  font-size: clamp(30px, 3.2vw, 44px);
+  margin-bottom: 16px;
+}
+.intro-description {
+  color: var(--mixm-muted);
+  font-size: 13px;
+}
+.dashboard-edition {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: right;
+  font-family: var(--mixm-font-display);
+  font-size: 15px;
+  color: var(--mixm-muted);
+  flex-shrink: 0;
+}
+.dashboard-edition span {
+  font-family: var(--mixm-font-body);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 28px 0 38px;
+  border: 1px solid var(--mixm-border);
+  background: var(--mixm-surface);
+  border-radius: 5px;
+}
+.overview-card {
+  padding: 24px 28px;
+  min-width: 0;
+}
+.overview-card + .overview-card {
+  border-left: 1px solid var(--mixm-border);
+}
+.overview-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+}
+.overview-caption > span:first-child {
+  color: var(--mixm-faint);
+  font-size: 9px;
+  letter-spacing: 0.09em;
+}
+.overview-number {
+  display: block;
+  font-family: var(--mixm-font-display);
+  font-size: 56px;
+  letter-spacing: -0.04em;
+  line-height: 1.3;
+  padding: 14px 0 18px;
+}
+.overview-link {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--mixm-border);
+  padding-top: 15px;
+  font-size: 11px;
+  color: var(--mixm-muted);
+}
+.overview-link span {
+  color: var(--mixm-accent);
+  font-size: 17px;
+  line-height: 1;
+}
+.overview-link:hover {
+  color: var(--mixm-accent);
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.section-header .eyebrow {
+  font-size: 9px;
+  margin-bottom: 5px;
+}
+.section-header h2,
+.system-details h2 {
+  font-family: var(--mixm-font-display);
+  font-size: 24px;
+  font-weight: 400;
+}
+.refresh-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--mixm-muted);
+}
+.refresh-note > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--mixm-accent);
+}
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.resource-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.resource-caption .eyebrow {
+  font-size: 8px;
+  color: var(--mixm-faint);
+}
+.resource-number {
+  font-family: var(--mixm-font-display);
+  font-size: 38px;
+  line-height: 1.2;
+  margin: 24px 0 20px;
+  letter-spacing: -0.03em;
+}
+.resource-number > span {
   font-size: 18px;
-  font-weight: bold;
-  color: #333;
+  margin-left: 4px;
+  color: var(--mixm-muted);
+}
+.resource-detail {
+  font-size: 10px;
+  color: var(--mixm-muted);
+  margin-top: 14px;
+}
+.system-details {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 40px;
+  border-top: 1px solid var(--mixm-border);
+  border-bottom: 1px solid var(--mixm-border);
+  margin-top: 34px;
+  padding: 28px 0;
+}
+.system-details .eyebrow {
+  font-size: 9px;
+  margin-bottom: 7px;
+}
+.system-details h2 {
+  margin-bottom: 22px;
+}
+.system-info dl {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 11px;
+}
+.system-info dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+.system-info dt {
+  color: var(--mixm-muted);
+  flex-shrink: 0;
+}
+.system-info dd {
+  margin: 0;
+  text-align: right;
+}
+.timestamp {
+  overflow-wrap: anywhere;
+}
+.system-load {
+  border-left: 1px solid var(--mixm-border);
+  padding-left: 40px;
+}
+.load-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.load-values > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.load-values span {
+  font-size: 10px;
+  color: var(--mixm-muted);
+}
+.load-values strong {
+  font-family: var(--mixm-font-display);
+  font-weight: 400;
+  font-size: 32px;
+}
+.dashboard-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  color: var(--mixm-muted);
+  font-size: 10px;
+}
+.dashboard-footer a:hover {
+  color: var(--mixm-accent);
+}
+.dashboard-footer a > span {
+  margin-left: 8px;
+}
+@media (max-width: 1000px) {
+  .overview-card {
+    padding: 22px;
+  }
+  .resource-grid {
+    gap: 12px;
+  }
+  .resource-card :deep(.n-card__content) {
+    padding: 20px;
+  }
+}
+@media (max-width: 680px) {
+  .dashboard-edition {
+    display: none;
+  }
+  .dashboard-intro {
+    padding-top: 0;
+  }
+  .dashboard-intro h1 {
+    font-size: 30px;
+  }
+  .overview-grid {
+    margin-block: 24px 30px;
+  }
+  .overview-card {
+    padding: 18px 12px;
+  }
+  .overview-caption {
+    font-size: 11px;
+  }
+  .overview-caption > span:first-child {
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+  .overview-number {
+    font-size: 40px;
+  }
+  .overview-link {
+    font-size: 10px;
+  }
+  .resource-grid {
+    grid-template-columns: 1fr;
+  }
+  .resource-number {
+    margin: 16px 0;
+  }
+  .system-details {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    margin-top: 28px;
+  }
+  .system-load {
+    border-left: 0;
+    border-top: 1px solid var(--mixm-border);
+    padding: 24px 0 0;
+  }
+  .dashboard-footer {
+    flex-wrap: wrap;
+  }
 }
 </style>

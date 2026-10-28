@@ -189,10 +189,10 @@ const treeData = computed(() => {
 })
 
 const typeMap = {
-  article: { name: '文章', color: '#2080f0', tag: 'info' },
-  video: { name: '视频', color: '#f0a020', tag: 'warning' },
-  exercise: { name: '练习', color: '#18a058', tag: 'success' },
-  resource: { name: '资源', color: '#d03050', tag: 'error' }
+  article: { name: '文章', color: 'var(--mixm-info)', tag: 'info' },
+  video: { name: '视频', color: 'var(--mixm-warning)', tag: 'warning' },
+  exercise: { name: '练习', color: 'var(--mixm-success)', tag: 'success' },
+  resource: { name: '资源', color: 'var(--mixm-error)', tag: 'error' }
 }
 
 const contentRenderMode = computed(() => {
@@ -271,7 +271,7 @@ function getTypeTagType(type) {
 }
 
 function getThumbColor(type) {
-  return typeMap[type]?.color || '#2080f0'
+  return typeMap[type]?.color || 'var(--mixm-info)'
 }
 
 function getStatusName(status) {
@@ -451,13 +451,13 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 4px;
   font-size: 14px;
-  color: #666;
+  color: var(--mixm-muted);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .back-link:hover {
-  color: #18a058;
+  color: var(--mixm-accent);
 }
 
 .detail-layout {
@@ -472,41 +472,41 @@ onBeforeUnmount(() => {
 
 .category-view,
 .content-view {
-  background: white;
-  border-radius: 8px;
+  background: var(--mixm-surface);
+  border-radius: 6px;
   padding: 32px;
-  border: 1px solid #e0e0e6;
+  border: 1px solid var(--mixm-border);
 }
 
 .category-header {
   margin-bottom: 24px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #e0e0e6;
+  border-bottom: 1px solid var(--mixm-border);
 }
 
 .category-header .title {
   font-size: 28px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin: 0 0 16px 0;
 }
 
 .category-header .description {
   font-size: 14px;
-  color: #666;
+  color: var(--mixm-muted);
   line-height: 1.6;
 }
 
 .category-description {
   padding: 16px 0;
   margin-bottom: 16px;
-  /* border-bottom: 1px solid #f0f0f0; */
+  /* border-bottom: 1px solid var(--mixm-border); */
 }
 
 .category-description p {
   margin: 0;
   font-size: 15px;
-  color: #333;
+  color: var(--mixm-ink);
   line-height: 1.8;
 }
 
@@ -520,12 +520,12 @@ onBeforeUnmount(() => {
 .divider-line {
   flex: 1;
   height: 1px;
-  background: #e0e0e6;
+  background: var(--mixm-border);
 }
 
 .divider-text {
   font-size: 14px;
-  color: #999;
+  color: var(--mixm-faint);
   white-space: nowrap;
   font-weight: 500;
 }
@@ -537,18 +537,17 @@ onBeforeUnmount(() => {
 }
 
 .content-item {
-  background: white;
-  border-radius: 12px;
+  background: var(--mixm-surface);
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
-  border: 1px solid #e8e8ec;
+  border: 1px solid var(--mixm-border);
 }
 
 .content-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: #18a058;
+  transform: translateY(-2px);
+  border-color: var(--mixm-accent);
 }
 
 .content-thumb {
@@ -567,7 +566,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   height: 40px;
-  background: linear-gradient(to top, rgba(255, 255, 255, 0.9), transparent);
+  background: linear-gradient(to top, var(--mixm-surface), transparent);
 }
 
 .content-info {
@@ -577,7 +576,7 @@ onBeforeUnmount(() => {
 .content-info h4 {
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin: 0 0 8px;
   line-height: 1.4;
   display: -webkit-box;
@@ -589,7 +588,7 @@ onBeforeUnmount(() => {
 
 .content-info p {
   font-size: 13px;
-  color: #888;
+  color: var(--mixm-muted);
   margin: 0;
   line-height: 1.5;
   display: -webkit-box;
@@ -604,24 +603,24 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--mixm-border);
 }
 
 .content-item .content-meta .time {
   font-size: 12px;
-  color: #999;
+  color: var(--mixm-faint);
 }
 
 .article-header {
   margin-bottom: 24px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #e0e0e6;
+  border-bottom: 1px solid var(--mixm-border);
 }
 
 .title {
   font-size: 28px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   margin: 16px 0;
   line-height: 1.4;
 }
@@ -631,7 +630,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   font-size: 13px;
-  color: #999;
+  color: var(--mixm-faint);
 }
 
 .status-badge {
@@ -641,14 +640,14 @@ onBeforeUnmount(() => {
 }
 
 .status-badge.published {
-  background: #e6f7ef;
-  color: #18a058;
+  background: var(--mixm-success-soft);
+  color: var(--mixm-success);
 }
 
 .article-body {
   font-size: 16px;
   line-height: 1.8;
-  color: #333;
+  color: var(--mixm-ink);
 }
 
 .markdown-preview :deep(.vditor-reset) {
@@ -688,7 +687,7 @@ onBeforeUnmount(() => {
 }
 
 .article-body :deep(a) {
-  color: #18a058;
+  color: var(--mixm-accent);
   text-decoration: none;
 }
 
@@ -697,23 +696,23 @@ onBeforeUnmount(() => {
 }
 
 .article-body :deep(blockquote) {
-  border-left: 4px solid #18a058;
+  border-left: 4px solid var(--mixm-accent);
   padding-left: 16px;
   margin: 16px 0;
-  color: #666;
-  background: #f9f9f9;
+  color: var(--mixm-muted);
+  background: var(--mixm-surface-muted);
   padding: 12px 16px;
 }
 
 .article-body :deep(pre) {
-  background: #f5f5f5;
+  background: var(--mixm-surface-muted);
   padding: 16px;
   border-radius: 4px;
   overflow-x: auto;
 }
 
 .article-body :deep(code) {
-  background: #f5f5f5;
+  background: var(--mixm-surface-muted);
   padding: 2px 6px;
   border-radius: 3px;
   font-family: monospace;
@@ -728,9 +727,9 @@ onBeforeUnmount(() => {
 .detail-sidebar {
   width: 280px;
   flex-shrink: 0;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e0e0e6;
+  background: var(--mixm-surface);
+  border-radius: 6px;
+  border: 1px solid var(--mixm-border);
   max-height: calc(100vh - 200px);
   overflow-y: auto;
   position: sticky;
@@ -741,8 +740,8 @@ onBeforeUnmount(() => {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 600;
-  color: #333;
-  border-bottom: 1px solid #e0e0e6;
+  color: var(--mixm-ink);
+  border-bottom: 1px solid var(--mixm-border);
 }
 
 .sidebar-wrapper {

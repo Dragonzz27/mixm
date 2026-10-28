@@ -416,9 +416,9 @@ onMounted(() => {
 }
 
 .page-header h1 {
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 400;
+  color: var(--mixm-ink);
   margin: 0;
 }
 
@@ -445,19 +445,19 @@ onMounted(() => {
 }
 
 .card-body .description {
-  color: #666;
+  color: var(--mixm-muted);
   margin-bottom: 12px;
   line-height: 1.6;
 }
 
 .card-body .deadline {
   font-size: 14px;
-  color: #666;
+  color: var(--mixm-muted);
   margin-bottom: 12px;
 }
 
 .card-body .deadline .text-error {
-  color: #d03050;
+  color: var(--mixm-error);
 }
 
 .card-body .submission-status {
@@ -479,7 +479,7 @@ onMounted(() => {
 
 .submit-time {
   font-size: 13px;
-  color: #999;
+  color: var(--mixm-faint);
 }
 
 .submit-form {
@@ -495,15 +495,15 @@ onMounted(() => {
 .detail-panel {
   min-width: 0;
   padding: 4px 8px;
-  border: 1px solid #e0e0e6;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--mixm-border);
+  border-radius: 6px;
+  background: var(--mixm-surface);
 }
 
 .section-title {
   margin-bottom: 3px;
   font-weight: 600;
-  color: #333;
+  color: var(--mixm-ink);
   font-size: 13px;
   line-height: 18px;
 }
@@ -515,7 +515,7 @@ onMounted(() => {
   min-width: 0;
   height: 26px;
   gap: 8px;
-  color: #666;
+  color: var(--mixm-muted);
   font-size: 13px;
 }
 
@@ -532,12 +532,12 @@ onMounted(() => {
 }
 
 .summary-divider {
-  color: #ddd;
+  color: var(--mixm-border);
 }
 
 .summary-deadline {
   flex-shrink: 0;
-  color: #888;
+  color: var(--mixm-muted);
 }
 
 .attachment-panel {
@@ -551,7 +551,7 @@ onMounted(() => {
 .attachment-tabs :deep(.n-tabs-nav-scroll-wrapper) {
   width: 176px;
   padding-right: 12px;
-  border-right: 1px solid #e0e0e6;
+  border-right: 1px solid var(--mixm-border);
 }
 
 .attachment-tabs :deep(.n-tabs-pane-wrapper) {
@@ -574,19 +574,19 @@ onMounted(() => {
   left: 4px;
   height: 2px;
   border-radius: 2px;
-  background: #18a058;
+  background: var(--mixm-accent);
   content: '';
 }
 
 .attachment-name {
-  color: #333;
+  color: var(--mixm-ink);
   font-weight: 600;
   margin-bottom: 2px;
 }
 
 .attachment-file,
 .attachment-size {
-  color: #666;
+  color: var(--mixm-muted);
   font-size: 12px;
   word-break: break-all;
 }
@@ -614,26 +614,26 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 2px dashed #d0d0d5;
-  border-radius: 8px;
+  border: 2px dashed var(--mixm-border);
+  border-radius: 6px;
   padding: 3px 10px;
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .upload-dragger:hover {
-  border-color: #18a058;
-  background: #f0f9f4;
+  border-color: var(--mixm-accent);
+  background: var(--mixm-accent-soft);
 }
 
 .upload-text {
   font-size: 14px;
-  color: #333;
+  color: var(--mixm-ink);
 }
 
 .upload-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--mixm-faint);
 }
 
 .selected-file {
@@ -648,12 +648,12 @@ onMounted(() => {
 
 .file-name {
   font-weight: 500;
-  color: #333;
+  color: var(--mixm-ink);
 }
 
 .file-size {
   font-size: 12px;
-  color: #999;
+  color: var(--mixm-faint);
   margin-left: auto;
 }
 
