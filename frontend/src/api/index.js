@@ -474,5 +474,8 @@ export const simulationApi = {
   submit(data) {
     const { attempt_id, ...payload } = data
     return request.post(`/simulation-attempts/${attempt_id}/submissions`, payload)
+  },
+  review(attemptId) {
+    return request.get(`/simulation-attempts/${attemptId}/review`)
   }
 }

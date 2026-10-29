@@ -1,728 +1,674 @@
-﻿<template>
+<template>
   <div class="simulation-page">
-    <div class="hero">
-      <div class="hero-main">
-        <div class="eyebrow">Student</div>
+    <header class="simulation-heading">
+      <div>
         <h1>模拟测试</h1>
-        <p>支持题库随机出题，也可尝试智能体生成。</p>
+        <p>
+          {{
+            started
+              ? '专注作答，完成后查看成绩与参考答案。'
+              : '按课程与题型配置一份测试，检验你的学习成果。'
+          }}
+        </p>
       </div>
-      <div class="hero-stats">
-        <div class="stat-item">
-          <span class="stat-label">题型</span>
-          <strong>{{ effectiveTypeCount }}</strong>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">难度</span>
-          <strong>{{ form.difficulty || '-' }}</strong>
-        </div>
+      <div v-if="started" class="heading-actions">
+        <n-tag :bordered="false" :type="isSubmitted ? 'success' : 'info'">
+          {{ isSubmitted ? '已完成' : '答题中' }}
+        </n-tag>
+        <n-button v-if="isSubmitted" secondary @click="resetTest">返回配置</n-button>
       </div>
-      <n-button v-if="!started" type="primary" @click="startTest">开始测试</n-button>
-      <n-button v-else-if="isSubmitted" secondary @click="backToConfig">返回配置</n-button>
-    </div>
+    </header>
 
-    <n-card v-if="!started" class="config-card" title="测试配置">
-      <n-form label-placement="top" :model="form">
-        <n-grid :cols="2" :x-gap="16" :y-gap="12">
-          <n-gi>
-            <n-form-item label="课程 / 分类ID">
+    <n-alert v-if="optionsError && !started" type="warning" :bordered="false">
+      {{ optionsError }}
+      <n-button text class="retry-options" :loading="optionsLoading" @click="loadOptions">
+        重新加载
+      </n-button>
+    </n-alert>
+    <n-alert v-if="error" type="error" :bordered="false">{{ error }}</n-alert>
+
+    <div v-if="!started" class="configuration-layout">
+      <n-form :model="form" :disabled="generating" label-placement="top" class="configuration-main">
+        <section class="configuration-panel">
+          <div class="section-heading">
+            <span class="section-number">01</span>
+            <div>
+              <h2>选择出题方式</h2>
+              <p>从题库抽题、使用练习卷，或根据教学内容生成题目。</p>
+            </div>
+          </div>
+          <div class="generation-modes" role="group" aria-label="出题方式">
+            <button
+              v-for="mode in generationModes"
+              :key="mode.value"
+              type="button"
+              class="generation-mode"
+              :class="{ selected: form.generation_mode === mode.value }"
+              :aria-pressed="form.generation_mode === mode.value"
+              :disabled="generating"
+              @click="form.generation_mode = mode.value"
+            >
+              <n-icon :size="22"><component :is="mode.icon" /></n-icon>
+              <strong>{{ mode.label }}</strong>
+              <span>{{ mode.description }}</span>
+            </button>
+          </div>
+        </section>
+        <section class="configuration-panel">
+          <div class="section-heading">
+            <span class="section-number">02</span>
+            <div>
+              <h2>设置测试范围</h2>
+              <p>选择课程与难度，也可以不限范围进行综合练习。</p>
+            </div>
+          </div>
+          <div class="configuration-fields">
+            <n-form-item label="课程范围">
               <n-select
                 v-model:value="form.course_id"
                 :options="courseOptions"
+                :loading="optionsLoading"
                 filterable
                 clearable
-                placeholder="可选：选择课程范围"
+                placeholder="全部课程"
               />
             </n-form-item>
-          </n-gi>
-          <n-gi>
+            <n-form-item v-if="form.generation_mode === 'practice'" label="练习卷">
+              <n-select
+                v-model:value="form.practice_id"
+                :options="practiceOptions"
+                :loading="optionsLoading"
+                filterable
+                clearable
+                placeholder="选择一份练习卷"
+              />
+            </n-form-item>
             <n-form-item label="题目数量">
               <n-input-number
                 v-model:value="form.question_count"
                 :min="1"
                 :max="50"
-                style="width: 100%"
+                :disabled="useTypeCounts"
+                placeholder="1～50"
+                class="full-width"
+              >
+                <template #suffix>题</template>
+              </n-input-number>
+            </n-form-item>
+            <n-form-item label="题目难度">
+              <n-select
+                v-model:value="form.difficulty"
+                :options="difficultyOptions"
+                clearable
+                :placeholder="form.generation_mode === 'ai' ? '默认难度（3）' : '不限难度'"
               />
             </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="难度">
-              <n-select v-model:value="form.difficulty" :options="difficultyOptions" clearable />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="时间限制（分钟）">
+            <n-form-item label="作答时限">
               <n-input-number
                 v-model:value="form.time_limit_minutes"
                 :min="1"
                 :max="180"
-                style="width: 100%"
                 clearable
+                placeholder="不限时"
+                class="full-width"
+              >
+                <template #suffix>分钟</template>
+              </n-input-number>
+            </n-form-item>
+          </div>
+          <p class="field-note">题目数量最多 50 题；不设置作答时限时，可按自己的节奏完成。</p>
+        </section>
+        <section class="configuration-panel">
+          <div class="section-heading">
+            <span class="section-number">03</span>
+            <div>
+              <h2>选择题型</h2>
+              <p>
+                {{
+                  useTypeCounts
+                    ? '为需要练习的题型填写数量，总计最多 50 题。'
+                    : '未选择题型时，将从所有可用题型中出题。'
+                }}
+              </p>
+            </div>
+          </div>
+          <div v-if="form.generation_mode === 'random'" class="custom-counts-toggle">
+            <span>按题型分配数量</span>
+            <n-switch
+              v-model:value="customCounts"
+              :disabled="generating"
+              aria-label="按题型分配数量"
+            />
+          </div>
+          <div v-if="useTypeCounts" class="type-counts-grid">
+            <n-form-item v-for="type in simulationTypes" :key="type.value" :label="type.label">
+              <n-input-number
+                v-model:value="form.type_counts[type.value]"
+                :min="0"
+                :max="50"
+                class="full-width"
+                :input-props="{ 'aria-label': `${type.label}数量` }"
               />
             </n-form-item>
-          </n-gi>
-        </n-grid>
-
-        <n-grid :cols="2" :x-gap="16" :y-gap="12">
-          <n-gi>
-            <n-form-item label="出题方式">
-              <n-select v-model:value="form.generation_mode" :options="generationOptions" />
-            </n-form-item>
-          </n-gi>
-          <n-gi v-if="form.generation_mode === 'practice'">
-            <n-form-item label="练习卷">
-              <n-select
-                v-model:value="form.practice_id"
-                :options="practiceOptions"
-                filterable
-                clearable
-                placeholder="请选择练习卷"
-              />
-            </n-form-item>
-          </n-gi>
-        </n-grid>
-
-        <n-form-item label="题型">
-          <n-checkbox-group v-model:value="form.question_types">
-            <n-space wrap class="type-pills">
-              <n-checkbox value="single_choice">单选题</n-checkbox>
-              <n-checkbox value="multi_choice">多选题</n-checkbox>
-              <n-checkbox value="true_false">判断题</n-checkbox>
-              <n-checkbox value="fill_blank">填空题</n-checkbox>
-              <n-checkbox value="short_answer">简答题</n-checkbox>
-            </n-space>
+          </div>
+          <n-checkbox-group v-else v-model:value="form.question_types">
+            <div class="question-type-grid">
+              <n-checkbox
+                v-for="type in simulationTypes"
+                :key="type.value"
+                :value="type.value"
+                class="question-type-option"
+              >
+                {{ type.label }}
+              </n-checkbox>
+            </div>
           </n-checkbox-group>
-        </n-form-item>
-
-        <n-card
-          v-if="form.generation_mode === 'random'"
-          size="small"
-          title="按题型数量出题（可选）"
-          style="margin-top: 8px"
-        >
-          <n-grid :cols="5" :x-gap="12" :y-gap="12">
-            <n-gi>
-              <n-form-item label="单选题">
-                <n-input-number
-                  v-model:value="form.type_counts.single_choice"
-                  :min="0"
-                  :max="50"
-                  style="width: 100%"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="多选题">
-                <n-input-number
-                  v-model:value="form.type_counts.multi_choice"
-                  :min="0"
-                  :max="50"
-                  style="width: 100%"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="判断题">
-                <n-input-number
-                  v-model:value="form.type_counts.true_false"
-                  :min="0"
-                  :max="50"
-                  style="width: 100%"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="填空题">
-                <n-input-number
-                  v-model:value="form.type_counts.fill_blank"
-                  :min="0"
-                  :max="50"
-                  style="width: 100%"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="简答题">
-                <n-input-number
-                  v-model:value="form.type_counts.short_answer"
-                  :min="0"
-                  :max="50"
-                  style="width: 100%"
-                />
-              </n-form-item>
-            </n-gi>
-          </n-grid>
-          <div class="count-tip">已配置总题数：{{ typeCountTotal }}</div>
-        </n-card>
+          <p
+            v-if="useTypeCounts"
+            class="field-note"
+            :class="{ 'invalid-count': typeCountTotal < 1 || typeCountTotal > 50 }"
+          >
+            已配置 {{ typeCountTotal }} 题{{
+              typeCountTotal < 1 || typeCountTotal > 50
+                ? '，请将总题数设置为 1～50 题。'
+                : '，将按以上数量抽题。'
+            }}
+          </p>
+        </section>
       </n-form>
-    </n-card>
-
-    <n-spin :show="loading">
-      <div v-if="started && questions.length > 0" class="test-area">
-        <div class="test-main">
-          <n-alert v-if="timeLeftText" type="info" class="timer"
-            >剩余时间：{{ timeLeftText }}</n-alert
+      <aside class="configuration-summary">
+        <section class="summary-card">
+          <h2>本次测试</h2>
+          <div class="summary-question-count">
+            <strong>{{ requestedCount || '—' }}</strong>
+            <span>道题</span>
+          </div>
+          <dl class="configuration-summary-list">
+            <div>
+              <dt>出题方式</dt>
+              <dd>{{ currentMode.label }}</dd>
+            </div>
+            <div>
+              <dt>课程范围</dt>
+              <dd>{{ selectedCourseName }}</dd>
+            </div>
+            <div v-if="form.generation_mode === 'practice'">
+              <dt>练习卷</dt>
+              <dd>{{ selectedPracticeName }}</dd>
+            </div>
+            <div>
+              <dt>题目难度</dt>
+              <dd>{{ selectedDifficulty }}</dd>
+            </div>
+            <div>
+              <dt>作答时限</dt>
+              <dd>{{ form.time_limit_minutes ? `${form.time_limit_minutes} 分钟` : '不限时' }}</dd>
+            </div>
+          </dl>
+          <div class="summary-types">
+            <span>题型范围</span>
+            <div>
+              <n-tag v-for="type in selectedTypes" :key="type" size="small" :bordered="false">
+                {{ simulationTypeLabels[type] }}
+              </n-tag>
+              <span v-if="!selectedTypes.length">全部题型</span>
+            </div>
+          </div>
+          <n-button
+            block
+            type="primary"
+            size="large"
+            :loading="generating"
+            :disabled="optionsLoading || !!configurationError"
+            @click="startTest"
           >
+            {{ generating ? '正在准备题目' : '开始测试' }}
+          </n-button>
+          <p class="summary-note">
+            {{ configurationError || '题目数量以实际生成的试卷为准，完成后可查看成绩与参考答案。' }}
+          </p>
+        </section>
+      </aside>
+    </div>
 
-          <n-card
-            v-for="(q, index) in questions"
-            :key="q.id"
-            class="question-card"
-            :id="`question-${q.id}`"
-          >
-            <template #header>
-              <div class="question-head">
-                <span>第 {{ index + 1 }} 题</span>
-                <n-space>
-                  <n-tag size="small">{{
-                    questionTypeLabelMap[q.question_type] || q.question_type
-                  }}</n-tag>
-                  <n-tag size="small" type="warning">{{ Number(q.score || 0).toFixed(2) }}分</n-tag>
-                </n-space>
-              </div>
-            </template>
-            <div class="stem">{{ q.stem }}</div>
-            <template v-if="q.question_type === 'multi_choice'">
-              <n-checkbox-group v-model:value="multiAnswers[q.id]">
-                <n-space vertical>
-                  <n-checkbox
-                    v-for="(opt, optIndex) in q.options"
-                    :key="optIndex"
-                    :value="optIndex"
-                  >
-                    {{ String.fromCharCode(65 + optIndex) }}. {{ opt }}
-                  </n-checkbox>
-                </n-space>
-              </n-checkbox-group>
-            </template>
-            <template v-else-if="q.question_type === 'true_false'">
-              <n-button-group>
-                <n-button
-                  :type="judgeAnswers[q.id] === 0 ? 'primary' : 'default'"
-                  @click="judgeAnswers[q.id] = 0"
-                >
-                  对
-                </n-button>
-                <n-button
-                  :type="judgeAnswers[q.id] === 1 ? 'primary' : 'default'"
-                  @click="judgeAnswers[q.id] = 1"
-                >
-                  错
-                </n-button>
-              </n-button-group>
-            </template>
-            <template v-else-if="['fill_blank', 'short_answer'].includes(q.question_type)">
-              <n-input
-                v-model:value="textAnswers[q.id]"
-                type="textarea"
-                :autosize="{ minRows: 2, maxRows: 4 }"
-                placeholder="请输入你的答案"
-              />
-            </template>
-            <n-radio-group v-else v-model:value="answers[q.id]">
-              <n-space vertical>
-                <n-radio v-for="(opt, optIndex) in q.options" :key="optIndex" :value="optIndex">
-                  {{ String.fromCharCode(65 + optIndex) }}. {{ opt }}
-                </n-radio>
-              </n-space>
-            </n-radio-group>
-            <div class="knowledge">知识点：{{ q.knowledge_tag || '未标注' }}</div>
-          </n-card>
-
-          <div class="actions">
-            <n-button type="primary" size="large" :disabled="isSubmitted" @click="submitTest">
-              {{ isSubmitted ? '已提交' : '提交测试' }}
+    <template v-else-if="questions.length">
+      <div class="paper-overview">
+        <div>
+          <span>{{ currentMode.label }}</span>
+          <span>{{ selectedCourseName }}</span>
+        </div>
+        <div>
+          <strong>{{ questions.length }}</strong>
+          道题
+          <span class="overview-divider">/</span>
+          总分 {{ totalPaperScore }} 分
+        </div>
+      </div>
+      <div class="test-layout">
+        <div class="test-questions">
+          <SimulationQuestion
+            v-for="(question, index) in questions"
+            :key="question.id"
+            v-model:answer="answers[question.id]"
+            :question="question"
+            :index="index"
+            :disabled="isSubmitted || submitting || timeExpired"
+          />
+          <div class="mobile-submit-bar">
+            <span>已答 {{ answeredCount }} / {{ questions.length }} 题</span>
+            <n-button
+              type="primary"
+              :loading="submitting"
+              @click="isSubmitted ? (showResult = true) : submitTest()"
+            >
+              {{ isSubmitted ? '查看结果' : '提交测试' }}
             </n-button>
           </div>
         </div>
-
         <aside class="answer-sheet">
-          <n-card title="答题卡" size="small" class="sheet-card">
-            <div class="sheet-summary">已答 {{ answeredCount }} / {{ questions.length }}</div>
-            <div class="sheet-summary">总分：{{ totalPaperScore }} 分</div>
+          <section class="summary-card answer-sheet-card">
+            <div class="sheet-heading">
+              <h2>答题卡</h2>
+              <span>{{ questions.length }} 题</span>
+            </div>
+            <div
+              v-if="timeLimitSeconds && !isSubmitted"
+              class="time-remaining"
+              :class="{ urgent: timeLeft <= 60 }"
+            >
+              <n-icon :size="18"><TimeOutline /></n-icon>
+              <span>剩余时间</span>
+              <strong>{{ timeLeftText }}</strong>
+            </div>
+            <div class="answer-progress" aria-live="polite">
+              <span>答题进度</span>
+              <strong>
+                {{ answeredCount }}
+                <small>/ {{ questions.length }}</small>
+              </strong>
+            </div>
+            <n-progress
+              type="line"
+              :percentage="answerPercentage"
+              :show-indicator="false"
+              :height="5"
+              color="var(--mixm-accent)"
+            />
             <div class="sheet-grid">
               <button
-                v-for="(q, index) in questions"
-                :key="`sheet-${q.id}`"
+                v-for="(question, index) in questions"
+                :key="question.id"
+                type="button"
                 class="sheet-item"
-                :class="{
-                  answered: ['fill_blank', 'short_answer'].includes(q.question_type)
-                    ? Boolean(textAnswers[q.id])
-                    : answers[q.id] !== undefined && answers[q.id] !== null
-                }"
-                @click="scrollToQuestion(q.id)"
+                :class="{ answered: hasSimulationAnswer(question, answers[question.id]) }"
+                :aria-label="`第 ${index + 1} 题，${hasSimulationAnswer(question, answers[question.id]) ? '已作答' : '未作答'}`"
+                @click="scrollToQuestion(question.id)"
               >
                 {{ index + 1 }}
               </button>
             </div>
+            <div class="sheet-legend">
+              <span>
+                <i class="legend-answered"></i>
+                已作答
+              </span>
+              <span>
+                <i></i>
+                未作答
+              </span>
+            </div>
+            <template v-if="isSubmitted">
+              <n-button block type="primary" @click="showResult = true">查看测试结果</n-button>
+              <n-button
+                block
+                secondary
+                :loading="reviewLoading"
+                class="review-button"
+                @click="openReview"
+              >
+                答案与解析
+              </n-button>
+            </template>
             <n-button
+              v-else
               block
               type="primary"
-              style="margin-top: 12px"
-              :disabled="isSubmitted"
+              size="large"
+              :loading="submitting"
               @click="submitTest"
             >
-              {{ isSubmitted ? '已交卷' : '交卷' }}
+              提交测试
             </n-button>
-          </n-card>
+            <p class="summary-note">
+              {{
+                isSubmitted
+                  ? '测试已完成，答案已锁定。'
+                  : timeExpired
+                    ? '时间已到，答案已锁定。若提交失败，可重试提交。'
+                    : answeredCount === questions.length
+                      ? '全部题目已作答，可以提交测试。'
+                      : `还有 ${questions.length - answeredCount} 题未作答，可通过题号快速定位。`
+              }}
+            </p>
+          </section>
         </aside>
       </div>
-    </n-spin>
-
+    </template>
     <n-result
-      v-if="!loading && started && questions.length === 0"
+      v-else
       status="info"
       title="暂无题目"
-      description="当前条件下没有可用题目，请调整筛选条件后重试。"
+      description="当前条件下没有可用题目，请调整测试配置后重试。"
+    >
+      <template #footer><n-button @click="resetTest">返回配置</n-button></template>
+    </n-result>
+    <SimulationResultsModal
+      v-model:show="showResult"
+      :result="result || {}"
+      :review-loading="reviewLoading"
+      :review-error="reviewError"
+      @review="openReview"
     />
-
-    <n-modal v-model:show="showResult" preset="card" title="测试结果" style="width: 760px">
-      <n-descriptions :column="2" bordered>
-        <n-descriptions-item label="试卷总分">{{ result?.total_score ?? 100 }}</n-descriptions-item>
-        <n-descriptions-item label="本次得分">{{ result?.score ?? 0 }}</n-descriptions-item>
-        <n-descriptions-item label="正确率">{{ result?.accuracy }}%</n-descriptions-item>
-        <n-descriptions-item label="答对题数"
-          >{{ result?.correct_count }}/{{ result?.total_questions }}</n-descriptions-item
-        >
-        <n-descriptions-item label="已答题数">{{ result?.answered_questions }}</n-descriptions-item>
-        <n-descriptions-item label="薄弱知识点">{{
-          result?.weak_knowledge_points?.join('、') || '无'
-        }}</n-descriptions-item>
-      </n-descriptions>
-      <n-divider />
-      <n-space vertical class="result-list">
-        <div class="result-row" v-for="(score, kp) in result?.knowledge_accuracy || {}" :key="kp">
-          {{ kp }}：{{ score }}%
-        </div>
-      </n-space>
-      <template #action>
-        <n-space>
-          <n-button secondary @click="openAnswerReview">查看答案与解析</n-button>
-          <n-button type="primary" @click="showResult = false">关闭</n-button>
-        </n-space>
-      </template>
-    </n-modal>
-
-    <n-modal v-model:show="showReview" preset="card" title="答案与解析" style="width: 860px">
-      <n-space vertical class="result-list">
-        <div v-for="(q, idx) in reviewData.questions" :key="`review-${q.id}`" class="analysis-item">
-          <div class="analysis-head">
-            <strong>第{{ idx + 1 }}题</strong>
-            <n-tag size="small" :type="reviewIsCorrect(q) ? 'success' : 'error'">
-              {{ reviewIsCorrect(q) ? '答对' : '答错' }}
-            </n-tag>
-          </div>
-          <div class="analysis-line">题目：{{ q.stem }}</div>
-          <div class="analysis-line">你的答案：{{ reviewUserAnswer(q) }}</div>
-          <div class="analysis-line">正确答案：{{ reviewCorrectAnswer(q) }}</div>
-          <div class="analysis-line">知识点：{{ q.knowledge_tag || '未标注' }}</div>
-        </div>
-      </n-space>
-      <template #action>
-        <n-button type="primary" @click="showReview = false">关闭</n-button>
-      </template>
-    </n-modal>
+    <SimulationReviewModal
+      v-model:show="showReview"
+      :questions="reviewData.questions"
+      :answers="reviewData.answers"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
-import request from '@/api/request'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   NAlert,
   NButton,
-  NCard,
   NCheckbox,
   NCheckboxGroup,
-  NDescriptions,
-  NDescriptionsItem,
-  NDivider,
-  NFlex,
   NForm,
   NFormItem,
-  NGrid,
-  NGi,
+  NIcon,
   NInputNumber,
-  NInput,
-  NModal,
-  NRadio,
-  NRadioGroup,
-  NButtonGroup,
+  NProgress,
   NResult,
   NSelect,
-  NSpace,
-  NSpin,
-  NTag,
-  useMessage
+  NSwitch,
+  NTag
 } from 'naive-ui'
-import { simulationApi, categoryApi, practiceApi } from '@/api'
+import { BookOutline, DocumentTextOutline, SparklesOutline, TimeOutline } from '@vicons/ionicons5'
+import { categoryApi, practiceApi, simulationApi } from '@/api'
+import SimulationQuestion from '@/components/SimulationQuestion.vue'
+import SimulationResultsModal from '@/components/SimulationResultsModal.vue'
+import SimulationReviewModal from '@/components/SimulationReviewModal.vue'
+import { readAllPages } from '@/utils/courseManagement'
+import {
+  hasSimulationAnswer,
+  simulationAnswers,
+  simulationTypeLabels,
+  simulationTypes
+} from '@/utils/simulation'
 
-const message = useMessage()
-const loading = ref(false)
+const generating = ref(false)
+const submitting = ref(false)
+const reviewLoading = ref(false)
+const reviewError = ref('')
+const optionsLoading = ref(false)
+const optionsError = ref('')
+const error = ref('')
 const started = ref(false)
+const isSubmitted = ref(false)
 const questions = ref([])
 const answers = ref({})
-const textAnswers = ref({})
-const multiAnswers = ref({})
-const judgeAnswers = ref({})
+const attemptId = ref('')
 const showResult = ref(false)
 const showReview = ref(false)
 const result = ref(null)
 const reviewData = ref({ questions: [], answers: [] })
-const timer = ref(null)
-const timeLeft = ref(0)
 const courseOptions = ref([])
 const practiceOptions = ref([])
-const currentAttemptId = ref('')
-const submittedAttemptId = ref('')
-const isSubmitted = ref(false)
+const timeLeft = ref(0)
+const timeLimitSeconds = ref(0)
+const customCounts = ref(false)
+let timer = null
+let expiresAt = 0
 
 const form = ref({
-  course_id: '',
-  practice_id: '',
+  course_id: null,
+  practice_id: null,
   question_count: 10,
   difficulty: null,
   question_types: [],
-  type_counts: {
-    single_choice: 0,
-    multi_choice: 0,
-    true_false: 0,
-    fill_blank: 0,
-    short_answer: 0
-  },
+  type_counts: Object.fromEntries(simulationTypes.map((type) => [type.value, 0])),
   time_limit_minutes: null,
   generation_mode: 'random'
 })
-
-const difficultyOptions = [
-  { label: '1', value: 1 },
-  { label: '2', value: 2 },
-  { label: '3', value: 3 },
-  { label: '4', value: 4 },
-  { label: '5', value: 5 }
+const generationModes = [
+  { value: 'random', label: '题库抽题', description: '从已审核题目中抽取', icon: BookOutline },
+  {
+    value: 'practice',
+    label: '练习卷',
+    description: '选择已配置的练习卷',
+    icon: DocumentTextOutline
+  },
+  { value: 'ai', label: '智能体生成', description: '结合教学内容生成题目', icon: SparklesOutline }
 ]
-
-const generationOptions = [
-  { label: '题库抽题', value: 'random' },
-  { label: '练习卷', value: 'practice' },
-  { label: '智能体生成', value: 'ai' }
-]
-
-const questionTypeLabelMap = {
-  single_choice: '单选题',
-  multi_choice: '多选题',
-  true_false: '判断题',
-  fill_blank: '填空题',
-  short_answer: '简答题'
-}
-
-const typeCountTotal = computed(() => {
-  const counts = form.value.type_counts || {}
-  return Object.values(counts).reduce((sum, item) => sum + (Number(item) || 0), 0)
+const difficultyOptions = ['基础', '较易', '中等', '较难', '挑战'].map((label, index) => ({
+  label: `${index + 1} · ${label}`,
+  value: index + 1
+}))
+const currentMode = computed(() =>
+  generationModes.find((mode) => mode.value === form.value.generation_mode)
+)
+const selectedCourseName = computed(
+  () =>
+    courseOptions.value.find((course) => course.value === form.value.course_id)?.label || '全部课程'
+)
+const selectedPracticeName = computed(
+  () =>
+    practiceOptions.value.find((practice) => practice.value === form.value.practice_id)?.label ||
+    '尚未选择'
+)
+const selectedDifficulty = computed(
+  () =>
+    difficultyOptions.find((item) => item.value === form.value.difficulty)?.label ||
+    (form.value.generation_mode === 'ai' ? '默认难度（3）' : '不限难度')
+)
+const useTypeCounts = computed(() => form.value.generation_mode === 'random' && customCounts.value)
+const typeCountTotal = computed(() =>
+  Object.values(form.value.type_counts).reduce((sum, value) => sum + (Number(value) || 0), 0)
+)
+const requestedCount = computed(() =>
+  useTypeCounts.value ? typeCountTotal.value : form.value.question_count
+)
+const selectedTypes = computed(() =>
+  useTypeCounts.value
+    ? simulationTypes
+        .filter((type) => form.value.type_counts[type.value] > 0)
+        .map((type) => type.value)
+    : form.value.question_types
+)
+const configurationError = computed(() => {
+  if (form.value.generation_mode === 'practice' && !form.value.practice_id)
+    return '请先选择一份练习卷。'
+  if (
+    useTypeCounts.value &&
+    Object.values(form.value.type_counts).some(
+      (count) => count != null && (!Number.isInteger(count) || count < 0 || count > 50)
+    )
+  )
+    return '每种题型的数量应为 0～50 的整数。'
+  if (
+    !Number.isInteger(requestedCount.value) ||
+    requestedCount.value < 1 ||
+    requestedCount.value > 50
+  )
+    return '请将总题数设置为 1～50 题。'
+  const minutes = form.value.time_limit_minutes
+  if (minutes != null && (!Number.isInteger(minutes) || minutes < 1 || minutes > 180))
+    return '作答时限应为 1～180 分钟，或留空不限时。'
+  return ''
 })
+const answeredCount = computed(
+  () =>
+    questions.value.filter((question) => hasSimulationAnswer(question, answers.value[question.id]))
+      .length
+)
+const answerPercentage = computed(() =>
+  questions.value.length ? Math.round((answeredCount.value / questions.value.length) * 100) : 0
+)
+const totalPaperScore = computed(() =>
+  questions.value.reduce((sum, question) => sum + (Number(question.score) || 0), 0).toFixed(2)
+)
+const timeExpired = computed(
+  () => started.value && !isSubmitted.value && timeLimitSeconds.value > 0 && timeLeft.value <= 0
+)
+const timeLeftText = computed(
+  () =>
+    `${String(Math.floor(timeLeft.value / 60)).padStart(2, '0')}:${String(timeLeft.value % 60).padStart(2, '0')}`
+)
 
-const effectiveTypeCount = computed(() => {
-  if (form.value.generation_mode === 'random' && typeCountTotal.value > 0) {
-    return Object.values(form.value.type_counts || {}).filter((v) => Number(v) > 0).length
-  }
-  return form.value.question_types?.length || 0
-})
-
-const answeredCount = computed(() => {
-  return questions.value.filter((q) => {
-    if (['fill_blank', 'short_answer'].includes(q.question_type)) {
-      return Boolean(textAnswers.value[q.id])
-    }
-    if (q.question_type === 'multi_choice') {
-      return Array.isArray(multiAnswers.value[q.id]) && multiAnswers.value[q.id].length > 0
-    }
-    if (q.question_type === 'true_false') {
-      return judgeAnswers.value[q.id] !== undefined && judgeAnswers.value[q.id] !== null
-    }
-    return answers.value[q.id] !== undefined && answers.value[q.id] !== null
-  }).length
-})
-
-const totalPaperScore = computed(() => {
-  const sum = (questions.value || []).reduce((acc, q) => acc + (Number(q.score) || 0), 0)
-  return sum.toFixed(2)
-})
-
-function scrollToQuestion(questionId) {
-  const el = document.getElementById(`question-${questionId}`)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-}
-
-const timeLeftText = computed(() => {
-  if (!started.value || !timeLeft.value) return ''
-  const m = Math.floor(timeLeft.value / 60)
-  const s = timeLeft.value % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-})
-
-async function loadCourses() {
-  try {
-    const res = await categoryApi.getTree({ max_depth: 100 })
-    const flatten = []
-    const walk = (items, prefix = '') => {
-      ;(items || []).forEach((item) => {
-        flatten.push({ label: prefix + item.name, value: item.id })
-        if (item.children?.length) walk(item.children, `${prefix}${item.name} / `)
-      })
-    }
-    walk(res || [])
-    courseOptions.value = flatten
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-async function loadPractices() {
-  try {
-    const res = await practiceApi.getList({ offset: 0, limit: 200 })
-    practiceOptions.value = (res.items || []).map((item) => ({
-      label: `${item.title}（${item.question_count || 0}题）`,
-      value: item.id
+// 课程选择与阅读目录保持一致，只展示启用的顶级课程。
+async function loadOptions() {
+  optionsLoading.value = true
+  optionsError.value = ''
+  const [courses, practices] = await Promise.allSettled([
+    categoryApi.getTree(),
+    readAllPages((params) => practiceApi.getList(params))
+  ])
+  const failed = []
+  if (courses.status === 'fulfilled')
+    courseOptions.value = courses.value
+      .filter((course) => course.is_active !== false)
+      .map((course) => ({ label: course.name, value: course.id }))
+  else failed.push('课程')
+  if (practices.status === 'fulfilled')
+    practiceOptions.value = practices.value.map((practice) => ({
+      label: `${practice.title}（${practice.question_count || 0} 题）`,
+      value: practice.id
     }))
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-function clearTimer() {
-  if (timer.value) {
-    clearInterval(timer.value)
-    timer.value = null
-  }
+  else failed.push('练习卷')
+  if (failed.length) optionsError.value = `${failed.join('、')}选项加载失败，请重新加载。`
+  optionsLoading.value = false
 }
 
 async function startTest() {
-  loading.value = true
+  if (generating.value || started.value || configurationError.value) return
+  generating.value = true
+  error.value = ''
   try {
-    if (form.value.generation_mode === 'practice' && !form.value.practice_id) {
-      message.warning('请选择练习卷')
-      return
-    }
     const payload = {
-      ...form.value,
-      question_types: form.value.question_types.length ? form.value.question_types : null,
-      type_counts:
-        form.value.generation_mode === 'random' && typeCountTotal.value > 0
-          ? Object.fromEntries(
-              Object.entries(form.value.type_counts || {}).filter(([, v]) => Number(v) > 0)
-            )
-          : null,
-      practice_id:
-        form.value.generation_mode === 'practice' ? form.value.practice_id || null : null,
+      generation_mode: form.value.generation_mode,
       course_id: form.value.course_id || null,
+      practice_id: form.value.generation_mode === 'practice' ? form.value.practice_id : null,
+      question_count: requestedCount.value,
       difficulty: form.value.difficulty || null,
       time_limit_minutes: form.value.time_limit_minutes || null,
-      question_count:
-        form.value.generation_mode === 'random' && typeCountTotal.value > 0
-          ? typeCountTotal.value
-          : form.value.question_count || 10
+      question_types: selectedTypes.value.length ? [...selectedTypes.value] : null,
+      type_counts: useTypeCounts.value
+        ? Object.fromEntries(
+            Object.entries(form.value.type_counts).filter(([, count]) => count > 0)
+          )
+        : null
     }
-    const res = await simulationApi.generate(payload)
-    questions.value = res.questions || []
-    currentAttemptId.value = res.attempt_id || ''
-    isSubmitted.value = (res.attempt_status || '') === 'submitted'
+    const data = await simulationApi.generate(payload)
+    questions.value = data.questions || []
+    attemptId.value = data.attempt_id || ''
     answers.value = {}
-    textAnswers.value = {}
-    multiAnswers.value = {}
-    judgeAnswers.value = {}
+    isSubmitted.value = data.attempt_status === 'submitted'
     started.value = true
-
+    result.value = data.result || null
     clearTimer()
-    if (payload.time_limit_minutes) {
-      timeLeft.value = payload.time_limit_minutes * 60
-      timer.value = setInterval(() => {
-        timeLeft.value -= 1
-        if (timeLeft.value <= 0) {
+    timeLimitSeconds.value = (payload.time_limit_minutes || 0) * 60
+    timeLeft.value = timeLimitSeconds.value
+    if (questions.value.length && timeLimitSeconds.value && !isSubmitted.value) {
+      expiresAt = Date.now() + timeLimitSeconds.value * 1000
+      timer = setInterval(() => {
+        timeLeft.value = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000))
+        if (timeLeft.value === 0) {
           clearTimer()
           submitTest()
         }
       }, 1000)
-    } else {
-      timeLeft.value = 0
     }
-  } catch (err) {
-    console.error(err)
-    message.error(err.response?.data?.message || '生成测试失败')
+    await nextTick()
+    document.getElementById('main-content')?.scrollTo({ top: 0 })
+  } catch (cause) {
+    error.value = cause.response?.data?.message || cause.message || '准备题目失败，请重试。'
   } finally {
-    loading.value = false
+    generating.value = false
   }
 }
 
+// 交卷期间锁定输入，失败后保留全部答案和剩余计时，允许直接重试。
 async function submitTest() {
-  if (!questions.value.length || isSubmitted.value) return
-  clearTimer()
-  loading.value = true
+  if (!questions.value.length || isSubmitted.value || submitting.value) return
+  submitting.value = true
+  error.value = ''
   try {
-    const payload = {
-      attempt_id: currentAttemptId.value || null,
-      questions: questions.value,
-      answers: questions.value.map((q) => ({
-        question_id: q.id,
-        selected_index: (() => {
-          if (['fill_blank', 'short_answer'].includes(q.question_type)) return null
-          if (q.question_type === 'multi_choice') {
-            const picks = multiAnswers.value[q.id] || []
-            return picks.length ? picks[0] : null
-          }
-          if (q.question_type === 'true_false') return judgeAnswers.value[q.id] ?? null
-          return answers.value[q.id] ?? null
-        })(),
-        answer_text: (() => {
-          if (['fill_blank', 'short_answer'].includes(q.question_type)) {
-            return (textAnswers.value[q.id] || '').trim()
-          }
-          if (q.question_type === 'multi_choice') {
-            return JSON.stringify(multiAnswers.value[q.id] || [])
-          }
-          return null
-        })()
-      }))
-    }
-    const res = await simulationApi.submit(payload)
-    result.value = res
-    submittedAttemptId.value = res.attempt_id || currentAttemptId.value || ''
+    const data = await simulationApi.submit({
+      attempt_id: attemptId.value,
+      answers: simulationAnswers(questions.value, answers.value)
+    })
+    result.value = data
+    attemptId.value = data.attempt_id || attemptId.value
     isSubmitted.value = true
+    clearTimer()
     showResult.value = true
-  } catch (err) {
-    console.error(err)
-    message.error(err.response?.data?.message || '提交测试失败')
+  } catch (cause) {
+    error.value = cause.response?.data?.message || cause.message || '提交失败，请重试。'
   } finally {
-    loading.value = false
+    submitting.value = false
   }
 }
 
-function getReviewAnswerByQuestionId(questionId) {
-  return (reviewData.value.answers || []).find((item) => item.question_id === questionId) || {}
-}
-
-function reviewCorrectAnswer(q) {
-  if (q.question_type === 'multi_choice') {
-    const ids = q.correct_indices?.length ? q.correct_indices : [q.correct_index]
-    return ids
-      .map((i) => `${String.fromCharCode(65 + i)}${q.options?.[i] ? `. ${q.options[i]}` : ''}`)
-      .join('；')
-  }
-  if (q.question_type === 'true_false') return q.correct_index === 0 ? '对' : '错'
-  if (['fill_blank', 'short_answer'].includes(q.question_type)) return q.correct_answer || '无'
-  const i = q.correct_index
-  return `${String.fromCharCode(65 + i)}${q.options?.[i] ? `. ${q.options[i]}` : ''}`
-}
-
-function reviewUserAnswer(q) {
-  const ans = getReviewAnswerByQuestionId(q.id)
-  if (q.question_type === 'multi_choice') {
-    let picks = []
-    try {
-      picks = JSON.parse(ans.answer_text || '[]')
-      if (!Array.isArray(picks)) picks = []
-    } catch (e) {
-      picks = []
-    }
-    if (!picks.length && ans.selected_index !== undefined && ans.selected_index !== null)
-      picks = [ans.selected_index]
-    if (!picks.length) return '未作答'
-    return picks
-      .map((i) => `${String.fromCharCode(65 + i)}${q.options?.[i] ? `. ${q.options[i]}` : ''}`)
-      .join('；')
-  }
-  if (q.question_type === 'true_false') {
-    if (ans.selected_index === undefined || ans.selected_index === null) return '未作答'
-    return ans.selected_index === 0 ? '对' : '错'
-  }
-  if (['fill_blank', 'short_answer'].includes(q.question_type))
-    return (ans.answer_text || '').trim() || '未作答'
-  if (ans.selected_index === undefined || ans.selected_index === null) return '未作答'
-  return `${String.fromCharCode(65 + ans.selected_index)}${q.options?.[ans.selected_index] ? `. ${q.options[ans.selected_index]}` : ''}`
-}
-
-function reviewIsCorrect(q) {
-  const ans = getReviewAnswerByQuestionId(q.id)
-  if (q.question_type === 'multi_choice') {
-    let picks = []
-    try {
-      picks = JSON.parse(ans.answer_text || '[]')
-      if (!Array.isArray(picks)) picks = []
-    } catch (e) {
-      picks = []
-    }
-    if (!picks.length && ans.selected_index !== undefined && ans.selected_index !== null)
-      picks = [ans.selected_index]
-    const expected = new Set(q.correct_indices?.length ? q.correct_indices : [q.correct_index])
-    return picks.length > 0 && picks.length === expected.size && picks.every((x) => expected.has(x))
-  }
-  if (q.question_type === 'true_false') {
-    return (
-      ans.selected_index !== undefined &&
-      ans.selected_index !== null &&
-      ans.selected_index === q.correct_index
-    )
-  }
-  if (['fill_blank', 'short_answer'].includes(q.question_type)) {
-    const userText = (ans.answer_text || '').toLowerCase().replace(/\s+/g, '')
-    const correctText = (q.correct_answer || '').toLowerCase().replace(/\s+/g, '')
-    return Boolean(userText) && userText === correctText
-  }
-  return (
-    ans.selected_index !== undefined &&
-    ans.selected_index !== null &&
-    ans.selected_index === q.correct_index
-  )
-}
-
-async function openAnswerReview() {
-  const attemptId = submittedAttemptId.value || result.value?.attempt_id || currentAttemptId.value
-  await openAnswerReviewByAttemptId(attemptId)
-}
-
-async function openAnswerReviewByAttemptId(attemptId) {
-  if (!attemptId) {
-    message.warning('该套试卷缺少 attempt 记录，无法查看解析')
+async function openReview() {
+  if (reviewLoading.value) return
+  if (!attemptId.value) {
+    error.value = '未找到本次测试记录，暂时无法查看答案。'
     return
   }
+  reviewLoading.value = true
+  reviewError.value = ''
+  error.value = ''
   try {
-    const token = localStorage.getItem('token')
-    const res = await request.get(`/simulation-attempts/${attemptId}/review`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    reviewData.value = {
-      questions: res.questions || [],
-      answers: res.answers || []
-    }
+    const data = await simulationApi.review(attemptId.value)
+    reviewData.value = { questions: data.questions || [], answers: data.answers || [] }
+    showResult.value = false
     showReview.value = true
-  } catch (err) {
-    console.error(err)
-    message.error(err.response?.data?.message || '获取答案解析失败')
+  } catch (cause) {
+    error.value = cause.response?.data?.message || cause.message || '答案加载失败，请重试。'
+    reviewError.value = error.value
+  } finally {
+    reviewLoading.value = false
   }
 }
 
-function resetAll() {
+function scrollToQuestion(id) {
+  const element = document.getElementById(`question-${id}`)
+  element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  element?.focus({ preventScroll: true })
+}
+function clearTimer() {
+  if (timer) clearInterval(timer)
+  timer = null
+}
+function resetTest() {
   clearTimer()
   started.value = false
+  isSubmitted.value = false
   questions.value = []
   answers.value = {}
-  textAnswers.value = {}
-  multiAnswers.value = {}
-  judgeAnswers.value = {}
+  attemptId.value = ''
   result.value = null
   showResult.value = false
   showReview.value = false
   reviewData.value = { questions: [], answers: [] }
   timeLeft.value = 0
+  timeLimitSeconds.value = 0
+  reviewError.value = ''
+  error.value = ''
 }
-
-function backToConfig() {
-  resetAll()
-}
-
-onBeforeUnmount(() => clearTimer())
-loadCourses()
-loadPractices()
+onMounted(loadOptions)
+onBeforeUnmount(clearTimer)
 </script>
 
 <style scoped>
@@ -731,231 +677,482 @@ loadPractices()
   flex-direction: column;
   gap: 24px;
 }
-.hero {
+.simulation-heading {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 24px;
-  padding: 30px;
-  border-radius: 6px;
-  background: var(--mixm-surface-muted);
-  border: 1px solid var(--mixm-border);
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
-.hero-main {
-  flex: 1;
-  min-width: 0;
-}
-.hero-stats {
-  display: flex;
-  gap: 10px;
-}
-.stat-item {
-  min-width: 76px;
-  padding: 12px;
-  border-radius: 4px;
-  background: var(--mixm-surface);
-  border: 1px solid var(--mixm-border);
-  text-align: center;
-}
-.stat-item strong {
-  font-family: var(--mixm-font-display);
-  font-weight: 400;
-  font-size: 26px;
-  color: var(--mixm-ink);
-}
-.stat-label {
-  display: block;
-  color: var(--mixm-muted);
-  font-size: 11px;
-}
-.eyebrow {
-  font-size: 10px;
-  color: var(--mixm-accent);
-  letter-spacing: 0.15em;
-  font-weight: 500;
-}
-.hero h1 {
-  margin: 12px 0;
-  font-family: var(--mixm-font-display);
-  font-weight: 400;
-  font-size: 34px;
-  color: var(--mixm-ink);
-  letter-spacing: -0.025em;
-}
-.hero p {
+.simulation-heading h1 {
   margin: 0;
+  font-family: var(--mixm-font-display);
+  font-size: 30px;
+  font-weight: 400;
+}
+.simulation-heading p {
+  margin: 8px 0 0;
   color: var(--mixm-muted);
   font-size: 13px;
 }
-.config-card,
-.question-card {
-  border-radius: 6px;
-  border: 1px solid var(--mixm-border);
-  background: var(--mixm-surface);
-}
-.question-card {
-  margin-bottom: 18px;
-}
-.question-head {
+.heading-actions {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 12px;
-  width: 100%;
 }
-.stem {
-  margin-bottom: 18px;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--mixm-ink);
-  line-height: 1.8;
-  background: var(--mixm-paper);
-  border-left: 2px solid var(--mixm-accent);
-  padding: 14px 16px;
+.configuration-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  align-items: start;
+  gap: 24px;
 }
-.knowledge {
-  margin-top: 16px;
+.configuration-main {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+.configuration-panel {
+  padding: 24px;
+  background: var(--mixm-surface);
+  border: 1px solid var(--mixm-border);
+  border-radius: 10px;
+}
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.section-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--mixm-border);
+  border-radius: 50%;
+  color: var(--mixm-accent);
+  font-size: 12px;
+}
+.section-heading h2,
+.summary-card h2 {
+  margin: 0;
+  font-family: var(--mixm-font-body);
+  font-size: 15px;
+  font-weight: 600;
+}
+.section-heading p {
+  margin: 4px 0 0;
   color: var(--mixm-muted);
   font-size: 12px;
-  background: var(--mixm-paper);
-  border: 1px dashed var(--mixm-border);
-  border-radius: 4px;
-  padding: 10px 14px;
+  line-height: 1.7;
 }
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 24px;
-}
-.test-area {
+.generation-modes {
   display: grid;
-  width: 100%;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 27%);
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
-.test-main {
+.generation-mode {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 16px;
+  font: inherit;
+  text-align: left;
+  color: var(--mixm-muted);
+  background: var(--mixm-paper);
+  border: 1px solid var(--mixm-border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+.generation-mode strong {
+  color: var(--mixm-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+.generation-mode > span {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.generation-mode.selected {
+  border-color: var(--mixm-accent);
+  background: var(--mixm-accent-soft);
+  color: var(--mixm-accent);
+}
+.generation-mode:focus-visible,
+.sheet-item:focus-visible {
+  outline: 2px solid var(--mixm-accent);
+  outline-offset: 3px;
+}
+.generation-mode:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.configuration-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+}
+.configuration-fields :deep(.n-form-item),
+.type-counts-grid :deep(.n-form-item) {
   min-width: 0;
 }
-.answer-sheet {
-  position: sticky;
-  top: 16px;
-}
-.sheet-card {
+.full-width {
   width: 100%;
-  border-radius: 6px;
 }
-.sheet-summary {
+.field-note {
+  margin: 0;
+  color: var(--mixm-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.custom-counts-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
   color: var(--mixm-muted);
   font-size: 13px;
-  margin-bottom: 14px;
+}
+.question-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.question-type-option {
+  padding: 12px;
+  border: 1px solid var(--mixm-border);
+  border-radius: 6px;
+  background: var(--mixm-paper);
+}
+.question-type-option.n-checkbox--checked {
+  border-color: var(--mixm-accent);
+  background: var(--mixm-accent-soft);
+}
+.type-counts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 16px;
+}
+.invalid-count {
+  color: var(--mixm-error);
+}
+.configuration-summary,
+.answer-sheet {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+.summary-card {
+  padding: 24px;
+  border: 1px solid var(--mixm-border);
+  border-radius: 10px;
+  background: var(--mixm-surface);
+}
+.summary-question-count {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 24px 0;
+  color: var(--mixm-muted);
+}
+.summary-question-count strong {
+  font-family: var(--mixm-font-display);
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--mixm-ink);
+}
+.summary-question-count > span {
+  font-size: 13px;
+}
+.configuration-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 20px 0;
+  border-top: 1px solid var(--mixm-border);
+  border-bottom: 1px solid var(--mixm-border);
+}
+.configuration-summary-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: 12px;
+}
+.configuration-summary-list dt {
+  flex-shrink: 0;
+  color: var(--mixm-muted);
+}
+.configuration-summary-list dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.summary-types {
+  margin: 20px 0 24px;
+}
+.summary-types > span {
+  color: var(--mixm-muted);
+  font-size: 12px;
+}
+.summary-types > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.summary-note {
+  margin: 12px 0 0;
+  color: var(--mixm-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.retry-options {
+  margin-left: 12px;
+}
+.paper-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--mixm-border);
+  border-radius: 8px;
+  background: var(--mixm-surface);
+  font-size: 13px;
+}
+.paper-overview > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  color: var(--mixm-muted);
+}
+.paper-overview > div:last-child {
+  white-space: nowrap;
+}
+.paper-overview strong {
+  font-weight: 600;
+}
+.overview-divider {
+  margin: 0 12px;
+  color: var(--mixm-border);
+}
+.test-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  grid-template-areas: 'questions sheet';
+  align-items: start;
+  gap: 24px;
+}
+.test-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  grid-area: questions;
+}
+.answer-sheet {
+  grid-area: sheet;
+}
+.sheet-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet-heading > span {
+  font-size: 12px;
+  color: var(--mixm-muted);
+}
+.time-remaining {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  margin-top: 20px;
+  background: var(--mixm-paper);
+  border-radius: 6px;
+  color: var(--mixm-muted);
+  font-size: 12px;
+}
+.time-remaining strong {
+  margin-left: auto;
+  font-size: 18px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--mixm-ink);
+}
+.time-remaining.urgent strong {
+  color: var(--mixm-error);
+}
+.answer-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 24px 0 10px;
+  color: var(--mixm-muted);
+  font-size: 12px;
+}
+.answer-progress strong {
+  font-size: 20px;
+  color: var(--mixm-ink);
+  font-weight: 500;
+}
+.answer-progress small {
+  margin-left: 5px;
+  color: var(--mixm-muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 .sheet-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
+  margin-top: 20px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 3px;
 }
 .sheet-item {
   height: 36px;
-  border-radius: 3px;
-  border: 1px solid var(--mixm-border);
+  font: inherit;
+  font-size: 12px;
+  color: var(--mixm-muted);
   background: var(--mixm-paper);
-  color: var(--mixm-ink);
-  font-weight: 500;
+  border: 1px solid var(--mixm-border);
+  border-radius: 5px;
   cursor: pointer;
 }
 .sheet-item.answered {
-  background: var(--mixm-accent-soft);
   border-color: var(--mixm-accent);
-  color: var(--mixm-accent-pressed);
+  background: var(--mixm-accent-soft);
+  color: var(--mixm-accent);
 }
 .sheet-item:hover {
   border-color: var(--mixm-accent);
 }
-.timer {
-  margin-bottom: 16px;
-}
-.count-tip {
+.sheet-legend {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0 24px;
   color: var(--mixm-muted);
-  font-size: 12px;
-  margin-top: 6px;
+  font-size: 11px;
 }
-.type-pills :deep(.n-checkbox) {
-  padding: 8px 12px;
-  background: var(--mixm-paper);
+.sheet-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sheet-legend i {
+  width: 8px;
+  height: 8px;
   border: 1px solid var(--mixm-border);
-  border-radius: 4px;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease;
+  border-radius: 2px;
+  background: var(--mixm-paper);
 }
-.type-pills :deep(.n-checkbox:hover) {
-  border-color: var(--mixm-accent);
-}
-.type-pills :deep(.n-checkbox.n-checkbox--checked) {
+.sheet-legend .legend-answered {
   background: var(--mixm-accent-soft);
   border-color: var(--mixm-accent);
 }
-:deep(.config-card .n-card-header),
-:deep(.question-card .n-card-header) {
-  border-bottom: 1px solid var(--mixm-border);
+.review-button {
+  margin-top: 10px;
 }
-:deep(.n-card-header__main) {
-  color: var(--mixm-ink);
-  font-weight: 500;
+.mobile-submit-bar {
+  display: none;
 }
-.result-list {
-  background: var(--mixm-paper);
-  border: 1px solid var(--mixm-border);
-  border-radius: 4px;
-  padding: 14px;
-}
-.result-row {
-  color: var(--mixm-ink);
-}
-.analysis-item {
-  border: 1px solid var(--mixm-border);
-  border-radius: 4px;
-  background: var(--mixm-paper);
-  padding: 14px;
-}
-.analysis-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.analysis-line {
-  color: var(--mixm-muted);
-  font-size: 13px;
-  line-height: 1.8;
+@media (max-width: 1100px) {
+  .configuration-layout {
+    grid-template-columns: minmax(0, 1fr) 250px;
+    gap: 18px;
+  }
+  .configuration-panel,
+  .summary-card {
+    padding: 20px;
+  }
+  .generation-modes {
+    gap: 8px;
+  }
+  .generation-mode {
+    padding: 14px 12px;
+  }
 }
 @media (max-width: 900px) {
-  .test-area {
-    grid-template-columns: 1fr;
+  .configuration-layout,
+  .test-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
+  .configuration-summary,
   .answer-sheet {
     position: static;
   }
+  .test-layout {
+    grid-template-areas: 'sheet' 'questions';
+  }
+  .sheet-grid {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+  .mobile-submit-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px;
+    background: var(--mixm-surface);
+    border: 1px solid var(--mixm-border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--mixm-muted);
+  }
 }
-@media (max-width: 680px) {
-  .hero {
-    padding: 24px;
-    flex-direction: column;
-    align-items: flex-start;
+@media (max-width: 600px) {
+  .simulation-page {
+    gap: 18px;
   }
-  .hero h1 {
-    font-size: 29px;
+  .simulation-heading h1 {
+    font-size: 26px;
   }
-  .hero-stats {
-    width: 100%;
+  .configuration-fields {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .stat-item {
-    flex: 1;
-    min-width: 0;
+  .generation-modes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .generation-mode {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 4px 10px;
+  }
+  .generation-mode > .n-icon {
+    grid-row: span 2;
+    align-self: center;
+  }
+  .generation-mode > span {
+    grid-column: 2;
+  }
+  .question-type-grid,
+  .type-counts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sheet-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .configuration-panel,
+  .summary-card {
+    padding: 20px 18px;
+  }
+  .question-type-option {
+    padding: 10px;
   }
 }
 </style>

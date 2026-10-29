@@ -2,6 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
+import { readAllPages } from '../src/utils/courseManagement.js'
+import { hasSimulationAnswer, simulationAnswers, simulationTypeLabels, simulationTypes } from '../src/utils/simulation.js'
 
 test('simulation supports generation, submission and answer review with scoring alone', async () => {
   const calls = []
@@ -12,11 +14,16 @@ test('simulation supports generation, submission and answer review with scoring 
     .match(/<script setup>([\s\S]*?)<\/script>/)[1]
     .replace(/^import[\s\S]*?from ['"][^'"]+['"]\s*$/gm, '')
   const page = vm.runInNewContext(`${source}
-    ;({startTest, submitTest, openAnswerReview, backToConfig,
-      answers, result, started, showResult, showReview, reviewData})`, {
+    ;({startTest, submitTest, openReview, resetTest,
+      answers, result, started, showResult, showReview, reviewData, error})`, {
     ref: value => ({ value }),
     computed: getter => ({ get value() { return getter() } }),
     onBeforeUnmount() {},
+    onMounted() {},
+    nextTick: async () => {},
+    document: { getElementById: () => null },
+    BookOutline: {}, DocumentTextOutline: {}, SparklesOutline: {}, TimeOutline: {},
+    simulationTypes, simulationTypeLabels, simulationAnswers, hasSimulationAnswer, readAllPages,
     useMessage: () => ({ warning: value => errors.push(value), error: value => errors.push(value) }),
     console: { error: value => errors.push(value) },
     localStorage: { getItem: () => 'token' },
@@ -30,11 +37,9 @@ test('simulation supports generation, submission and answer review with scoring 
       submit: async payload => {
         calls.push(JSON.parse(JSON.stringify(payload)))
         return submitted
-      }
-    },
-    request: {
-      get: async path => {
-        calls.push(path)
+      },
+      review: async attemptId => {
+        calls.push(`/simulation-attempts/${attemptId}/review`)
         return { questions: [question], answers: [{ question_id: 'question', selected_index: 0 }] }
       }
     }
@@ -47,16 +52,17 @@ test('simulation supports generation, submission and answer review with scoring 
   assert.equal(page.showResult.value, true)
   assert.deepEqual(page.result.value, submitted)
   await page.submitTest()
-  await page.openAnswerReview()
+  await page.openReview()
   assert.equal(page.showReview.value, true)
   assert.equal(page.reviewData.value.questions.length, 1)
   assert.deepEqual(calls, [
     'generate',
-    { attempt_id: 'attempt', questions: [question], answers: [{ question_id: 'question', selected_index: 0, answer_text: null }] },
+    { attempt_id: 'attempt', answers: [{ question_id: 'question', selected_index: 0, answer_text: null }] },
     '/simulation-attempts/attempt/review'
   ])
   assert.deepEqual(errors, [])
-  page.backToConfig()
+  assert.equal(page.error.value, '')
+  page.resetTest()
   assert.equal(page.started.value, false)
   assert.equal(page.result.value, null)
 })

@@ -30,6 +30,14 @@ test('article course editing paginates bindings for the requested article', asyn
   assert.deepEqual(calls, [{ method: 'get', args: ['/bindings', { params: { offset: 1000, limit: 1000, content_id: 'article' } }] }])
 })
 
+test('simulation review reads the submitted attempt through the existing authenticated route', async () => {
+  const { api, calls } = client()
+  await api.simulationApi.review('attempt')
+  assert.deepEqual(calls, [{ method: 'get', args: ['/simulation-attempts/attempt/review'] }])
+  const routes = JSON.parse(fs.readFileSync(new URL('../../backend/internal/router/routes.json', import.meta.url), 'utf8'))
+  assert.ok(routes.includes('GET /api/simulation-attempts/:id/review'))
+})
+
 test('image tag selectors read every API page instead of stopping at the default page', async () => {
   const all = Array.from({ length: 1003 }, (_, index) => ({ name: `tag-${index}` }))
   const { api, calls } = client((method, args) => {
