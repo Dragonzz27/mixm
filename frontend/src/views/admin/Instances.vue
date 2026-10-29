@@ -19,6 +19,8 @@
         :columns="columns"
         :data="instances"
         :pagination="pagination"
+        :scroll-x="tableWidth"
+        table-layout="fixed"
         remote
         :bordered="false"
       />
@@ -102,8 +104,15 @@ const columns = [
     width: 80,
     render: (_, index) => getRowNumber(index)
   },
-  { title: '实例名称', key: 'name', width: 160 },
-  { title: '镜像', key: 'image', width: 200, render: (row) => h('span', row.image || '-') },
+  { title: '实例名称', key: 'name', width: 280, minWidth: 280, ellipsis: { tooltip: true } },
+  {
+    title: '镜像',
+    key: 'image',
+    width: 320,
+    minWidth: 320,
+    ellipsis: { tooltip: true },
+    render: (row) => row.image || '-'
+  },
   {
     title: '状态',
     key: 'status',
@@ -125,7 +134,7 @@ const columns = [
     render: (row) => h('span', getInstanceResources(row).memoryLimit)
   },
   {
-    title: '临时存储',
+    title: '持久卷',
     key: 'storage_limit',
     width: 110,
     render: (row) => h('span', `${getInstanceResources(row).storageLimit}Gi`)
@@ -143,7 +152,13 @@ const columns = [
     render: (row) => h('span', formatGpuMemory(getInstanceResources(row).gpuMemoryLimit))
   },
   { title: '绑定用户', key: 'username', width: 100 },
-  { title: '启动时间', key: 'started_at', width: 150 },
+  {
+    title: '启动时间',
+    key: 'started_at',
+    width: 220,
+    minWidth: 220,
+    ellipsis: { tooltip: true }
+  },
   {
     title: '操作',
     key: 'actions',
@@ -159,6 +174,9 @@ const columns = [
     ])
   }
 ]
+
+// 按列宽保留表格空间，窄屏通过横向滚动查看，避免实例名称与镜像被挤压。
+const tableWidth = columns.reduce((width, column) => width + column.width, 0)
 
 async function loadData() {
   try {
