@@ -101,8 +101,8 @@ export const bindingApi = {
   getAll(params) {
     return request.get('/bindings/', { params })
   },
-  getByContent(contentId) {
-    return request.get('/bindings', { params: { content_id: contentId } })
+  getByContent(contentId, params) {
+    return request.get('/bindings', { params: { ...params, content_id: contentId } })
   },
   getByCategory(categoryId) {
     return request.get('/bindings', { params: { category_id: categoryId } })

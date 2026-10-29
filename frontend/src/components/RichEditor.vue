@@ -13,7 +13,6 @@
     </div>
     <div class="editor-content" v-show="editorMode === 'web'">
       <QuillEditor 
-        ref="quillEditorRef"
         contentType="html"
         :options="editorOptions"
         @ready="onEditorReady"
@@ -51,7 +50,6 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const message = useMessage()
-const quillEditorRef = ref(null)
 const vditorRef = ref(null)
 const uploading = ref(false)
 const editorMode = ref('md')
@@ -60,6 +58,8 @@ const showConfirmModal = ref(false)
 const pendingMode = ref(null)
 const hasContent = ref(false)
 let vditorInstance = null
+let htmlQuill = null
+let htmlContent = ''
 
 const editorOptions = {
   theme: 'snow',
@@ -86,17 +86,13 @@ function initFromProps() {
   const content = props.modelValue || ''
   if (content.startsWith('[md]')) {
     editorMode.value = 'md'
-    markdownContent.value = content.split('[md]')[1] || ''
+    markdownContent.value = content.slice(4)
     nextTick(() => initVditor())
   } else if (content.startsWith('[web]')) {
     editorMode.value = 'web'
     markdownContent.value = ''
-    nextTick(() => {
-      const quill = quillEditorRef.value?.getQuill()
-      if (quill) {
-        quill.root.innerHTML = content.split('[web]')[1] || ''
-      }
-    })
+    htmlContent = content.slice(5)
+    nextTick(renderHtml)
   } else {
     editorMode.value = 'md'
     markdownContent.value = content
@@ -105,6 +101,7 @@ function initFromProps() {
 }
 
 function initVditor() {
+  if (!vditorRef.value || editorMode.value !== 'md') return
   if (vditorInstance) {
     vditorInstance.setValue(markdownContent.value)
     return
@@ -150,19 +147,14 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   destroyVditor()
+  htmlQuill = null
 })
 
 watch(editorMode, (newMode) => {
   if (newMode === 'web') {
     destroyVditor()
-    nextTick(() => {
-      const quill = quillEditorRef.value?.getQuill()
-      if (quill) {
-        quill.root.innerHTML = ''
-      }
-    })
+    nextTick(renderHtml)
   } else {
-    markdownContent.value = ''
     nextTick(() => initVditor())
   }
 })
@@ -173,7 +165,7 @@ function handleModeChange(newMode) {
   }
   
   const currentContent = editorMode.value === 'web' 
-    ? quillEditorRef.value?.getQuill()?.root.innerHTML 
+    ? htmlQuill?.root.innerHTML
     : markdownContent.value
   
   const hasCurrentContent = editorMode.value === 'web'
@@ -185,7 +177,7 @@ function handleModeChange(newMode) {
     pendingMode.value = newMode
     showConfirmModal.value = true
   } else {
-    editorMode.value = newMode
+    applyModeChange(newMode)
   }
 }
 
@@ -193,7 +185,7 @@ function confirmModeChange() {
   showConfirmModal.value = false
   hasContent.value = false
   if (pendingMode.value) {
-    editorMode.value = pendingMode.value
+    applyModeChange(pendingMode.value)
     pendingMode.value = null
   }
 }
@@ -204,17 +196,26 @@ function cancelModeChange() {
 }
 
 watch(markdownContent, (val) => {
+  if (editorMode.value !== 'md') return
   const fullContent = val ? `[md]${val}` : ''
   emit('update:modelValue', fullContent)
 })
 
-function onEditorReady() {
-  initQuillHandlers()
+function applyModeChange(mode) {
+  htmlContent = ''
+  markdownContent.value = ''
+  editorMode.value = mode
+  emit('update:modelValue', '')
 }
 
-function initQuillHandlers() {
-  const quill = quillEditorRef.value?.getQuill()
-  if (!quill) return
+// 等待富文本编辑器就绪后再写入正文，避免首次打开时访问尚未初始化的实例。
+function renderHtml() {
+  if (htmlQuill && editorMode.value === 'web') htmlQuill.root.innerHTML = htmlContent
+}
+
+function onEditorReady(quill) {
+  htmlQuill = quill
+  renderHtml()
   
   const toolbar = quill.getModule('toolbar')
   if (toolbar) {
@@ -225,6 +226,7 @@ function initQuillHandlers() {
   quill.on('text-change', () => {
     const html = quill.root.innerHTML
     if (editorMode.value === 'web') {
+      htmlContent = html
       const fullContent = html && html !== '<p><br></p>' ? `[web]${html}` : ''
       emit('update:modelValue', fullContent)
     }
@@ -265,7 +267,7 @@ async function uploadFile(file, type) {
     const { url } = res
     
     if (editorMode.value === 'web') {
-      const quill = quillEditorRef.value?.getQuill()
+      const quill = htmlQuill
       if (!quill) return
       
       const range = quill.getSelection(true)
@@ -290,10 +292,8 @@ async function handleVditorUpload(file) {
 
 function setContent(content) {
   if (editorMode.value === 'web') {
-    const quill = quillEditorRef.value?.getQuill()
-    if (quill) {
-      quill.root.innerHTML = content || ''
-    }
+    htmlContent = content || ''
+    renderHtml()
   } else {
     if (vditorInstance) {
       vditorInstance.setValue(content || '')
@@ -305,7 +305,7 @@ function setContent(content) {
 
 defineExpose({
   setContent,
-  getQuill: () => quillEditorRef.value?.getQuill(),
+  getQuill: () => htmlQuill,
   getVditor: () => vditorInstance
 })
 </script>

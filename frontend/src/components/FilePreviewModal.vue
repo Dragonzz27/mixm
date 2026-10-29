@@ -3,7 +3,7 @@
     v-model:show="showModal"
     preset="card"
     :title="fileData?.file_name || '文件预览'"
-    style="width: 90vw; max-width: 1400px; height: 85vh;"
+    style="width: 90vw; max-width: 1400px; height: 85vh"
     :closable="true"
     @close="handleClose"
   >
@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed } from 'vue'
 import { NModal } from 'naive-ui'
 import FilePreviewPanel from './FilePreviewPanel.vue'
 
@@ -29,22 +29,16 @@ const props = defineProps({
 
 const emit = defineEmits(['update:show', 'close'])
 
-const showModal = ref(false)
-const fileData = ref(null)
-
-watch(() => props.show, (newVal) => {
-  showModal.value = newVal
-  if (!newVal) fileData.value = null
+// 同步遮罩、Esc 和关闭按钮的状态，使文件预览关闭后可以再次打开。
+const showModal = computed({
+  get: () => props.show,
+  set: (value) => emit('update:show', value)
 })
-
-watch(() => props.fileData, (newVal) => {
-  fileData.value = newVal
-}, { immediate: true })
+const fileData = computed(() => (props.show ? props.fileData : null))
 
 function handleClose() {
   emit('update:show', false)
   emit('close')
-  fileData.value = null
 }
 </script>
 

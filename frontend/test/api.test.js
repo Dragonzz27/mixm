@@ -24,6 +24,12 @@ test('image catalog synchronization uses the protected POST route without reposi
   assert.ok(routes.includes('POST /api/images/sync'))
 })
 
+test('article course editing paginates bindings for the requested article', async () => {
+  const { api, calls } = client()
+  await api.bindingApi.getByContent('article', { offset: 1000, limit: 1000 })
+  assert.deepEqual(calls, [{ method: 'get', args: ['/bindings', { params: { offset: 1000, limit: 1000, content_id: 'article' } }] }])
+})
+
 test('image tag selectors read every API page instead of stopping at the default page', async () => {
   const all = Array.from({ length: 1003 }, (_, index) => ({ name: `tag-${index}` }))
   const { api, calls } = client((method, args) => {

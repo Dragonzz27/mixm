@@ -2,734 +2,593 @@
   <div class="categories">
     <n-card title="分类管理">
       <template #header-extra>
-        <n-space>
-          <n-button type="warning" @click="showAiModal = true">智能体生成</n-button>
-          <n-button type="primary" @click="handleAddRoot">添加顶级分类</n-button>
-        </n-space>
+        <n-button type="primary" :disabled="!ready" @click="editCourse()">新建课程</n-button>
       </template>
-      <n-spin :show="loading">
-        <div class="tree-wrapper">
-          <CategoryTreeNode
-            v-for="category in categoryTree"
-            :key="category.id"
-            :category="category"
-            :expanded-keys="expandedKeys"
-            :depth="0"
-            @toggle="toggleExpand"
-            @add-child="handleAddChild"
-            @edit="handleEdit"
-            @delete="handleDelete"
-            @bind="openBindModal"
+      <p class="management-description">
+        课程为一级目录，教学文章为二级目录；发布后的文章会按相同结构展示在内容浏览中。
+      </p>
+      <n-alert v-if="error" type="error" :bordered="false" class="library-error">
+        {{ error }}
+        <n-button size="small" class="load-retry" @click="load">重试</n-button>
+      </n-alert>
+      <div class="course-library-toolbar">
+        <span>{{ courses.length }} 门课程 · {{ articles.length }} 篇教学文章</span>
+        <n-input
+          v-model:value="searchKey"
+          placeholder="搜索课程或文章"
+          clearable
+          class="course-search"
+          aria-label="搜索课程或文章"
+        />
+      </div>
+      <n-spin :show="loading || mutating">
+        <div class="course-management-tree" aria-label="课程与教学文章">
+          <section v-for="course in filteredCourses" :key="course.id" class="course-group">
+            <header class="course-group-header">
+              <n-button
+                quaternary
+                circle
+                size="small"
+                :aria-label="`${isExpanded(course.id) ? '收起' : '展开'}${course.name}`"
+                :aria-expanded="isExpanded(course.id)"
+                @click="toggleCourse(course.id)"
+              >
+                <template #icon>
+                  <n-icon>
+                    <ChevronDownOutline v-if="isExpanded(course.id)" />
+                    <ChevronForwardOutline v-else />
+                  </n-icon>
+                </template>
+              </n-button>
+              <div class="course-group-info">
+                <div class="course-group-title">
+                  <n-icon><BookOutline /></n-icon>
+                  <h3>{{ course.name }}</h3>
+                  <n-tag
+                    size="small"
+                    :bordered="false"
+                    :type="course.is_active === false ? 'default' : 'success'"
+                  >
+                    {{ course.is_active === false ? '已停用' : '启用' }}
+                  </n-tag>
+                  <span>{{ course.articles.length }} 篇文章</span>
+                </div>
+                <p v-if="course.description">{{ course.description }}</p>
+              </div>
+              <div class="course-actions">
+                <n-button size="small" :disabled="mutating" @click="newArticle(course)">
+                  新增文章
+                </n-button>
+                <n-button size="small" :disabled="mutating" @click="openAssociation(course)">
+                  关联文章
+                </n-button>
+                <n-button size="small" quaternary :disabled="mutating" @click="editCourse(course)">
+                  编辑课程
+                </n-button>
+                <n-popconfirm @positive-click="removeCourse(course)">
+                  <template #trigger>
+                    <n-button size="small" quaternary type="error" :disabled="mutating">
+                      删除课程
+                    </n-button>
+                  </template>
+                  删除课程及其目录？教学文章会保留在内容管理中。
+                </n-popconfirm>
+              </div>
+            </header>
+            <div v-if="isExpanded(course.id)" class="course-articles">
+              <div
+                v-for="article in matchingArticles(course)"
+                :key="article.id"
+                class="course-article-row"
+              >
+                <div class="course-article-title">
+                  <strong>{{ article.title }}</strong>
+                  <span>{{ contentTypes.getTypeName(article.content_type) }}</span>
+                </div>
+                <n-tag size="small" :bordered="false" :type="articleStatus(article).type">
+                  {{ articleStatus(article).label }}
+                </n-tag>
+                <div class="article-actions">
+                  <n-button
+                    size="small"
+                    quaternary
+                    :disabled="mutating"
+                    @click="editArticle(article)"
+                  >
+                    编辑文章
+                  </n-button>
+                  <n-button
+                    size="small"
+                    quaternary
+                    :disabled="mutating"
+                    @click="removeArticle(course, article)"
+                  >
+                    移出课程
+                  </n-button>
+                </div>
+              </div>
+              <div v-if="!matchingArticles(course).length" class="empty-course">
+                {{
+                  searchKey ? '没有匹配的教学文章' : '课程中暂无文章，可新增文章或关联已有文章。'
+                }}
+              </div>
+            </div>
+          </section>
+          <n-empty
+            v-if="!loading && !filteredCourses.length"
+            :description="searchKey ? '没有匹配的课程或文章' : '暂无课程，先创建一门课程'"
           />
-          <n-empty v-if="categoryTree.length === 0" description="暂无分类" />
         </div>
       </n-spin>
+      <div v-if="unassigned.length" class="unassigned-note">
+        <span>{{ unassigned.length }} 篇教学文章尚未分配课程</span>
+        <n-button text size="small" @click="router.push('/admin/contents?course=unassigned')">
+          前往内容管理 →
+        </n-button>
+      </div>
     </n-card>
 
-    <n-modal v-model:show="showAddModal" preset="dialog" :title="isEdit ? '编辑分类' : (isChild ? '添加子分类' : '添加顶级分类')">
-      <n-form :model="formData" :rules="rules" ref="formRef">
-        <n-form-item label="名称" path="name">
-          <n-input v-model:value="formData.name" />
+    <n-modal
+      :show="showCourseModal"
+      preset="card"
+      :title="editingCourseId ? '编辑课程' : '新建课程'"
+      class="course-form-modal"
+      :closable="!savingCourse"
+      :mask-closable="!savingCourse"
+      :close-on-esc="!savingCourse"
+      @update:show="
+        (value) => {
+          if (!savingCourse) showCourseModal = value
+        }
+      "
+    >
+      <n-form ref="courseFormRef" :model="courseForm" :rules="courseRules" :disabled="savingCourse">
+        <n-form-item label="课程名称" path="name">
+          <n-input v-model:value="courseForm.name" placeholder="输入课程名称" />
         </n-form-item>
-        <n-form-item label="父分类" path="parent_id">
-          <n-input :value="parentName" disabled />
+        <n-form-item label="课程说明">
+          <n-input
+            v-model:value="courseForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="简要介绍课程内容"
+          />
         </n-form-item>
-        <n-form-item label="描述" path="description">
-          <n-input v-model:value="formData.description" type="textarea" />
+        <n-form-item label="排序">
+          <n-input-number v-model:value="courseForm.sort_order" :min="0" />
         </n-form-item>
-        <n-form-item label="排序" path="sort_order">
-          <n-input-number v-model:value="formData.sort_order" :min="0" />
-        </n-form-item>
-        <n-form-item label="状态" path="is_active">
-          <n-switch v-model:value="formData.is_active">
-            <template #checked>启用</template>
-            <template #unchecked>禁用</template>
-          </n-switch>
+        <n-form-item label="启用课程">
+          <n-switch v-model:value="courseForm.is_active" />
         </n-form-item>
       </n-form>
+      <n-alert v-if="courseError" type="error" :bordered="false">{{ courseError }}</n-alert>
       <template #action>
-        <n-button @click="showAddModal = false">取消</n-button>
-        <n-button type="primary" :loading="loading" @click="handleSubmit">确定</n-button>
+        <n-space justify="end">
+          <n-button :disabled="savingCourse" @click="showCourseModal = false">取消</n-button>
+          <n-button type="primary" :loading="savingCourse" @click="saveCourse">保存课程</n-button>
+        </n-space>
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showBindModal" preset="card" title="绑定内容" style="width: 900px;">
-      <div class="bind-transfer">
-        <div class="transfer-panel">
-          <div class="panel-header">
-            <span>未绑定内容</span>
-            <n-space>
-              <n-input v-model:value="unboundSearchKey" placeholder="搜索标题" size="small" style="width: 150px;" @keyup.enter="loadUnboundContents(1)" />
-            </n-space>
-          </div>
-          <n-spin :show="loadingUnbound">
-            <n-data-table
-              :columns="unboundColumns"
-              :data="unboundContents"
-              :bordered="false"
-              :max-height="350"
-              :pagination="unboundPagination"
-              remote
-              :row-key="row => row.id"
-              :checked-row-keys="selectedUnbound"
-              @update:checked-row-keys="val => selectedUnbound = val"
-            />
-          </n-spin>
-        </div>
-        <div class="transfer-actions">
-          <n-button type="primary" :disabled="selectedUnbound.length === 0" @click="handleBindSelected">
-            添加 >
+    <n-modal
+      :show="showAssociation"
+      preset="card"
+      :title="`${associationCourse?.name || '课程'} · 关联文章`"
+      class="course-association-modal"
+      :closable="!binding"
+      :mask-closable="!binding"
+      :close-on-esc="!binding"
+      @update:show="
+        (value) => {
+          if (!binding) showAssociation = value
+        }
+      "
+    >
+      <p class="management-description">选择已有教学文章加入课程；同一篇文章可以关联多个课程。</p>
+      <n-input
+        v-model:value="associationSearch"
+        placeholder="搜索文章标题"
+        clearable
+        aria-label="搜索待关联文章"
+        class="association-search"
+      />
+      <n-data-table
+        :columns="associationColumns"
+        :data="associationArticles"
+        :pagination="{ pageSize: 10 }"
+        :bordered="false"
+        :scroll-x="560"
+        :row-key="(row) => row.id"
+        v-model:checked-row-keys="checkedArticleIds"
+      />
+      <n-alert v-if="associationError" type="error" :bordered="false" class="association-error">
+        {{ associationError }}
+      </n-alert>
+      <template #action>
+        <n-space justify="end">
+          <n-button :disabled="binding" @click="showAssociation = false">取消</n-button>
+          <n-button
+            type="primary"
+            :loading="binding"
+            :disabled="!checkedArticleIds.length"
+            @click="associateArticles"
+          >
+            关联 {{ checkedArticleIds.length || '' }} 篇文章
           </n-button>
-          <n-button type="warning" :disabled="selectedBound.length === 0" @click="handleUnbindSelected">
-            < 移除
-          </n-button>
-        </div>
-        <div class="transfer-panel">
-          <div class="panel-header">
-            <span>已绑定内容</span>
-          </div>
-          <n-spin :show="loadingBound">
-            <n-data-table
-              :columns="boundColumns"
-              :data="boundContents"
-              :bordered="false"
-              :max-height="350"
-              :pagination="{ pageSize: 10 }"
-              :row-key="row => row.id"
-              :checked-row-keys="selectedBound"
-              @update:checked-row-keys="val => selectedBound = val"
-            />
-          </n-spin>
-        </div>
-      </div>
-      <template #action>
-        <n-button @click="async () => { showBindModal = false; await loadCategories(); }">关闭</n-button>
+        </n-space>
       </template>
     </n-modal>
-
-    <n-modal v-model:show="showAiModal" preset="dialog" title="智能体生成知识树" style="width: 90%; max-width: 1200px;">
-      <div class="ai-modal-content">
-        <div class="ai-input-panel">
-          <n-form label-placement="top">
-            <n-form-item label="课程名称">
-              <n-input v-model:value="aiForm.course_name" placeholder="请输入课程名称" />
-            </n-form-item>
-            <n-form-item label="考试大纲">
-              <n-input
-                v-model:value="aiForm.outline_text"
-                type="textarea"
-                :rows="15"
-                placeholder="请输入考试大纲内容"
-              />
-            </n-form-item>
-            <n-button type="primary" :loading="aiLoading" @click="handleAiGenerate" :disabled="!aiForm.outline_text">
-              生成知识树
-            </n-button>
-          </n-form>
-        </div>
-        <div class="ai-result-panel">
-          <div class="result-header">
-            <span>知识树结构 (可编辑)</span>
-            <n-space>
-              <n-button size="small" @click="showJsonModal = true" :disabled="!knowledgeTree">查看原始JSON</n-button>
-              <n-button type="success" size="small" :disabled="!knowledgeTree" @click="handleSaveTree">
-                保存到分类
-              </n-button>
-            </n-space>
-          </div>
-          <div class="tree-container">
-            <div v-if="isStreaming" class="streaming-view">
-              <div class="streaming-header">
-                <n-spin size="small" />
-                <span>AI 正在生成中...</span>
-              </div>
-              <pre class="streaming-content">{{ streamingContent }}</pre>
-            </div>
-            <div v-else-if="knowledgeTree" class="tree-list">
-              <div v-for="(chapter, ci) in knowledgeTree.chapters" :key="ci" class="tree-chapter">
-                <div class="tree-item-header">
-                  <span class="level-badge">章节</span>
-                  <n-input v-model:value="chapter.name" size="small" style="width: 200px;" />
-                  <n-button size="small" quaternary @click="chapter.sections.push({ name: '', knowledge_points: [] })">+ 小节</n-button>
-                  <n-button size="small" type="error" quaternary @click="knowledgeTree.chapters.splice(ci, 1)">删除</n-button>
-                </div>
-
-                <div v-for="(section, si) in chapter.sections" :key="si" class="tree-section">
-                  <div class="tree-item-header">
-                    <span class="level-badge">小节</span>
-                    <n-input v-model:value="section.name" size="small" style="width: 180px;" />
-                    <n-button size="small" quaternary @click="section.knowledge_points.push({ name: '', elements: [] })">+ 知识点</n-button>
-                    <n-button size="small" type="error" quaternary @click="chapter.sections.splice(si, 1)">删除</n-button>
-                  </div>
-
-                  <div v-for="(kp, ki) in section.knowledge_points" :key="ki" class="tree-kp">
-                    <div class="tree-item-header">
-                      <span class="level-badge">知识点</span>
-                      <n-input v-model:value="kp.name" size="small" style="width: 160px;" />
-                      <n-button size="small" quaternary @click="kp.elements.push({ name: '' })">+ 知识元</n-button>
-                      <n-button size="small" type="error" quaternary @click="section.knowledge_points.splice(ki, 1)">删除</n-button>
-                    </div>
-
-                    <div v-for="(elem, ei) in kp.elements" :key="ei" class="tree-element">
-                      <span class="level-badge small">知识元</span>
-                      <n-input v-model:value="elem.name" size="small" style="width: 200px;" />
-                      <n-button size="small" type="error" quaternary @click="kp.elements.splice(ei, 1)">×</n-button>
-                    </div>
-                    <n-button size="small" quaternary style="margin-left: 80px;" @click="kp.elements.push({ name: '' })">+ 添加知识元</n-button>
-                  </div>
-                </div>
-              </div>
-              <n-button type="primary" quaternary @click="knowledgeTree.chapters.push({ name: '', sections: [] })" style="margin-top: 12px;">+ 添加章节</n-button>
-            </div>
-            <div v-else class="empty-result">
-              <n-empty description="请输入考试大纲并点击生成" />
-            </div>
-          </div>
-        </div>
-
-        <n-modal v-model:show="showJsonModal" preset="dialog" title="原始JSON" style="width: 600px;">
-          <pre class="json-viewer">{{ originalJson }}</pre>
-          <template #action>
-            <n-button @click="showJsonModal = false">关闭</n-button>
-          </template>
-        </n-modal>
-      </div>
-      <template #action>
-        <n-button @click="showAiModal = false">关闭</n-button>
-      </template>
-    </n-modal>
+    <ArticleEditorModal
+      v-model:show="showEditor"
+      :article-id="editingArticleId"
+      :default-course-id="defaultCourseId"
+      :courses="categories"
+      @saved="load"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, h } from 'vue'
-import { NCard, NButton, NInput, NSpace, NModal, NForm, NFormItem, NInputNumber, NSwitch, NSpin, NEmpty, NDataTable, useMessage, NIcon } from 'naive-ui'
-import { categoryApi, bindingApi, knowledgeTreeApi } from '@/api'
+import { computed, h, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NDataTable,
+  NEmpty,
+  NForm,
+  NFormItem,
+  NIcon,
+  NInput,
+  NInputNumber,
+  NModal,
+  NPopconfirm,
+  NSpace,
+  NSpin,
+  NSwitch,
+  NTag,
+  useMessage
+} from 'naive-ui'
+import { BookOutline, ChevronDownOutline, ChevronForwardOutline } from '@vicons/ionicons5'
+import { bindingApi, categoryApi } from '@/api'
+import ArticleEditorModal from '@/components/ArticleEditorModal.vue'
+import { useCourseLibrary } from '@/composables/useCourseLibrary'
 import { useContentTypeStore } from '@/stores/contentType'
-import { ChevronForwardOutline } from '@vicons/ionicons5'
-import CategoryTreeNode from '@/components/CategoryTreeNode.vue'
+import { articleStatus, deleteCourse, removeArticleFromCourse } from '@/utils/courseManagement'
 
+const router = useRouter()
 const message = useMessage()
-const contentTypeStore = useContentTypeStore()
+const contentTypes = useContentTypeStore()
+const { categories, articles, courses, unassigned, loading, error, ready, load } =
+  useCourseLibrary()
+const searchKey = ref('')
+const collapsedIds = ref([])
+const mutating = ref(false)
+const filteredCourses = computed(() => {
+  const keyword = searchKey.value.trim().toLocaleLowerCase()
+  return courses.value.filter(
+    (course) =>
+      course.name.toLocaleLowerCase().includes(keyword) ||
+      course.articles.some((article) => article.title.toLocaleLowerCase().includes(keyword))
+  )
+})
+function matchingArticles(course) {
+  const keyword = searchKey.value.trim().toLocaleLowerCase()
+  return course.name.toLocaleLowerCase().includes(keyword)
+    ? course.articles
+    : course.articles.filter((article) => article.title.toLocaleLowerCase().includes(keyword))
+}
+function isExpanded(id) {
+  return !collapsedIds.value.includes(id)
+}
+function toggleCourse(id) {
+  collapsedIds.value = collapsedIds.value.includes(id)
+    ? collapsedIds.value.filter((key) => key !== id)
+    : [...collapsedIds.value, id]
+}
+watch(searchKey, () => {
+  collapsedIds.value = []
+})
 
-const loading = ref(false)
-const categoryTree = ref([])
-const expandedKeys = ref([])
-const showAddModal = ref(false)
-const isEdit = ref(false)
-const isChild = ref(false)
-const parentName = ref('')
-
-const formData = ref({ name: '', parent_id: null, description: '', sort_order: 0, is_active: true })
-const rules = {
-  name: [{ required: true, message: '请输入名称' }]
+const showEditor = ref(false)
+const editingArticleId = ref(null)
+const defaultCourseId = ref(null)
+function newArticle(course) {
+  editingArticleId.value = null
+  defaultCourseId.value = course.id
+  showEditor.value = true
+}
+function editArticle(article) {
+  editingArticleId.value = article.id
+  defaultCourseId.value = null
+  showEditor.value = true
 }
 
-const showBindModal = ref(false)
-const currentCategoryId = ref(null)
-const unboundContents = ref([])
-const unboundPagination = ref({
-  page: 1,
-  pageSize: 10,
-  itemCount: 0,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50, 100],
-  onChange: (page) => {
-    loadUnboundContents(page)
+const showCourseModal = ref(false)
+const editingCourseId = ref(null)
+const courseFormRef = ref(null)
+const courseForm = ref({})
+const courseError = ref('')
+const savingCourse = ref(false)
+const courseRules = {
+  name: [{ required: true, whitespace: true, message: '请输入课程名称', trigger: 'blur' }]
+}
+function editCourse(course = null) {
+  editingCourseId.value = course?.id || null
+  courseForm.value = {
+    name: course?.name || '',
+    description: course?.description || '',
+    sort_order: course?.sort_order || 0,
+    is_active: course?.is_active !== false
+  }
+  courseError.value = ''
+  showCourseModal.value = true
+}
+async function saveCourse() {
+  try {
+    await courseFormRef.value?.validate()
+  } catch {
+    return
+  }
+  savingCourse.value = true
+  courseError.value = ''
+  try {
+    const payload = { ...courseForm.value, name: courseForm.value.name.trim(), parent_id: null }
+    if (editingCourseId.value) await categoryApi.update(editingCourseId.value, payload)
+    else await categoryApi.create(payload)
+    showCourseModal.value = false
+    message.success('课程已保存')
+    await load()
+  } catch (cause) {
+    courseError.value = cause.response?.data?.message || '课程保存失败'
+  } finally {
+    savingCourse.value = false
+  }
+}
+async function removeCourse(course) {
+  if (mutating.value) return
+  mutating.value = true
+  try {
+    await deleteCourse(categoryApi, course)
+    message.success('课程已删除，教学文章已保留')
+  } catch (cause) {
+    message.error(cause.response?.data?.message || '删除课程未完成，请刷新后重试')
+  } finally {
+    await load()
+    mutating.value = false
+  }
+}
+async function removeArticle(course, article) {
+  if (mutating.value) return
+  mutating.value = true
+  try {
+    await removeArticleFromCourse(bindingApi, course, article)
+    message.success('文章已移出课程')
+  } catch (cause) {
+    message.error(cause.response?.data?.message || '移出课程未完成，请重试')
+  } finally {
+    await load()
+    mutating.value = false
+  }
+}
+
+const showAssociation = ref(false)
+const associationCourse = ref(null)
+const associationSearch = ref('')
+const checkedArticleIds = ref([])
+const binding = ref(false)
+const associationError = ref('')
+const associationArticles = computed(() => {
+  const assigned = new Set(associationCourse.value?.articles.map((article) => article.id) || [])
+  const keyword = associationSearch.value.trim().toLocaleLowerCase()
+  return articles.value.filter(
+    (article) => !assigned.has(article.id) && article.title.toLocaleLowerCase().includes(keyword)
+  )
+})
+const associationColumns = [
+  { type: 'selection', width: 48, disabled: () => binding.value },
+  { title: '文章标题', key: 'title', minWidth: 260, ellipsis: { tooltip: true } },
+  {
+    title: '类型',
+    key: 'content_type',
+    width: 110,
+    render: (article) => contentTypes.getTypeName(article.content_type)
   },
-  onUpdatePageSize: (pageSize) => {
-    unboundPagination.value.pageSize = pageSize
-    loadUnboundContents(1)
+  {
+    title: '状态',
+    key: 'status',
+    width: 100,
+    render: (article) => {
+      const status = articleStatus(article)
+      return h(NTag, { size: 'small', type: status.type, bordered: false }, () => status.label)
+    }
   }
-})
-const boundContents = ref([])
-const selectedUnbound = ref([])
-const selectedBound = ref([])
-const loadingUnbound = ref(false)
-const loadingBound = ref(false)
-const unboundSearchKey = ref('')
-
-const showAiModal = ref(false)
-const aiLoading = ref(false)
-const aiForm = ref({ course_name: '', outline_text: '' })
-const knowledgeTree = ref(null)
-const streamingContent = ref('')
-const isStreaming = ref(false)
-const showJsonModal = ref(false)
-const originalJson = ref('')
-
-function getRowNumber(pagination, index) {
-  const page = pagination?.page || 1
-  const pageSize = pagination?.pageSize || 10
-  return (page - 1) * pageSize + index + 1
-}
-
-const unboundColumns = [
-  { type: 'selection', width: 50 },
-  { title: '序号', key: 'index', width: 70, render: (_, index) => getRowNumber(unboundPagination.value, index) },
-  { title: '标题', key: 'title', ellipsis: { tooltip: true } },
-  { title: '类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },
-  { title: '状态', key: 'status', width: 80, render: (row) => h('span', row.status === 'published' ? '已发布' : row.status === 'archived' ? '已归档' : '草稿') }
 ]
-
-const boundColumns = [
-  { type: 'selection', width: 50 },
-  { title: '序号', key: 'index', width: 70, render: (_, index) => index + 1 },
-  { title: '标题', key: 'title', ellipsis: { tooltip: true } },
-  { title: '类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },
-  { title: '状态', key: 'status', width: 80, render: (row) => h('span', row.status === 'published' ? '已发布' : row.status === 'archived' ? '已归档' : '草稿') }
-]
-
-async function loadCategories() {
-  loading.value = true
+function openAssociation(course) {
+  associationCourse.value = course
+  associationSearch.value = ''
+  checkedArticleIds.value = []
+  associationError.value = ''
+  showAssociation.value = true
+}
+async function associateArticles() {
+  if (binding.value || !checkedArticleIds.value.length) return
+  binding.value = true
+  associationError.value = ''
   try {
-    const res = await categoryApi.getTree({max_depth:100})
-    categoryTree.value = res || []
-    await loadBoundCounts()
-  } catch (err) {
-    console.error(err)
+    await bindingApi.batchBind(associationCourse.value.id, { content_ids: checkedArticleIds.value })
+    showAssociation.value = false
+    message.success('教学文章已关联到课程')
+    await load()
+  } catch (cause) {
+    associationError.value = cause.response?.data?.message || '关联文章失败，请重试'
   } finally {
-    loading.value = false
+    binding.value = false
   }
 }
-
-async function loadBoundCounts() {
-  const allIds = getAllCategoryIds(categoryTree.value)
-  if (allIds.length === 0) return
-  
-  try {
-    const res = await bindingApi.getCounts({ category_ids: allIds })
-    const setCounts = (list) => {
-      for (const cat of list) {
-        cat.bound_count = res[cat.id] || 0
-        if (cat.children?.length) {
-          setCounts(cat.children)
-        }
-      }
-    }
-    setCounts(categoryTree.value)
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-function getAllCategoryIds(list) {
-  const ids = []
-  for (const cat of list) {
-    ids.push(cat.id)
-    if (cat.children?.length) {
-      ids.push(...getAllCategoryIds(cat.children))
-    }
-  }
-  return ids
-}
-
-function toggleExpand(categoryId) {
-  const index = expandedKeys.value.indexOf(categoryId)
-  if (index > -1) {
-    expandedKeys.value.splice(index, 1)
-  } else {
-    expandedKeys.value.push(categoryId)
-  }
-}
-
-function handleAddRoot() {
-  isEdit.value = false
-  isChild.value = false
-  parentName.value = '顶级分类'
-  formData.value = { name: '', parent_id: null, description: '', sort_order: 0, is_active: true }
-  showAddModal.value = true
-}
-
-function handleAddChild(category) {
-  isEdit.value = false
-  isChild.value = true
-  parentName.value = category.name
-  formData.value = { name: '', parent_id: category.id, description: '', sort_order: 0, is_active: true }
-  showAddModal.value = true
-}
-
-function handleEdit(category) {
-  isEdit.value = true
-  isChild.value = !!category.parent_id
-  parentName.value = isChild.value ? getParentName(category.parent_id) : '顶级分类'
-  formData.value = { 
-    id: category.id,
-    name: category.name, 
-    parent_id: category.parent_id, 
-    description: category.description || '', 
-    sort_order: category.sort_order || 0, 
-    is_active: category.is_active 
-  }
-  showAddModal.value = true
-}
-
-function getParentName(parentId) {
-  const findParent = (list, id) => {
-    for (const cat of list) {
-      if (cat.id === id) return cat.name
-      if (cat.children?.length) {
-        const found = findParent(cat.children, id)
-        if (found) return found
-      }
-    }
-    return ''
-  }
-  return findParent(categoryTree.value, parentId)
-}
-
-async function handleSubmit() {
-  loading.value = true
-  try {
-    if (isEdit.value) {
-      await categoryApi.update(formData.value.id, formData.value)
-      message.success('更新成功')
-    } else {
-      await categoryApi.create(formData.value)
-      message.success('添加成功')
-    }
-    showAddModal.value = false
-    await loadCategories()
-  } catch (err) {
-    console.error(err)
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleDelete(id) {
-  try {
-    await categoryApi.delete(id)
-    message.success('删除成功')
-    await loadCategories()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-async function openBindModal(category) {
-  currentCategoryId.value = category.id
-  showBindModal.value = true
-  unboundSearchKey.value = ''
-  unboundPagination.value.page = 1
-  unboundPagination.value.pageSize = 10
-  unboundPagination.value.itemCount = 0
-  selectedUnbound.value = []
-  selectedBound.value = []
-  await Promise.all([
-    loadUnboundContents(1),
-    loadBoundContents()
-  ])
-}
-
-async function loadUnboundContents(page = 1) {
-  loadingUnbound.value = true
-  try {
-    const pageSize = unboundPagination.value.pageSize
-    const offset = (page - 1) * pageSize
-    const params = {
-      keyword: unboundSearchKey.value || undefined,
-      offset: offset,
-      limit: pageSize
-    }
-    const res = await bindingApi.getUnboundContents(currentCategoryId.value, params)
-    unboundContents.value = res.items || []
-    unboundPagination.value.itemCount = res.total || 0
-    unboundPagination.value.page = page
-
-    const maxPage = Math.max(1, Math.ceil((unboundPagination.value.itemCount || 0) / pageSize))
-    if (unboundPagination.value.page > maxPage) {
-      return loadUnboundContents(maxPage)
-    }
-  } catch (err) {
-    console.error(err)
-    unboundContents.value = []
-  } finally {
-    loadingUnbound.value = false
-  }
-}
-
-async function loadBoundContents() {
-  loadingBound.value = true
-  try {
-    const res = await bindingApi.getCategoryDetail(currentCategoryId.value)
-    if (res && res.contents) {
-      boundContents.value = res.contents.map(c => ({
-        id: c.id,
-        title: c.title,
-        content_type: c.content_type,
-        status: c.status
-      }))
-    } else {
-      boundContents.value = []
-    }
-  } catch (err) {
-    console.error(err)
-    boundContents.value = []
-  } finally {
-    loadingBound.value = false
-  }
-}
-
-async function handleBindSelected() {
-  if (selectedUnbound.value.length === 0) return
-  
-  try {
-    await bindingApi.batchBind(currentCategoryId.value, { content_ids: selectedUnbound.value })
-    message.success(`已添加 ${selectedUnbound.value.length} 个内容`)
-    selectedUnbound.value = []
-    await Promise.all([loadUnboundContents(), loadBoundContents()])
-    await loadCategories()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-async function handleUnbindSelected() {
-  if (selectedBound.value.length === 0) return
-  
-  try {
-    await bindingApi.batchUnbind(currentCategoryId.value, { content_ids: selectedBound.value })
-    message.success(`已移除 ${selectedBound.value.length} 个内容`)
-    selectedBound.value = []
-    await Promise.all([loadUnboundContents(), loadBoundContents()])
-    await loadCategories()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-onMounted(() => {
-  loadCategories()
-})
-
-async function handleAiGenerate() {
-  aiLoading.value = true
-  isStreaming.value = true
-  streamingContent.value = ''
-  knowledgeTree.value = null
-  try {
-    knowledgeTreeApi.analyzeStream(
-      {
-        course_name: aiForm.value.course_name || undefined,
-        outline_text: aiForm.value.outline_text
-      },
-      (chunk) => {
-        streamingContent.value += chunk
-      },
-      (data) => {
-        try {
-          knowledgeTree.value = data
-          originalJson.value = JSON.stringify(data, null, 2)
-          message.success('知识树生成成功')
-        } catch (e) {
-          message.error('解析失败')
-        }
-        isStreaming.value = false
-        aiLoading.value = false
-      },
-      (err) => {
-        console.error(err)
-        message.error(err.message || '调用失败')
-        isStreaming.value = false
-        aiLoading.value = false
-      }
-    )
-  } catch (err) {
-    console.error(err)
-    message.error('调用失败')
-    isStreaming.value = false
-    aiLoading.value = false
-  }
-}
-
-async function handleSaveTree() {
-  if (!knowledgeTree.value) return
-  try {
-    const res = await knowledgeTreeApi.save({
-      knowledge_tree: knowledgeTree.value
-    })
-    if (res.success) {
-      message.success('保存成功')
-      showAiModal.value = false
-      loadCategories()
-    } else {
-      message.error(res.message || '保存失败')
-    }
-  } catch (err) {
-    console.error(err)
-    message.error('保存失败')
-  }
-}
+onMounted(load)
 </script>
 
 <style scoped>
-.tree-wrapper {
-  padding: 8px 0;
+.load-retry {
+  margin-left: 12px;
 }
-
-.bind-transfer {
+.management-description {
+  margin: 0 0 20px;
+  color: var(--mixm-muted);
+  font-size: 13px;
+}
+.library-error {
+  margin-bottom: 20px;
+}
+.course-library-toolbar {
   display: flex;
-  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
 }
-
-.transfer-panel {
-  flex: 1;
+.course-library-toolbar > span {
+  color: var(--mixm-muted);
+  font-size: 13px;
+}
+.course-search {
+  width: 260px;
+  max-width: 100%;
+}
+.course-group {
   border: 1px solid var(--mixm-border);
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
 }
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: var(--mixm-surface-muted);
-  border-bottom: 1px solid var(--mixm-border);
-  font-weight: 500;
+.course-group + .course-group {
+  margin-top: 16px;
 }
-
-.transfer-actions {
+.course-group-header {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  align-items: flex-start;
   gap: 12px;
+  padding: 18px 16px;
+  background: var(--mixm-paper);
 }
-
-.ai-modal-content {
-  display: flex;
-  gap: 24px;
-  min-height: 60vh;
-}
-
-.ai-input-panel {
-  width: 350px;
-  flex-shrink: 0;
-}
-
-.ai-result-panel {
+.course-group-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  min-width: 0;
 }
-
-.result-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-weight: 500;
-}
-
-.tree-container {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 55vh;
-  padding: 12px;
-  background: var(--mixm-surface-muted);
-  border-radius: 6px;
-}
-
-.tree-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tree-item-header {
+.course-group-title {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
-
-.level-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
+.course-group-title > .n-icon {
+  color: var(--mixm-muted);
+}
+.course-group-title h3 {
+  margin: 0;
+  font-family: var(--mixm-font-body);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.course-group-title > span {
+  color: var(--mixm-muted);
   font-size: 12px;
-  background: var(--mixm-border);
+}
+.course-group-info p {
+  margin: 6px 0 0;
   color: var(--mixm-muted);
-  font-weight: 500;
-}
-
-.level-badge.small {
-  padding: 1px 6px;
-  font-size: 11px;
-}
-
-.tree-chapter {
-  padding: 12px;
-  background: var(--mixm-surface);
-  border-radius: 6px;
-  border: 1px solid var(--mixm-border);
-}
-
-.tree-section {
-  margin-left: 24px;
-  padding: 10px;
-  background: var(--mixm-surface-muted);
-  border-radius: 6px;
-  margin-top: 8px;
-}
-
-.tree-kp {
-  margin-left: 20px;
-  padding: 8px;
-  background: var(--mixm-surface-muted);
-  border-radius: 4px;
-  margin-top: 8px;
-}
-
-.tree-element {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0 6px 20px;
-}
-
-.empty-result {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 300px;
-}
-
-.streaming-view {
-  padding: 16px;
-}
-
-.streaming-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  color: var(--mixm-muted);
-  font-size: 14px;
-}
-
-.streaming-content {
-  background: var(--mixm-surface-muted);
-  padding: 12px;
-  border-radius: 6px;
-  max-height: 400px;
-  overflow-y: auto;
-  font-family: monospace;
   font-size: 12px;
   white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--mixm-ink);
+  overflow-wrap: anywhere;
 }
-
-.json-viewer {
-  background: #1e1e1e;
-  color: #d4d4d4;
-  padding: 16px;
-  border-radius: 6px;
-  max-height: 500px;
-  overflow: auto;
-  font-family: monospace;
+.course-actions,
+.article-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.course-articles {
+  border-top: 1px solid var(--mixm-border);
+}
+.course-article-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 14px 18px;
+}
+.course-article-row + .course-article-row {
+  border-top: 1px solid var(--mixm-border);
+}
+.course-article-title {
+  flex: 1;
+  min-width: 160px;
+}
+.course-article-title strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.course-article-title > span {
+  color: var(--mixm-muted);
   font-size: 12px;
-  white-space: pre-wrap;
+  margin-left: 12px;
+}
+.empty-course {
+  padding: 24px 18px;
+  color: var(--mixm-muted);
+  font-size: 13px;
+}
+.unassigned-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mixm-border);
+  color: var(--mixm-muted);
+  font-size: 13px;
+}
+.course-form-modal {
+  width: min(520px, calc(100vw - 32px));
+}
+.course-association-modal {
+  width: min(900px, calc(100vw - 32px));
+}
+.course-association-modal :deep(.n-card__content) {
+  max-height: 65dvh;
+  overflow-y: auto;
+}
+.association-search {
+  margin-bottom: 16px;
+}
+.association-error {
+  margin-top: 16px;
+}
+@media (max-width: 1100px) {
+  .course-group-header {
+    flex-wrap: wrap;
+  }
+  .course-actions {
+    flex-basis: 100%;
+    padding-left: 40px;
+  }
+}
+@media (max-width: 600px) {
+  .course-article-row {
+    gap: 10px;
+  }
+  .article-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+  .course-actions {
+    padding-left: 0;
+  }
 }
 </style>

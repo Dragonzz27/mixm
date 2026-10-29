@@ -2,278 +2,338 @@
   <div class="contents">
     <n-card title="内容管理">
       <template #header-extra>
-        <n-space>
-          <n-input 
-            v-model:value="searchKey" 
-            placeholder="搜索标题" 
-            clearable 
-            style="width: 200px"
-            @keyup.enter="handleSearch"
+        <n-button type="primary" :disabled="!ready" @click="openEditor()">新建文章</n-button>
+      </template>
+      <p class="management-description">按课程管理教学文章，课程与文章的归属会同步用于内容浏览。</p>
+      <n-alert v-if="error" type="error" :bordered="false" class="library-error">
+        {{ error }}
+        <n-button size="small" class="load-retry" @click="load">重试</n-button>
+      </n-alert>
+      <div class="content-management-layout">
+        <aside class="course-filter" aria-label="按课程筛选文章">
+          <div class="filter-heading">课程目录</div>
+          <button
+            class="course-filter-item"
+            :class="{ active: selectedCourse === 'all' }"
+            @click="selectCourse('all')"
+          >
+            <span>全部文章</span>
+            <span class="filter-count">{{ articles.length }}</span>
+          </button>
+          <button
+            v-for="course in courses"
+            :key="course.id"
+            class="course-filter-item"
+            :class="{ active: selectedCourse === course.id }"
+            @click="selectCourse(course.id)"
+          >
+            <span>
+              {{ course.name }}
+              <small v-if="course.is_active === false">已停用</small>
+            </span>
+            <span class="filter-count">{{ course.articles.length }}</span>
+          </button>
+          <button
+            class="course-filter-item unassigned-filter"
+            :class="{ active: selectedCourse === 'unassigned' }"
+            @click="selectCourse('unassigned')"
+          >
+            <span>未分配课程</span>
+            <span class="filter-count">{{ unassigned.length }}</span>
+          </button>
+        </aside>
+        <section class="article-management" aria-label="教学文章列表">
+          <div class="article-list-toolbar">
+            <div>
+              <strong>{{ selectedCourseName }}</strong>
+              <span>{{ filteredArticles.length }} 篇文章</span>
+            </div>
+            <n-input
+              v-model:value="searchKey"
+              placeholder="搜索文章标题"
+              clearable
+              class="article-search"
+              aria-label="搜索文章标题"
+            />
+          </div>
+          <n-data-table
+            :columns="columns"
+            :data="filteredArticles"
+            :pagination="pagination"
+            :loading="loading"
+            :scroll-x="1010"
+            :bordered="false"
+            :row-key="(row) => row.id"
           />
-          <n-button type="primary" @click="handleAddClick">添加内容</n-button>
-        </n-space>
-      </template>
-      <n-data-table
-        :columns="columns"
-        :data="contents"
-        :pagination="pagination"
-        remote
-        :bordered="false"
-      />
-    </n-card>
-    <n-modal v-model:show="showAddModal" preset="dialog" :title="isEdit ? '编辑内容' : '添加内容'" style="width: 80%;">
-      <div class="modal-content">
-        <div class="left-panel">
-          <n-form :model="formData" :rules="rules" ref="formRef" label-placement="left" label-width="80">
-            <n-form-item label="标题" path="title">
-              <n-input v-model:value="formData.title" />
-            </n-form-item>
-            <n-form-item label="类型" path="content_type">
-              <n-select v-model:value="formData.content_type" :options="typeOptions" placeholder="选择类型" />
-            </n-form-item>
-            <n-form-item label="模板" path="template_id">
-              <n-select v-model:value="formData.template_id" :options="templateOptions" clearable placeholder="选择模板" />
-            </n-form-item>
-            <n-form-item label="链接" path="url">
-              <n-input v-model:value="formData.url" placeholder="资源链接" />
-            </n-form-item>
-            <n-form-item label="状态" path="status">
-              <n-select v-model:value="formData.status" :options="statusOptions" />
-            </n-form-item>
-          </n-form>
-        </div>
-        <div class="right-panel">
-          <div class="editor-label">内容 (推荐Markdown)</div>
-          <RichEditor v-model="formData.content" />
-        </div>
+        </section>
       </div>
-      <template #action>
-        <n-button @click="showAddModal = false">取消</n-button>
-        <n-button type="primary" :loading="loading" @click="handleSubmit">确定</n-button>
-      </template>
-    </n-modal>
+    </n-card>
+    <ArticleEditorModal
+      v-model:show="showEditor"
+      :article-id="editingId"
+      :default-course-id="defaultCourseId"
+      :courses="categories"
+      @saved="load"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, h } from 'vue'
-import { NCard, NButton, NInput, NDataTable, NSpace, NModal, NForm, NFormItem, NSelect, useMessage } from 'naive-ui'
-import RichEditor from '@/components/RichEditor.vue'
-import { contentApi, templateApi } from '@/api'
+import { computed, h, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { NAlert, NButton, NCard, NDataTable, NInput, NSpace, NTag, useMessage } from 'naive-ui'
+import { contentApi } from '@/api'
+import ArticleEditorModal from '@/components/ArticleEditorModal.vue'
+import { useCourseLibrary } from '@/composables/useCourseLibrary'
 import { useContentTypeStore } from '@/stores/contentType'
+import { articleCourses, articleStatus, formatArticleDate } from '@/utils/courseManagement'
 
+const route = useRoute()
+const router = useRouter()
 const message = useMessage()
-const contentTypeStore = useContentTypeStore()
-const formRef = ref(null)
+const contentTypes = useContentTypeStore()
+const { categories, articles, courses, unassigned, loading, error, ready, load } =
+  useCourseLibrary()
 const searchKey = ref('')
-const contents = ref([])
-const templates = ref([])
-const showAddModal = ref(false)
-const isEdit = ref(false)
-const loading = ref(false)
-
+const selectedCourse = computed(() => String(route.query.course || 'all'))
+const selectedCourseName = computed(() =>
+  selectedCourse.value === 'all'
+    ? '全部教学文章'
+    : selectedCourse.value === 'unassigned'
+      ? '未分配课程'
+      : courses.value.find((course) => course.id === selectedCourse.value)?.name || '课程不存在'
+)
+const filteredArticles = computed(() => {
+  let items = articles.value
+  if (selectedCourse.value === 'unassigned') items = unassigned.value
+  else if (selectedCourse.value !== 'all')
+    items = courses.value.find((course) => course.id === selectedCourse.value)?.articles || []
+  const keyword = searchKey.value.trim().toLocaleLowerCase()
+  return items.filter((article) => article.title.toLocaleLowerCase().includes(keyword))
+})
+const showEditor = ref(false)
+const editingId = ref(null)
+const defaultCourseId = ref(null)
 const pagination = ref({
   page: 1,
   pageSize: 10,
-  itemCount: 0,
   showSizePicker: true,
   pageSizes: [10, 20, 50, 100],
-  onChange: (page) => {
+  onChange(page) {
     pagination.value.page = page
-    loadContents()
   },
-  onUpdatePageSize: (pageSize) => {
-    pagination.value.pageSize = pageSize
+  onUpdatePageSize(size) {
+    pagination.value.pageSize = size
     pagination.value.page = 1
-    loadContents()
   }
 })
-
-const formData = ref({ title: '', content: '', content_type: null, template_id: null, url: '', status: 'draft' })
-
-const rules = {
-  title: [{ required: true, message: '请输入标题' }],
-  content_type: [{ required: true, message: '请选择类型' }],
-  status: [{ required: true, message: '请选择状态' }]
-}
-
-const typeOptions = computed(() => {
-  return contentTypeStore.contentTypes.map(t => ({ label: t.name, value: t.code }))
-})
-
-const templateOptions = computed(() => {
-  return templates.value.map(t => ({ label: t.name, value: t.id }))
-})
-
-const statusOptions = [
-  { label: '草稿', value: 'draft' },
-  { label: '已发布', value: 'published' },
-  { label: '已归档', value: 'archived' }
-]
-
-function getRowNumber(index) {
-  const page = pagination.value.page || 1
-  const pageSize = pagination.value.pageSize || 10
-  return (page - 1) * pageSize + index + 1
-}
-
 const columns = [
-  { title: '序号', key: 'index', width: 80, render: (_, index) => getRowNumber(index) },
-  { title: '标题', key: 'title', ellipsis: { tooltip: true } },
-  { title: '类型', key: 'content_type', width: 100, render: (row) => contentTypeStore.getTypeName(row.content_type) },
-  { title: '模板ID', key: 'template_id', width: 80, render: (row) => row.template_id || '-' },
-  { title: '状态', key: 'status', width: 100, render: (row) => h('span', row.status === 'published' ? '已发布' : row.status === 'archived' ? '已归档' : '草稿') },
-  { title: '创建时间', key: 'created_at', width: 180 },
+  {
+    title: '序号',
+    key: 'index',
+    width: 60,
+    render: (_, index) => (pagination.value.page - 1) * pagination.value.pageSize + index + 1
+  },
+  { title: '文章标题', key: 'title', minWidth: 220, ellipsis: { tooltip: true } },
+  {
+    title: '所属课程',
+    key: 'courses',
+    minWidth: 180,
+    render: (article) => {
+      const memberships = articleCourses(categories.value, article)
+      return memberships.length
+        ? h(NSpace, { size: 4 }, () =>
+            memberships.map((course) =>
+              h(NTag, { size: 'small', bordered: false }, () => course.name)
+            )
+          )
+        : h('span', { class: 'unassigned-label' }, '未分配课程')
+    }
+  },
+  {
+    title: '类型',
+    key: 'content_type',
+    width: 100,
+    render: (article) => contentTypes.getTypeName(article.content_type)
+  },
+  {
+    title: '状态',
+    key: 'status',
+    width: 100,
+    render: (article) => {
+      const status = articleStatus(article)
+      return h(NTag, { size: 'small', type: status.type, bordered: false }, () => status.label)
+    }
+  },
+  {
+    title: '创建时间',
+    key: 'created_at',
+    width: 200,
+    minWidth: 200,
+    className: 'created-at-cell',
+    render: (article) => formatArticleDate(article.created_at)
+  },
   {
     title: '操作',
     key: 'actions',
-    render: (row) => h(NSpace, {}, () => [
-      h(NButton, { size: 'small', onClick: () => handleEdit(row) }, () => '编辑'),
-      h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row.id) }, () => '删除')
-    ])
+    width: 150,
+    render: (article) =>
+      h(NSpace, { size: 8 }, () => [
+        h(NButton, { size: 'small', onClick: () => openEditor(article.id) }, () => '编辑'),
+        h(
+          NButton,
+          { size: 'small', type: 'error', onClick: () => deleteArticle(article) },
+          () => '删除'
+        )
+      ])
   }
 ]
 
-async function loadContents() {
+function selectCourse(id) {
+  router.replace({ query: id === 'all' ? {} : { course: id } })
+}
+function openEditor(id = null) {
+  editingId.value = id
+  defaultCourseId.value = categories.value.some((course) => course.id === selectedCourse.value)
+    ? selectedCourse.value
+    : null
+  showEditor.value = true
+}
+async function deleteArticle(article) {
   try {
-    const page = pagination.value.page || 1
-    const pageSize = pagination.value.pageSize || 10
-    const res = await contentApi.getList({
-      offset: (page - 1) * pageSize,
-      limit: pageSize,
-      keyword: searchKey.value || undefined
-    })
-    contents.value = res.items || []
-    pagination.value.itemCount = res.total || 0
-
-    const maxPage = Math.max(1, Math.ceil((pagination.value.itemCount || 0) / pageSize))
-    if (pagination.value.page > maxPage) {
-      pagination.value.page = maxPage
-      return loadContents()
-    }
-  } catch (err) {
-    console.error(err)
+    await contentApi.delete(article.id)
+    message.success('文章已删除')
+    await load()
+  } catch (cause) {
+    message.error(cause.response?.data?.message || '删除文章失败')
   }
 }
-
-function handleSearch() {
+watch([selectedCourse, searchKey], () => {
   pagination.value.page = 1
-  loadContents()
-}
-
-async function loadTemplates() {
-  try {
-    const res = await templateApi.getList({})
-    templates.value = res.items || []
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-function handleAddClick() {
-  isEdit.value = false
-  formData.value = { title: '', content: '', content_type: '', template_id: null, url: '', status: 'draft' }
-  showAddModal.value = true
-}
-
-async function handleEdit(row) {
-  isEdit.value = true
-  formData.value = {
-    ...row,
-    content: row.content || '',
-    content_type: row.content_type || null,
-    template_id: row.template_id || null,
-    status: row.status || 'draft'
-  }
-  loading.value = true
-  try {
-    const detail = await contentApi.getDetail(row.id)
-    formData.value = {
-      ...row,
-      ...detail,
-      content: detail?.content || formData.value.content || '',
-      content_type: detail?.content_type || formData.value.content_type || null,
-      template_id: detail?.template_id || formData.value.template_id || null,
-      status: detail?.status || formData.value.status || 'draft'
-    }
-  } catch (err) {
-    console.error(err)
-    message.warning('未能加载完整内容，将使用当前列表数据进行编辑')
-  } finally {
-    loading.value = false
-  }
-
-  showAddModal.value = true
-}
-
-async function handleSubmit() {
-  try {
-    await formRef.value?.validate()
-  } catch {
-    return
-  }
-  
-  loading.value = true
-  try {
-    const data = {
-      ...formData.value,
-      content: formData.value.content || '',
-      content_type: formData.value.content_type || 'article',
-      template_id: formData.value.template_id || null
-    }
-    if (isEdit.value) {
-      await contentApi.update(formData.value.id, data)
-      message.success('更新成功')
-    } else {
-      await contentApi.create(data)
-      message.success('添加成功')
-    }
-    showAddModal.value = false
-    loadContents()
-  } catch (err) {
-    console.error(err)
-  } finally {
-    loading.value = false
-  }
-}
-
-async function handleDelete(id) {
-  try {
-    await contentApi.delete(id)
-    message.success('删除成功')
-    loadContents()
-  } catch (err) {
-    console.error(err)
-  }
-}
-
-onMounted(() => {
-  loadContents()
-  loadTemplates()
 })
+watch(
+  () => filteredArticles.value.length,
+  (length) => {
+    pagination.value.page = Math.min(
+      pagination.value.page,
+      Math.max(1, Math.ceil(length / pagination.value.pageSize))
+    )
+  }
+)
+onMounted(load)
 </script>
 
 <style scoped>
-.modal-content {
-  display: flex;
-  gap: 24px;
-  min-height: 70vh;
+.load-retry {
+  margin-left: 12px;
 }
-
-.left-panel {
-  width: 320px;
-  flex-shrink: 0;
-}
-
-.right-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.editor-label {
-  font-size: 14px;
+.management-description {
+  margin: 0 0 20px;
   color: var(--mixm-muted);
-  margin-bottom: 8px;
+  font-size: 13px;
+}
+.library-error {
+  margin-bottom: 20px;
+}
+.content-management-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 20px;
+}
+.course-filter {
+  align-self: start;
+  padding: 12px;
+  border: 1px solid var(--mixm-border);
+  border-radius: 8px;
+  background: var(--mixm-paper);
+}
+.filter-heading {
+  padding: 6px 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.course-filter-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--mixm-muted);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.course-filter-item > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.course-filter-item small {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.course-filter-item:hover {
+  background: var(--mixm-surface-muted);
+}
+.course-filter-item.active {
+  background: var(--mixm-accent-soft);
+  color: var(--mixm-accent);
+}
+.course-filter-item:focus-visible {
+  outline: 2px solid var(--mixm-accent);
+}
+.filter-count {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.unassigned-filter {
+  margin-top: 10px;
+  border-top: 1px solid var(--mixm-border);
+  border-radius: 0;
+}
+.article-management {
+  min-width: 0;
+}
+.article-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.article-list-toolbar strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.article-list-toolbar span {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--mixm-muted);
+}
+.article-search {
+  width: 220px;
+  max-width: 100%;
+}
+.contents :deep(.created-at-cell) {
+  white-space: nowrap;
+}
+.contents :deep(.unassigned-label) {
+  color: var(--mixm-muted);
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .content-management-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .course-filter {
+    max-height: 240px;
+    overflow-y: auto;
+  }
 }
 </style>
