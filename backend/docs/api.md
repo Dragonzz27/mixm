@@ -20,6 +20,7 @@
 | 用户、管理员创建用户 | /users、/users/:id；创建仍要求 Users 权限 |
 | 密码、Excel 导入 | PUT /users/:id/password、POST /users/imports |
 | 当前用户实例、镜像、提交 | GET /users/me/instances、/users/me/images、/users/me/submissions |
+| Registry 仓库目录同步 | POST /images/sync，无需请求体，要求 AdminImageRepositories 权限，返回 {total,created} |
 | 指定用户实例 | GET /users/:id/instances |
 | 活动作业 | GET /assignments?active=true，仍检查截止时间 |
 | 创建提交 | POST /assignments/:id/submissions |
@@ -52,6 +53,10 @@
 生成及分析接口返回 `text/event-stream`，事件仍为 `chunk/content`、`done/data`、`error/message`。流开始前的错误返回统一 JSON，开始后的错误通过 SSE 事件返回。前端共享 API_BASE_URL，普通请求解包 data，错误读取 message；刷新令牌使用独立请求以避免刷新递归。文件预览直接读取文件响应。
 
 ## 数据库和后台任务
+
+镜像仓库页面打开时及每 30 秒调用一次 `POST /images/sync`，从配置的 Registry 分页读取 `/v2/_catalog`，然后按名称补充平台记录。新记录归属于发起同步的管理员，默认公开；已有记录的 ID、归属和公开性保持不变。同步失败不写入部分目录，也不会因目录缺失而删除原有记录；标签信息继续实时从 Registry 查询。推送镜像后无需手动登记仓库名称。
+
+仓库标签按 Registry `/v2/<name>/tags/list` 的 Link 分页完整读取。仓库详情返回全部 `tags` 和 `tags_count`；`GET /images/:id/tags` 仍返回标准分页结构，前端标签选择器读取全部接口分页。详情页首次打开、点击“刷新标签”以及停留期间每 30 秒查询最新标签；Registry 查询失败返回错误并在页面提示，不作为“无标签”处理。Registry 中标签为 null 或空数组时才显示空状态。
 
 GORM 映射现有表名、字符串主键、组合主键、nullable 字段、JSONB 和 TEXT JSON。保留物理删除、数据库默认值及显式更新时间。SQL 迁移位于 `internal/repository/migrations`，保留名称、内容、应用记录和 advisory transaction lock；不使用 AutoMigrate。
 

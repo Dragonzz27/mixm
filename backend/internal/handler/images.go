@@ -14,6 +14,17 @@ type Images struct {
 	mine    bool
 }
 
+// Sync 同步 Registry 已有仓库，无需客户端提交仓库名称。
+func (h *Images) Sync(c *gin.Context) {
+	result, err := h.Service.Sync(c.Request.Context(), actor(c))
+	if err != nil {
+		Failure(c, err)
+		return
+	}
+
+	Success(c, http.StatusOK, result)
+}
+
 // List 按权限与查询条件返回镜像仓库列表。
 func (h *Images) List(c *gin.Context) {
 	result, err := h.Service.List(c.Request.Context(), actor(c), c.Request.URL.Query(), h.mine)

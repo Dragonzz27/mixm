@@ -107,6 +107,7 @@
   "POST /api/contents",
   "POST /api/contents/files",
   "POST /api/images",
+  "POST /api/images/sync",
   "POST /api/instances",
   "POST /api/knowledge-tree",
   "POST /api/knowledge-tree/analyses",

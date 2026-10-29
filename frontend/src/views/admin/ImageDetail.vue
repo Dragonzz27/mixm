@@ -32,10 +32,15 @@
         </div>
       </div>
       <div class="header-actions">
+        <n-button :loading="loadingTags" @click="fetchTags">刷新标签</n-button>
         <n-button type="primary" @click="showPushModal = true">推送镜像</n-button>
         <n-button v-if="isOwner" @click="showEditModal = true">设置</n-button>
       </div>
     </div>
+
+    <n-alert v-if="tagsError" type="warning" title="标签同步失败" class="tags-error">
+      {{ tagsError }}。请刷新重试，系统也会每 30 秒自动更新。
+    </n-alert>
 
     <n-card :bordered="false" class="tags-card">
       <n-spin :show="loadingTags">
@@ -54,10 +59,13 @@
               </td>
               <td>{{ formatSize(tag.size) }}</td>
               <td v-if="isOwner">
-                <n-button size="small" type="info" @click="showPullModal = true">
-                  拉取
-                </n-button>
-                <n-button size="small" type="error" style="margin-left: 8px;" @click="deleteTag(tag.name)">
+                <n-button size="small" type="info" @click="showPullModal = true">拉取</n-button>
+                <n-button
+                  size="small"
+                  type="error"
+                  style="margin-left: 8px"
+                  @click="deleteTag(tag.name)"
+                >
                   删除
                 </n-button>
               </td>
@@ -66,7 +74,7 @@
           <tbody v-else>
             <tr class="table-empty-row">
               <td :colspan="isOwner ? 3 : 2">
-                <n-empty description="暂无镜像Tag" />
+                <n-empty :description="tagsError ? '标签暂不可用' : 'Registry 中暂无镜像 Tag'" />
               </td>
             </tr>
           </tbody>
@@ -74,26 +82,16 @@
       </n-spin>
     </n-card>
 
-    <EditImageModal
-      v-model:show="showEditModal"
-      :repository="repository"
-      @success="fetchDetail"
-    />
+    <EditImageModal v-model:show="showEditModal" :repository="repository" @success="fetchDetail" />
 
-    <PushImageModal
-      v-model:show="showPushModal"
-      :repository="repository"
-    />
+    <PushImageModal v-model:show="showPushModal" :repository="repository" />
 
-    <PullImageModal
-      v-model:show="showPullModal"
-      :repository="repository"
-    />
+    <PullImageModal v-model:show="showPullModal" :repository="repository" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { ArrowBackOutline } from '@vicons/ionicons5'
@@ -109,6 +107,8 @@ const message = useMessage()
 const userStore = useUserStore()
 
 const loadingTags = ref(false)
+const tagsError = ref('')
+let refreshTimer = null
 const repository = ref(null)
 const tags = ref([])
 const showEditModal = ref(false)
@@ -122,25 +122,34 @@ const isOwner = computed(() => {
 })
 
 async function fetchDetail() {
+  loadingTags.value = true
   try {
     const repoId = route.params.id
     const res = await imageApi.getDetail(repoId)
     repository.value = res
     tags.value = res.tags || []
+    tagsError.value = ''
   } catch (err) {
     console.error('Failed to fetch repository:', err)
-    message.error('加载仓库详情失败')
+    tagsError.value = err.response?.data?.message || '加载仓库详情失败'
+  } finally {
+    loadingTags.value = false
   }
 }
 
 async function fetchTags() {
+  if (loadingTags.value) return
+  if (!repository.value) return fetchDetail()
+  loadingTags.value = true
   try {
-    loadingTags.value = true
     const repoId = route.params.id
-    const res = await imageApi.getTags(repoId)
+    const res = await imageApi.getAllTags(repoId)
     tags.value = res.items || []
+    if (repository.value) repository.value.tags_count = res.total
+    tagsError.value = ''
   } catch (err) {
     console.error('Failed to fetch tags:', err)
+    tagsError.value = err.response?.data?.message || '无法读取 Registry 标签'
   } finally {
     loadingTags.value = false
   }
@@ -180,12 +189,21 @@ async function deleteTag(tagName) {
 
 onMounted(() => {
   fetchDetail()
+  refreshTimer = setInterval(fetchTags, 30000)
+})
+
+onUnmounted(() => {
+  clearInterval(refreshTimer)
 })
 </script>
 
 <style scoped>
 .image-detail {
   padding-bottom: 24px;
+}
+
+.tags-error {
+  margin-bottom: 16px;
 }
 
 .page-header {

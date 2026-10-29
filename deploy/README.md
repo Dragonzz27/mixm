@@ -185,7 +185,7 @@ docker build \
 docker push localhost:55000/mixm-codeserver-wsl2:v0.0.1
 ```
 
-在前端创建仓库记录 `mixm-codeserver-wsl2`，创建实例时选择该镜像标签，并申请 GPU 和单卡显存。共享库由 HAMi 和 NVIDIA 容器运行环境在启动时提供，不复制进镜像；这个测试镜像固定了当前 WSL2 驱动路径，驱动目录变化后需修改 Dockerfile 并重新构建。进入 code-server 终端后可执行 `printf '%s\n' "$LD_PRELOAD"` 检查预加载变量。
+推送后打开前端“镜像仓库”页面，系统自动从 Registry 同步仓库，并每 30 秒更新，无需手动输入 `mixm-codeserver-wsl2`。新发现的仓库默认公开，已有仓库保留原来的归属和公开性。创建实例时选择该镜像标签，并申请 GPU 和单卡显存。共享库由 HAMi 和 NVIDIA 容器运行环境在启动时提供，不复制进镜像；这个测试镜像固定了当前 WSL2 驱动路径，驱动目录变化后需修改 Dockerfile 并重新构建。进入 code-server 终端后可执行 `printf '%s\n' "$LD_PRELOAD"` 检查预加载变量。
 
 Dockerfile 统一使用 `docker/dockerfile:1`、大写指令、四空格续行缩进和 JSON 格式的 `CMD`；实验镜像使用 Bash `pipefail`。
 

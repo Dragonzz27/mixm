@@ -267,9 +267,11 @@ async function loadTags(repoId) {
     return
   }
   tagsLoading.value = true
+  tags.value = []
   try {
     const currentTag = formData.value.repo_tag
-    const res = await imageApi.getTags(repoId)
+    const res = await imageApi.getAllTags(repoId)
+    if (formData.value.repo_id !== repoId) return
     tags.value = res.items || []
 
     if (currentTag && tags.value.some(t => t.name === currentTag)) {
@@ -283,6 +285,7 @@ async function loadTags(repoId) {
     }
   } catch (err) {
     console.error(err)
+    message.error('加载镜像标签失败')
   } finally {
     tagsLoading.value = false
   }

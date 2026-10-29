@@ -265,6 +265,9 @@ export const instanceApi = {
 }
 
 export const imageApi = {
+  sync() {
+    return request.post('/images/sync')
+  },
   getList(params) {
     return request.get('/images/', { params })
   },
@@ -283,8 +286,21 @@ export const imageApi = {
   delete(id) {
     return request.delete(`/images/${id}`)
   },
-  getTags(id) {
-    return request.get(`/images/${id}/tags`)
+  getTags(id, params) {
+    return request.get(`/images/${id}/tags`, { params })
+  },
+  async getAllTags(id) {
+    const items = []
+    let total = 0
+    do {
+      const page = await imageApi.getTags(id, { offset: items.length, limit: 1000 })
+      items.push(...page.items)
+      total = page.total
+      if (page.items.length === 0 && items.length < total) {
+        throw new Error('镜像标签分页响应不完整')
+      }
+    } while (items.length < total)
+    return { items, total, offset: 0, limit: items.length }
   },
   deleteTag(repoId, tagName) {
     return request.delete(`/images/${repoId}/tags/${tagName}`)

@@ -55,6 +55,12 @@ func TestHTTPContract(t *testing.T) {
 		}
 	}
 
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest("POST", "/api/images/sync", nil))
+	if w.Code != 401 {
+		t.Fatalf("image sync must require authentication: %d", w.Code)
+	}
+
 	// 检查预检、请求方法和不存在资源的响应状态。
 	for _, test := range []struct {
 		method, path string

@@ -211,14 +211,17 @@ async function loadTags(repoId) {
     return
   }
   tagsLoading.value = true
+  tags.value = []
   try {
-    const res = await imageApi.getTags(repoId)
+    const res = await imageApi.getAllTags(repoId)
+    if (formData.value.repo_id !== repoId) return
     tags.value = res.items || []
     if (tags.value.length > 0) {
       formData.value.repo_tag = tags.value[0].name
     }
   } catch (err) {
     console.error(err)
+    message.error('加载镜像标签失败')
   } finally {
     tagsLoading.value = false
   }

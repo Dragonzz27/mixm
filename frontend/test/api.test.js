@@ -4,17 +4,42 @@ import fs from 'node:fs'
 import vm from 'node:vm'
 
 // Evaluate the actual API declarations with a recording transport, without DOM or network.
-function client() {
+function client(respond) {
   const calls = []
   const request = Object.fromEntries(['get', 'post', 'patch', 'put', 'delete'].map(method => [method, (...args) => {
     calls.push(JSON.parse(JSON.stringify({ method, args })))
-    return Promise.resolve({ recorded: true })
+    return Promise.resolve(respond ? respond(method, args) : { recorded: true })
   }]))
   const source = fs.readFileSync(new URL('../src/api/index.js', import.meta.url), 'utf8')
     .replace(/^import .*$/gm, '').replace(/export const /g, 'const ')
-  const api = vm.runInNewContext(`${source}\n;({authApi, instanceApi, assignmentApi, simulationApi, bindingApi, questionApi, clusterApi})`, { request, stream() {} })
+  const api = vm.runInNewContext(`${source}\n;({authApi, instanceApi, imageApi, assignmentApi, simulationApi, bindingApi, questionApi, clusterApi})`, { request, stream() {} })
   return { api, calls }
 }
+
+test('image catalog synchronization uses the protected POST route without repository names', async () => {
+  const { api, calls } = client()
+  await api.imageApi.sync()
+  assert.deepEqual(calls, [{ method: 'post', args: ['/images/sync'] }])
+  const routes = JSON.parse(fs.readFileSync(new URL('../../backend/internal/router/routes.json', import.meta.url), 'utf8'))
+  assert.ok(routes.includes('POST /api/images/sync'))
+})
+
+test('image tag selectors read every API page instead of stopping at the default page', async () => {
+  const all = Array.from({ length: 1003 }, (_, index) => ({ name: `tag-${index}` }))
+  const { api, calls } = client((method, args) => {
+    const { offset, limit } = args[1].params
+    return { items: all.slice(offset, offset + limit), total: all.length, offset, limit }
+  })
+  const page = await api.imageApi.getAllTags('repo')
+  assert.equal(page.items.length, 1003)
+  assert.equal(page.items.at(-1).name, 'tag-1002')
+  assert.deepEqual(calls.map(call => call.args[1].params.offset), [0, 1000])
+})
+
+test('incomplete tag pagination fails instead of silently losing labels or looping', async () => {
+  const { api } = client(() => ({ items: [], total: 1, offset: 0, limit: 1000 }))
+  await assert.rejects(api.imageApi.getAllTags('repo'), /镜像标签分页响应不完整/)
+})
 
 test('cluster resource requests match registered backend routes', async () => {
   const { api, calls } = client()

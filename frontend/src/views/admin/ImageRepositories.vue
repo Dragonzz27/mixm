@@ -2,30 +2,25 @@
   <div class="image-repositories">
     <div class="page-header">
       <div class="page-title">
-        <div class="page-main-title">镜像</div>
-        <span class="title-divider" aria-hidden="true"></span>
-        <n-tabs 
-          v-model:value="activeTab" 
-          type="line" 
-          class="image-tabs"
-          @update:value="handleTabChange"
-        >
-          <!-- <n-tab name="my">我的</n-tab>   EDU版本不开放 -->
-          <n-tab name="public">公开</n-tab>
-        </n-tabs>
+        <div class="page-main-title">镜像仓库</div>
+        <span class="sync-note">自动同步 Registry · 每 30 秒更新</span>
       </div>
       <div class="page-actions">
         <n-input
           v-model:value="searchText"
           placeholder="搜索镜像"
           clearable
-          style="width: 200px;"
+          style="width: 200px"
           @keyup.enter="handleSearch"
           @clear="handleSearch"
         />
-        <n-button type="primary" @click="showCreateModal = true">创建镜像仓库</n-button>
+        <n-button :loading="syncing" @click="syncRepositories">刷新</n-button>
       </div>
     </div>
+
+    <n-alert v-if="syncError" type="warning" title="Registry 同步失败" class="sync-alert">
+      {{ syncError }}。下方显示已登记的仓库，可点击刷新重试。
+    </n-alert>
 
     <n-spin :show="loading">
       <n-card :bordered="false" v-if="repositories.length > 0">
@@ -47,7 +42,7 @@
                   {{ repo.name }}
                 </a>
               </td>
-              <td>{{ repo.tags_count }}</td>
+              <td>{{ repo.tags_count ?? '—' }}</td>
               <td>
                 <div class="creator-cell">
                   <n-avatar round size="small" class="creator-avatar">
@@ -64,7 +59,9 @@
               </td>
               <td>
                 <n-space>
-                  <a href="javascript:void(0)" class="action-link" @click="goToDetail(repo.id)">详情</a>
+                  <a href="javascript:void(0)" class="action-link" @click="goToDetail(repo.id)">
+                    详情
+                  </a>
                   <n-dropdown
                     :options="getMoreOptions(repo)"
                     @select="(key) => handleMoreAction(key, repo)"
@@ -77,11 +74,11 @@
           </tbody>
         </n-table>
       </n-card>
-      <n-empty v-else description="暂无镜像仓库" style="padding: 80px 0;">
-        <template #extra>
-          <n-button type="primary" @click="showCreateModal = true">创建第一个仓库</n-button>
-        </template>
-      </n-empty>
+      <n-empty
+        v-else
+        :description="searchText ? '没有匹配的镜像仓库' : 'Registry 中暂无镜像仓库，请先推送镜像'"
+        style="padding: 80px 0"
+      />
 
       <div class="pagination" v-if="total > 0">
         <span>共 {{ total }} 条</span>
@@ -94,35 +91,28 @@
         <n-select
           v-model:value="pageSize"
           :options="pageSizeOptions"
-          style="width: 90px;"
+          style="width: 90px"
           @update:value="handlePageSizeChange"
         />
       </div>
     </n-spin>
-
-    <CreateImageModal
-      v-model:show="showCreateModal"
-      @success="fetchRepositories"
-    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { imageApi } from '@/api'
-import { useUserStore } from '@/stores/user'
-import CreateImageModal from '@/components/CreateImageModal.vue'
 
 const router = useRouter()
 const message = useMessage()
-const userStore = useUserStore()
 
-const loading = ref(false)
+const loading = ref(true)
+const syncing = ref(false)
+const syncError = ref('')
+let syncTimer = null
 const repositories = ref([])
-const showCreateModal = ref(false)
-const activeTab = ref('public')
 const searchText = ref('')
 const page = ref(1)
 const pageSize = ref(20)
@@ -133,33 +123,26 @@ const pageSizeOptions = [
   { label: '100 条/页', value: 100 }
 ]
 
-const currentUserId = computed(() => userStore.userInfo?.id)
-
-function getMoreOptions(repo) {
-  return [
-    // { 
-    //   label: repo.is_public ? '设为私有' : '设为公开', 
-    //   key: 'toggle_public' 
-    // },
-    { label: '删除', key: 'delete' }
-  ]
+function getMoreOptions() {
+  return [{ label: '删除', key: 'delete' }]
 }
 
 function handleMoreAction(key, repo) {
-  if (key === 'toggle_public') {
-    togglePublic(repo)
-  } else if (key === 'delete') {
-    deleteRepo(repo.id)
-  }
+  if (key === 'delete') deleteRepo(repo.id)
 }
 
-async function togglePublic(repo) {
+// 打开页面和定时刷新时先发现新仓库，再查询当前页；同步失败仍可查看已有记录。
+async function syncRepositories() {
+  if (syncing.value) return
+  syncing.value = true
   try {
-    await imageApi.update(repo.id, { is_public: !repo.is_public })
-    message.success(repo.is_public ? '已设为私有' : '已设为公开')
-    fetchRepositories()
+    await imageApi.sync()
+    syncError.value = ''
   } catch (err) {
-    message.error('操作失败')
+    syncError.value = err.response?.data?.message || '无法连接镜像仓库'
+  } finally {
+    await fetchRepositories()
+    syncing.value = false
   }
 }
 
@@ -170,7 +153,6 @@ async function fetchRepositories() {
     const res = await imageApi.getList({
       offset,
       limit: pageSize.value,
-      type: activeTab.value,
       search: searchText.value || undefined
     })
     repositories.value = res.items || []
@@ -181,11 +163,6 @@ async function fetchRepositories() {
   } finally {
     loading.value = false
   }
-}
-
-function handleTabChange() {
-  page.value = 1
-  fetchRepositories()
 }
 
 function handleSearch() {
@@ -222,7 +199,12 @@ async function deleteRepo(id) {
 }
 
 onMounted(() => {
-  fetchRepositories()
+  syncRepositories()
+  syncTimer = setInterval(syncRepositories, 30000)
+})
+
+onUnmounted(() => {
+  clearInterval(syncTimer)
 })
 </script>
 
@@ -256,27 +238,13 @@ onMounted(() => {
   line-height: 1;
 }
 
-.title-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--mixm-border);
-  flex-shrink: 0;
+.sync-note {
+  color: var(--mixm-muted);
+  font-size: 12px;
 }
 
-.image-tabs {
-  margin-bottom: 0;
-}
-
-.image-tabs :deep(.n-tabs-nav) {
-  margin-bottom: 0;
-}
-
-.image-tabs :deep(.n-tabs-tab) {
-  padding: 12px 0;
-}
-
-.page-title :deep(.n-tabs .n-tabs-tab--active) {
-  font-weight: 600;
+.sync-alert {
+  margin-bottom: 16px;
 }
 
 .page-actions {
@@ -329,5 +297,20 @@ onMounted(() => {
 .pagination span {
   color: var(--mixm-muted);
   font-size: 14px;
+}
+@media (max-width: 1000px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .page-title {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  .page-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
 }
 </style>

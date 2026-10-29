@@ -18,6 +18,25 @@ import (
 
 type Images struct{ *Core }
 
+// Sync 从 Registry 发现仓库并登记到平台，目录全部读取成功后才写入数据库。
+func (s *Images) Sync(ctx context.Context, actor model.Actor) (any, error) {
+	if err := s.permission(ctx, actor, "AdminImageRepositories"); err != nil {
+		return nil, err
+	}
+
+	names, err := s.Clients.Registry.Catalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	created, err := repository.SyncImageRepositories(ctx, s.DB, actor.ID, names)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.Record{"total": len(names), "created": created}, nil
+}
+
 // image 读取镜像仓库记录并校验访问权限。
 func (s *Images) image(ctx context.Context, actor model.Actor, id string) (model.Record, error) {
 	v, err := repository.Get(ctx, s.DB, "image_repositories", id)
@@ -36,28 +55,19 @@ func (s *Images) image(ctx context.Context, actor model.Actor, id string) (model
 
 // tags 读取仓库标签，按需汇总镜像层大小。
 func (s *Images) tags(ctx context.Context, v model.Record, detailed ...bool) ([]model.Record, error) {
-	resp, err := s.Clients.Registry.Request(ctx, "GET", model.String(v, "name")+"/tags/list")
+	tags, err := s.Clients.Registry.Tags(ctx, model.String(v, "name"))
 	if err != nil {
 		var he *apperror.Error
-		if errors.As(err, &he) && he.Status == 404 {
+		if errors.As(err, &he) && he.Status == http.StatusNotFound {
 			return []model.Record{}, nil
 		}
 
 		return nil, err
 	}
 
-	defer resp.Body.Close()
-
-	var data struct {
-		Tags []string `json:"tags"`
-	}
-	if err = json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&data); err != nil {
-		return nil, err
-	}
-
 	out := []model.Record{}
 
-	for _, t := range data.Tags {
+	for _, t := range tags {
 		item := model.Record{
 			"name":       t,
 			"tag":        t,
@@ -137,7 +147,9 @@ func (s *Images) List(ctx context.Context, actor model.Actor, query url.Values, 
 		v["user_info"] = model.Record{"id": u["id"], "username": u["username"]}
 		tags, err := s.tags(ctx, v, false)
 		if err != nil {
-			return nil, err
+			// Registry 暂不可用时保留数据库列表，标签数量以未知状态展示。
+			v["tags_count"] = nil
+			continue
 		}
 
 		v["tags_count"] = len(tags)
@@ -174,8 +186,13 @@ func (s *Images) Detail(ctx context.Context, actor model.Actor, id string) (any,
 		return nil, err
 	}
 
-	v["tags"], err = s.tags(ctx, v)
-	v["tags_count"] = len(model.Objects(v["tags"]))
+	tags, err := s.tags(ctx, v)
+	if err != nil {
+		return nil, err
+	}
+
+	v["tags"] = tags
+	v["tags_count"] = len(tags)
 	u, err := repository.Get(ctx, s.DB, "users", model.String(v, "user_id"))
 	if err != nil {
 		return nil, err

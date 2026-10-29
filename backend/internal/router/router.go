@@ -118,6 +118,7 @@ func New(c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Cli
 	// 镜像仓库与标签管理接口。
 	protected.GET("/images", imagesHandler.List)
 	protected.POST("/images", imagesHandler.Create)
+	protected.POST("/images/sync", imagesHandler.Sync)
 	protected.GET("/images/:id", imagesHandler.Detail)
 	protected.GET("/images/:id/tags", imagesHandler.Tags)
 	protected.PATCH("/images/:id", imagesHandler.Update)
