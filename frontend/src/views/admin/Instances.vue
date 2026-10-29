@@ -41,6 +41,7 @@ import { NCard, NButton, NDataTable, NSpace, NTag, useMessage, useDialog } from 
 import { instanceApi } from '@/api'
 import StartInstanceModal from '@/components/StartInstanceModal.vue'
 import InstanceConfigModal from '@/components/InstanceConfigModal.vue'
+import { getInstanceResources, formatGpuMemory } from '@/utils/instanceResources'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -84,31 +85,6 @@ function parseConfig(config) {
   return config
 }
 
-function resolveGpuLimit(row) {
-  if (row.gpu_limit !== undefined && row.gpu_limit !== null) {
-    return Number(row.gpu_limit) || 0
-  }
-  const config = parseConfig(row.config)
-  return Number(config.gpu_limit) || 0
-}
-
-function resolveGpuMemoryLimit(row) {
-  if (row.gpu_memory_limit !== undefined && row.gpu_memory_limit !== null) {
-    return Number(row.gpu_memory_limit) || 0
-  }
-  const config = parseConfig(row.config)
-  return Number(config.gpu_memory_limit) || 0
-}
-
-function formatGpuMemory(mb) {
-  const memoryMb = Number(mb) || 0
-  if (memoryMb <= 0) return '-'
-  if (memoryMb % 1024 === 0) {
-    return `${memoryMb / 1024}Gi`
-  }
-  return `${memoryMb}Mi`
-}
-
 function getStatusType(status) {
   switch (status) {
     case 'running': return 'success'
@@ -140,25 +116,31 @@ const columns = [
     title: 'CPU',
     key: 'cpu_limit',
     width: 100,
-    render: (row) => h('span', `${row.cpu_limit || 1}核`)
+    render: (row) => h('span', `${getInstanceResources(row).cpuLimit}核`)
   },
   {
     title: '内存',
     key: 'memory_limit',
     width: 140,
-    render: (row) => h('span', row.memory_limit || '-')
+    render: (row) => h('span', getInstanceResources(row).memoryLimit)
+  },
+  {
+    title: '临时存储',
+    key: 'storage_limit',
+    width: 110,
+    render: (row) => h('span', `${getInstanceResources(row).storageLimit}Gi`)
   },
   {
     title: 'GPU数量',
     key: 'gpu_limit',
     width: 100,
-    render: (row) => h('span', `${resolveGpuLimit(row)}张`)
+    render: (row) => h('span', `${getInstanceResources(row).gpuLimit}张`)
   },
   {
     title: '单卡显存',
     key: 'gpu_memory_limit',
     width: 120,
-    render: (row) => h('span', formatGpuMemory(resolveGpuMemoryLimit(row)))
+    render: (row) => h('span', formatGpuMemory(getInstanceResources(row).gpuMemoryLimit))
   },
   { title: '绑定用户', key: 'username', width: 100 },
   { title: '启动时间', key: 'started_at', width: 150 },
@@ -279,7 +261,6 @@ async function handleDeleteAll() {
 
 function handleViewConfig(row) {
   const config = parseConfig(row.config)
-  console.log(config)
   const sshHost = row.hostIp || ''
   const sshPort = row.ssh_port || ''
   const sshUsername = row.ssh_username || ''
@@ -292,11 +273,7 @@ function handleViewConfig(row) {
     id: row.id,
     name: row.name,
     image: row.image || '-',
-    cpuLimit: row.cpu_limit || 1,
-    memoryLimit: row.memory_limit || '1Gi',
-    storageLimit: row.storage_limit || 1,
-    gpuLimit: resolveGpuLimit(row),
-    gpuMemoryLimit: resolveGpuMemoryLimit(row),
+    ...getInstanceResources(row),
     namespace: row.namespace,
     sshHost: sshHost,
     sshPort: sshPort,

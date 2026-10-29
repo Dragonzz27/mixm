@@ -18,6 +18,8 @@ CPU 范围 0.5-16，内存范围 512Mi-32Gi，临时存储范围 1-40Gi，GPU �
 
 每个用户的持久 workspace 使用 edu-pvc-cs-{user_id}，容量由 USER_PERSONAL_PVC_CAPACITY 设置。storage_limit 控制容器临时存储，不改变已有用户 PVC 容量。PVC_ACCESS_MODE 与 STORAGE_CLASS_NAME 应匹配实际存储供应器。
 
+实例详情和列表接口在顶层返回 `cpu_limit`（核）、`memory_limit`（Kubernetes 容量字符串）、`storage_limit`（Gi）、`gpu_limit`（张）和 `gpu_memory_limit`（单卡显存，Mi）。前端实例资源区和配置弹窗统一读取这些字段；实例 `config` 字段仅保存密码、工作目录、镜像等运行信息，不作为资源配置的数据源。
+
 code-server 镜像使用原入口命令，暴露 8080 和 22 端口；普通 Ubuntu 镜像初始化 sshd。Go SSH 网关通过 Kubernetes pods/exec 连接到运行中的容器。
 
 新实例的 SSH 网关用户名为平台用户名加上实际保存的实例 UUID 去除连字符后的前 8 位，例如 `admin0086c788`。该后缀对应实例配置和访问地址中的同一个实例 ID，用于区分同一用户的多个实例；连接时使用实例配置中显示的完整 SSH 用户名。

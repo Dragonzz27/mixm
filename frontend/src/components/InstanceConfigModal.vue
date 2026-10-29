@@ -20,7 +20,7 @@
         {{ config.storageLimit }} Gi
       </n-descriptions-item>
       <n-descriptions-item label="GPU数量">
-        {{ config.gpuLimit || 0 }} 张
+        {{ config.gpuLimit }} 张
       </n-descriptions-item>
       <n-descriptions-item label="单卡显存">
         {{ formatGpuMemory(config.gpuMemoryLimit) }}
@@ -58,6 +58,7 @@
 <script setup>
 import { computed } from 'vue'
 import { NModal, NDescriptions, NDescriptionsItem, NTag, NInput, NButton, useMessage } from 'naive-ui'
+import { formatGpuMemory } from '@/utils/instanceResources'
 
 const props = defineProps({
   show: {
@@ -107,12 +108,4 @@ function copyCodeServerUrl() {
   message.success('Code-Server访问路径已复制到剪贴板')
 }
 
-function formatGpuMemory(mb) {
-  const memoryMb = Number(mb) || 0
-  if (memoryMb <= 0) return '-'
-  if (memoryMb % 1024 === 0) {
-    return `${memoryMb / 1024}Gi`
-  }
-  return `${memoryMb}Mi`
-}
 </script>

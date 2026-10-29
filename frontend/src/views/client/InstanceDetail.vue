@@ -55,11 +55,11 @@
 
           <n-card title="资源" :bordered="false">
             <n-descriptions :column="1" label-placement="left">
-              <n-descriptions-item label="CPU">{{ instance.config?.cpu_limit || instance.config?.cpuLimit }}</n-descriptions-item>
-              <n-descriptions-item label="内存">{{ instance.config?.memory_limit || instance.config?.memoryLimit }}</n-descriptions-item>
-              <n-descriptions-item label="存储">{{ resolveStorageLimit(instance) }} Gi</n-descriptions-item>
-              <n-descriptions-item label="GPU">{{ instance.config?.gpu_limit || instance.config?.gpuLimit || 0 }} 张</n-descriptions-item>
-              <n-descriptions-item label="单卡显存">{{ formatGpuMemory(instance.config?.gpu_memory_limit || instance.config?.gpuMemoryLimit) }}</n-descriptions-item>
+              <n-descriptions-item label="CPU">{{ resources.cpuLimit }} 核</n-descriptions-item>
+              <n-descriptions-item label="内存">{{ resources.memoryLimit }}</n-descriptions-item>
+              <n-descriptions-item label="临时存储">{{ resources.storageLimit }} Gi</n-descriptions-item>
+              <n-descriptions-item label="GPU">{{ resources.gpuLimit }} 张</n-descriptions-item>
+              <n-descriptions-item label="单卡显存">{{ formatGpuMemory(resources.gpuMemoryLimit) }}</n-descriptions-item>
             </n-descriptions>
           </n-card>
 
@@ -138,6 +138,7 @@ import {
   SettingsOutline
 } from '@vicons/ionicons5'
 import InstanceConfigModal from '@/components/InstanceConfigModal.vue'
+import { getInstanceResources, formatGpuMemory } from '@/utils/instanceResources'
 
 const router = useRouter()
 const route = useRoute()
@@ -165,28 +166,7 @@ const instance = ref({
   image: null
 })
 
-function resolveStorageLimit(row) {
-  if (!row) return '-'
-
-  const directValue = row.storage_limit
-  if (directValue !== undefined && directValue !== null && directValue !== '') {
-    return Number(directValue) || directValue
-  }
-
-  const config = row.config || {}
-  const raw = config.storage_limit ?? config.storageLimit ?? config.storage
-  if (raw === undefined || raw === null || raw === '') return '-'
-
-  if (typeof raw === 'number') return raw
-  const strValue = String(raw).trim()
-  const giMatch = strValue.match(/^([0-9]+(?:\.[0-9]+)?)\s*Gi$/i)
-  if (giMatch) {
-    return Number(giMatch[1])
-  }
-
-  const num = Number(strValue)
-  return Number.isNaN(num) ? strValue : num
-}
+const resources = computed(() => getInstanceResources(instance.value))
 
 const instanceConfig = computed(() => {
   const config = instance.value.config || {}
@@ -202,11 +182,7 @@ const instanceConfig = computed(() => {
     id: instance.value.id,
     name: instance.value.name,
     image: instance.value.image || '-',
-    cpuLimit: config.cpu_limit || config.cpuLimit || '-',
-    memoryLimit: config.memory_limit || config.memoryLimit || '-',
-    storageLimit: resolveStorageLimit(instance.value),
-    gpuLimit: config.gpu_limit || config.gpuLimit || 0,
-    gpuMemoryLimit: config.gpu_memory_limit || config.gpuMemoryLimit || 0,
+    ...resources.value,
     namespace: instance.value.namespace || 'default',
     sshHost: sshHost,
     sshPort: sshPort,
@@ -245,21 +221,10 @@ const codeServerUrl = computed(() => {
   } catch (e) {
     console.error('Failed to parse config:', e)
   }
-  console.log('Parsed config:', config)
   const password = config.password || ''
   show_code_server_password.value = password
   return `http://${hostIp}:${port}${endpoint}/?password=${encodeURIComponent(password)}`
 })
-
-function formatGpuMemory(mb) {
-  if (!mb) return '-'
-  const memoryMb = Number(mb) || 0
-  if (memoryMb <= 0) return '-'
-  if (memoryMb % 1024 === 0) {
-    return `${memoryMb / 1024}Gi`
-  }
-  return `${memoryMb}Mi`
-}
 
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
