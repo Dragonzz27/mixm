@@ -92,7 +92,7 @@ func New(c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Cli
 	protected.GET("/clusters/namespaces/:namespace/pods/:name/describe", clusterHandler.GetPodsDescribe)
 	protected.GET("/clusters/persistent-volumes", clusterHandler.GetPv)
 	protected.DELETE("/clusters/persistent-volumes/:name", clusterHandler.DeletePv)
-	protected.GET("/clusters/persistent-volumesc", clusterHandler.GetPvc)
+	protected.GET("/clusters/persistent-volume-claims", clusterHandler.GetPvc)
 	protected.DELETE("/clusters/namespaces/:namespace/persistent-volume-claims/:name", clusterHandler.DeletePvc)
 	protected.POST("/assignments/files", filesHandler.AssignmentUpload)
 	public.GET("/assignments/files/:filename", filesHandler.AssignmentDownload)

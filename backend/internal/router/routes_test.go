@@ -31,7 +31,7 @@ func TestAPIRouteCoverage(t *testing.T) {
 }
 func TestHTTPContract(t *testing.T) {
 	router := New(config.Config{Secret: "test"}, nil, nil, nil)
-	for _, path := range []string{"/api/users", "/api/categories/", "/api/instance-tasks", "/api/simulation-attempts/current", "/api/clusters/nodes"} {
+	for _, path := range []string{"/api/users", "/api/categories/", "/api/instance-tasks", "/api/simulation-attempts/current", "/api/clusters/nodes", "/api/clusters/persistent-volume-claims"} {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != 401 || !strings.Contains(w.Body.String(), `"code":401`) || strings.Contains(w.Body.String(), `"detail"`) {

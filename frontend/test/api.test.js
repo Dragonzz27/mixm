@@ -12,9 +12,23 @@ function client() {
   }]))
   const source = fs.readFileSync(new URL('../src/api/index.js', import.meta.url), 'utf8')
     .replace(/^import .*$/gm, '').replace(/export const /g, 'const ')
-  const api = vm.runInNewContext(`${source}\n;({authApi, instanceApi, assignmentApi, simulationApi, bindingApi, questionApi})`, { request, stream() {} })
+  const api = vm.runInNewContext(`${source}\n;({authApi, instanceApi, assignmentApi, simulationApi, bindingApi, questionApi, clusterApi})`, { request, stream() {} })
   return { api, calls }
 }
+
+test('cluster resource requests match registered backend routes', async () => {
+  const { api, calls } = client()
+  const routes = new Set(JSON.parse(fs.readFileSync(new URL('../../backend/internal/router/routes.json', import.meta.url), 'utf8')))
+  await api.clusterApi.getPods()
+  await api.clusterApi.getNodes()
+  await api.clusterApi.getDeployments()
+  await api.clusterApi.getPV()
+  await api.clusterApi.getPVC()
+  for (const { method, args } of calls) {
+    const route = `${method.toUpperCase()} /api${args[0]}`
+    assert.ok(routes.has(route), `cluster API route is missing: ${route}`)
+  }
+})
 
 test('instance state, queue status and tasks use the new REST routes', async () => {
   const { api, calls } = client()

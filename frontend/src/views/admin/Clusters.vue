@@ -1,5 +1,11 @@
 <template>
   <div class="clusters">
+    <div class="cluster-actions">
+      <n-button :loading="loading" @click="loadData">刷新</n-button>
+    </div>
+    <n-alert v-if="failedSections.length" type="error" title="集群资源加载失败" style="margin-bottom: 24px;">
+      加载失败：{{ failedSections.join('、') }}。请点击刷新重试。
+    </n-alert>
     <n-grid :cols="3" :x-gap="24" :y-gap="24" style="margin-bottom: 24px;">
       <n-gi>
         <n-card>
@@ -28,21 +34,21 @@
 
     <n-tabs v-model:value="activeTab" type="card">
       <n-tab-pane name="pods" tab="Pod列表">
-        <n-data-table :columns="podColumns" :data="pods" :bordered="false" />
+        <n-data-table :columns="podColumns" :data="pods" :loading="loading" :bordered="false" />
       </n-tab-pane>
       <n-tab-pane name="deployments" tab="Deployment列表">
-        <n-data-table :columns="deploymentColumns" :data="deployments" :bordered="false" />
+        <n-data-table :columns="deploymentColumns" :data="deployments" :loading="loading" :bordered="false" />
       </n-tab-pane>
 
       <n-tab-pane name="pv" tab="PV列表">
-        <n-data-table :columns="pvColumns" :data="pvs" :bordered="false" />
+        <n-data-table :columns="pvColumns" :data="pvs" :loading="loading" :bordered="false" />
       </n-tab-pane>
       <n-tab-pane name="pvc" tab="PVC列表">
-        <n-data-table :columns="pvcColumns" :data="pvcs" :bordered="false" />
+        <n-data-table :columns="pvcColumns" :data="pvcs" :loading="loading" :bordered="false" />
       </n-tab-pane>
 
       <n-tab-pane name="nodes" tab="节点列表">
-        <n-data-table :columns="nodeColumns" :data="nodes" :bordered="false" />
+        <n-data-table :columns="nodeColumns" :data="nodes" :loading="loading" :bordered="false" />
       </n-tab-pane>
     </n-tabs>
 
@@ -90,13 +96,15 @@
 
 <script setup>
 import { ref, onMounted, h, computed } from 'vue'
-import { NGrid, NGi, NCard, NStatistic, NTabs, NTabPane, NDataTable, NProgress, NTag, NButton, useMessage, useDialog, NDrawer, NDrawerContent, NSpace, NSelect, NSpin, NDescriptions, NDescriptionsItem, NDivider, NEmpty } from 'naive-ui'
+import { NGrid, NGi, NCard, NStatistic, NTabs, NTabPane, NDataTable, NProgress, NTag, NButton, useMessage, useDialog, NDrawer, NDrawerContent, NSpace, NSelect, NSpin, NDescriptions, NDescriptionsItem, NDivider, NEmpty, NAlert } from 'naive-ui'
 import { clusterApi } from '@/api'
 
 const message = useMessage()
 const dialog = useDialog()
 
 const activeTab = ref('pods')
+const loading = ref(false)
+const failedSections = ref([])
 const pods = ref([])
 const deployments = ref([])
 const nodes = ref([])
@@ -170,7 +178,7 @@ const deploymentColumns = [
     title: '状态',
     key: 'status',
     width: 100,
-    render: (row) => h(NTag, { type: row.status === '运行中' ? 'success' : 'warning', size: 'small' }, () => row.status)
+    render: (row) => h(NTag, { type: getStatusType(row.status), size: 'small' }, () => row.status)
   },
   { title: '运行时长', key: 'age', width: 100 },
   {
@@ -197,7 +205,7 @@ const nodeColumns = [
       const used = (row.cpu_usage / 1000).toFixed(1)
       const total = (row.cpu_capacity / 1000).toFixed(1)
       return h('div', [
-        h(NProgress, { type: 'line', percentage: row.cpu_capacity ? (row.cpu_usage / row.cpu_capacity * 100).toFixed(0) : 0, showInfo: false, style: { marginBottom: '4px' } }),
+        h(NProgress, { type: 'line', percentage: row.cpu_capacity ? Math.round(row.cpu_usage / row.cpu_capacity * 100) : 0, showInfo: false, style: { marginBottom: '4px' } }),
         h('span', { style: 'font-size: 12px;' }, `${used} / ${total} 核`)
       ])
     }
@@ -210,7 +218,7 @@ const nodeColumns = [
       const used = (row.memory_usage / 1024 / 1024 / 1024).toFixed(1)
       const total = (row.memory_capacity / 1024 / 1024 / 1024).toFixed(1)
       return h('div', [
-        h(NProgress, { type: 'line', percentage: row.memory_capacity ? (row.memory_usage / row.memory_capacity * 100).toFixed(0) : 0, showInfo: false, style: { marginBottom: '4px' } }),
+        h(NProgress, { type: 'line', percentage: row.memory_capacity ? Math.round(row.memory_usage / row.memory_capacity * 100) : 0, showInfo: false, style: { marginBottom: '4px' } }),
         h('span', { style: 'font-size: 12px;' }, `${used} / ${total} GB`)
       ])
     }
@@ -263,26 +271,34 @@ const pvcColumns = [
 ]
 
 async function loadData() {
+  if (loading.value) return
+  loading.value = true
+  failedSections.value = []
+  const sections = [
+    { name: 'Pod列表', load: clusterApi.getPods, rows: pods },
+    { name: '节点列表', load: clusterApi.getNodes, rows: nodes },
+    { name: 'Deployment列表', load: clusterApi.getDeployments, rows: deployments },
+    { name: 'PV列表', load: clusterApi.getPV, rows: pvs },
+    { name: 'PVC列表', load: clusterApi.getPVC, rows: pvcs }
+  ]
   try {
-    const [podsRes, nodesRes, deploymentsRes, pvsRes, pvcsRes] = await Promise.all([
-      clusterApi.getPods(),
-      clusterApi.getNodes(),
-      clusterApi.getDeployments(),
-      clusterApi.getPV(),
-      clusterApi.getPVC()
-    ])
-    pods.value = podsRes.items || []
-    nodes.value = nodesRes.items || []
-    deployments.value = deploymentsRes.items || []
-    pvs.value = pvsRes.items || []
-    pvcs.value = pvcsRes.items || []
+    const results = await Promise.allSettled(sections.map(section => section.load()))
+    results.forEach((result, index) => {
+      const section = sections[index]
+      if (result.status === 'fulfilled') {
+        section.rows.value = result.value.items || []
+      } else {
+        section.rows.value = []
+        failedSections.value.push(section.name)
+      }
+    })
     summary.value = {
-      total_pods: podsRes.total || 0,
-      running_pods: pods.value.filter(p => p.status === 'running').length,
-      total_nodes: nodesRes.total || 0
+      total_pods: results[0].status === 'fulfilled' ? results[0].value.total : null,
+      running_pods: results[0].status === 'fulfilled' ? pods.value.filter(p => p.status === 'running').length : null,
+      total_nodes: results[1].status === 'fulfilled' ? results[1].value.total : null
     }
-  } catch (err) {
-    console.error(err)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -429,6 +445,12 @@ onMounted(loadData)
 </script>
 
 <style scoped>
+.cluster-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
 .log-viewer {
   background: #1a1a1a;
   color: var(--mixm-border);
