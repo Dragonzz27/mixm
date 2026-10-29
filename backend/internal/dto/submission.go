@@ -4,7 +4,7 @@ import (
 	"mixm/backend/internal/model"
 )
 
-// SubmissionInput contains the writable fields for this business contract.
+// SubmissionInput 定义当前业务接口允许写入的请求字段。
 type SubmissionInput struct {
 	Content  Optional[string] `json:"content"`
 	Feedback Optional[string] `json:"feedback"`
@@ -15,4 +15,7 @@ type SubmissionInput struct {
 	Status   Optional[string] `json:"status"`
 }
 
-func (input SubmissionInput) Fields() model.Record { return requestFields(input) }
+// Fields 提取请求中明确提供的字段，保留空值与零值。
+func (input SubmissionInput) Fields() model.Record {
+	return requestFields(input)
+}

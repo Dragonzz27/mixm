@@ -10,7 +10,9 @@ type AssignmentRole struct {
 	RoleID       string `gorm:"column:role_id;type:text;primaryKey" json:"role_id"`
 }
 
-func (AssignmentRole) TableName() string { return "assignment_roles" }
+func (AssignmentRole) TableName() string {
+	return "assignment_roles"
+}
 
 type Assignment struct {
 	ID          string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -25,7 +27,9 @@ type Assignment struct {
 	UpdatedAt   *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Assignment) TableName() string { return "assignments" }
+func (Assignment) TableName() string {
+	return "assignments"
+}
 
 type Submission struct {
 	ID           string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -43,7 +47,9 @@ type Submission struct {
 	UpdatedAt    *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Submission) TableName() string { return "submissions" }
+func (Submission) TableName() string {
+	return "submissions"
+}
 
 type ImageRepository struct {
 	ID        string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -54,7 +60,9 @@ type ImageRepository struct {
 	UpdatedAt *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (ImageRepository) TableName() string { return "image_repositories" }
+func (ImageRepository) TableName() string {
+	return "image_repositories"
+}
 
 type User struct {
 	ID             string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -68,7 +76,9 @@ type User struct {
 	UpdatedAt      *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (User) TableName() string { return "users" }
+func (User) TableName() string {
+	return "users"
+}
 
 type Policy struct {
 	ID           string          `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -82,21 +92,27 @@ type Policy struct {
 	IsActive     *bool           `gorm:"column:is_active;type:boolean" json:"is_active"`
 }
 
-func (Policy) TableName() string { return "policies" }
+func (Policy) TableName() string {
+	return "policies"
+}
 
 type PracticeRole struct {
 	PracticeID string `gorm:"column:practice_id;type:text;primaryKey" json:"practice_id"`
 	RoleID     string `gorm:"column:role_id;type:text;primaryKey" json:"role_id"`
 }
 
-func (PracticeRole) TableName() string { return "practice_roles" }
+func (PracticeRole) TableName() string {
+	return "practice_roles"
+}
 
 type PracticeTag struct {
 	PracticeID string `gorm:"column:practice_id;type:text;primaryKey" json:"practice_id"`
 	CategoryID string `gorm:"column:category_id;type:text;primaryKey" json:"category_id"`
 }
 
-func (PracticeTag) TableName() string { return "practice_tags" }
+func (PracticeTag) TableName() string {
+	return "practice_tags"
+}
 
 type Practice struct {
 	ID          string          `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -108,7 +124,9 @@ type Practice struct {
 	UpdatedAt   *time.Time      `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Practice) TableName() string { return "practices" }
+func (Practice) TableName() string {
+	return "practices"
+}
 
 type PracticeQuestion struct {
 	ID         string `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -117,7 +135,9 @@ type PracticeQuestion struct {
 	SortOrder  int    `gorm:"column:sort_order;type:integer" json:"sort_order"`
 }
 
-func (PracticeQuestion) TableName() string { return "practice_questions" }
+func (PracticeQuestion) TableName() string {
+	return "practice_questions"
+}
 
 type ContentCategorie struct {
 	ID         string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -127,7 +147,9 @@ type ContentCategorie struct {
 	CreatedAt  *time.Time `gorm:"column:created_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"created_at"`
 }
 
-func (ContentCategorie) TableName() string { return "content_categories" }
+func (ContentCategorie) TableName() string {
+	return "content_categories"
+}
 
 type ContentType struct {
 	ID          string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -139,21 +161,27 @@ type ContentType struct {
 	UpdatedAt   *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (ContentType) TableName() string { return "content_types" }
+func (ContentType) TableName() string {
+	return "content_types"
+}
 
 type QuestionRole struct {
 	QuestionID string `gorm:"column:question_id;type:text;primaryKey" json:"question_id"`
 	RoleID     string `gorm:"column:role_id;type:text;primaryKey" json:"role_id"`
 }
 
-func (QuestionRole) TableName() string { return "question_roles" }
+func (QuestionRole) TableName() string {
+	return "question_roles"
+}
 
 type QuestionTag struct {
 	QuestionID string `gorm:"column:question_id;type:text;primaryKey" json:"question_id"`
 	CategoryID string `gorm:"column:category_id;type:text;primaryKey" json:"category_id"`
 }
 
-func (QuestionTag) TableName() string { return "question_tags" }
+func (QuestionTag) TableName() string {
+	return "question_tags"
+}
 
 type Category struct {
 	ID          string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -167,7 +195,9 @@ type Category struct {
 	UpdatedAt   *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Category) TableName() string { return "categories" }
+func (Category) TableName() string {
+	return "categories"
+}
 
 type Content struct {
 	ID          string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -182,7 +212,9 @@ type Content struct {
 	UpdatedAt   *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Content) TableName() string { return "contents" }
+func (Content) TableName() string {
+	return "contents"
+}
 
 type Instance struct {
 	ID             string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -210,7 +242,9 @@ type Instance struct {
 	UpdatedAt      *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Instance) TableName() string { return "instances" }
+func (Instance) TableName() string {
+	return "instances"
+}
 
 type UserRole struct {
 	ID     string `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -218,7 +252,9 @@ type UserRole struct {
 	RoleID string `gorm:"column:role_id;type:text" json:"role_id"`
 }
 
-func (UserRole) TableName() string { return "user_roles" }
+func (UserRole) TableName() string {
+	return "user_roles"
+}
 
 type Template struct {
 	ID          string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -229,7 +265,9 @@ type Template struct {
 	UpdatedAt   *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Template) TableName() string { return "templates" }
+func (Template) TableName() string {
+	return "templates"
+}
 
 type Role struct {
 	ID        string          `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -239,7 +277,9 @@ type Role struct {
 	UpdatedAt *time.Time      `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Role) TableName() string { return "roles" }
+func (Role) TableName() string {
+	return "roles"
+}
 
 type SimulationAttempt struct {
 	ID               string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -255,7 +295,9 @@ type SimulationAttempt struct {
 	UpdatedAt        *time.Time `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (SimulationAttempt) TableName() string { return "simulation_attempt" }
+func (SimulationAttempt) TableName() string {
+	return "simulation_attempt"
+}
 
 type Question struct {
 	ID            string          `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -276,7 +318,9 @@ type Question struct {
 	UpdatedAt     *time.Time      `gorm:"column:updated_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"updated_at"`
 }
 
-func (Question) TableName() string { return "questions" }
+func (Question) TableName() string {
+	return "questions"
+}
 
 type QuestionCategory struct {
 	ID        string     `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -285,7 +329,9 @@ type QuestionCategory struct {
 	CreatedAt *time.Time `gorm:"column:created_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"created_at"`
 }
 
-func (QuestionCategory) TableName() string { return "question_categories" }
+func (QuestionCategory) TableName() string {
+	return "question_categories"
+}
 
 type QuestionOption struct {
 	ID         string `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -295,7 +341,9 @@ type QuestionOption struct {
 	IsCorrect  *bool  `gorm:"column:is_correct;type:boolean" json:"is_correct"`
 }
 
-func (QuestionOption) TableName() string { return "question_options" }
+func (QuestionOption) TableName() string {
+	return "question_options"
+}
 
 type QuestionAttachment struct {
 	ID         string  `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -305,7 +353,9 @@ type QuestionAttachment struct {
 	FileType   *string `gorm:"column:file_type;type:text" json:"file_type"`
 }
 
-func (QuestionAttachment) TableName() string { return "question_attachments" }
+func (QuestionAttachment) TableName() string {
+	return "question_attachments"
+}
 
 type InstanceTask struct {
 	ID          string          `gorm:"column:id;type:text;primaryKey" json:"id"`
@@ -321,8 +371,11 @@ type InstanceTask struct {
 	PublishedAt *time.Time      `gorm:"column:published_at;type:timestamptz;autoCreateTime:false;autoUpdateTime:false" json:"published_at"`
 }
 
-func (InstanceTask) TableName() string { return "instance_tasks" }
+func (InstanceTask) TableName() string {
+	return "instance_tasks"
+}
 
+// Entity 根据数据表名称创建对应的持久化实体。
 func Entity(table string) any {
 	switch table {
 	case "assignment_roles":
@@ -378,5 +431,6 @@ func Entity(table string) any {
 	case "instance_tasks":
 		return &InstanceTask{}
 	}
+
 	return nil
 }

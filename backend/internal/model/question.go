@@ -1,5 +1,6 @@
 package model
 
+// BankType 将题目类型转换为统一的题库类型。
 func BankType(t string) string {
 	switch t {
 	case "fill_blank":
@@ -7,5 +8,6 @@ func BankType(t string) string {
 	case "short_answer":
 		return "essay"
 	}
+
 	return t
 }

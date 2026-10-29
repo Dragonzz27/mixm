@@ -6,7 +6,7 @@ import (
 	"mixm/backend/internal/model"
 )
 
-// InstanceInput contains the writable fields for this business contract.
+// InstanceInput 定义当前业务接口允许写入的请求字段。
 type InstanceInput struct {
 	Config         Optional[json.RawMessage] `json:"config"`
 	CpuLimit       Optional[json.RawMessage] `json:"cpu_limit"`
@@ -30,4 +30,7 @@ type InstanceInput struct {
 	UserIds        Optional[[]string]        `json:"user_ids"`
 }
 
-func (input InstanceInput) Fields() model.Record { return requestFields(input) }
+// Fields 提取请求中明确提供的字段，保留空值与零值。
+func (input InstanceInput) Fields() model.Record {
+	return requestFields(input)
+}

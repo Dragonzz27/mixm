@@ -14,6 +14,8 @@ Integration tests use TEST_DATABASE_URL, TEST_RABBITMQ_URL and TEST_REDIS_URL. U
 
 Use gofmt, context-aware I/O, parameterized SQL, GORM transactions for related writes, and meaningful HTTP errors. Ordinary JSON responses use code/message/data; code is zero on success and the HTTP status on failure. Persistence uses PostgreSQL. This is a new project; retain PostgreSQL schema initialization and application seed commands.
 
+Keep code readable: put each logical statement on its own line, expand long composite literals and test case tables, and separate functions and business phases with blank lines. Group imports as standard library, external dependencies, then mixm/backend packages. Add brief Chinese comments above functions and meaningful business blocks, normally one or two sentences explaining their purpose or constraints. Keep error handling with its related operation and avoid comments that merely repeat individual assignments. Run gofmt after editing.
+
 The REST contract lives in internal/router/routes.json and docs/api.md. Keep backend and frontend changes coordinated. Lists use items/total/offset/limit, partial updates use PATCH, and path IDs locate resources. JWT authentication belongs in middleware; services enforce permissions and ownership. Task ownership must be checked before using Redis cache entries.
 
 Organize HTTP routing, middleware, handlers, DTOs, business services, repositories, models, external clients and bootstrap code separately. Handlers do not contain SQL or business rules; services do not receive gin.Context, HTTP requests or response writers. Repository queries use GORM and explicitly map the existing schema. Do not use AutoMigrate or soft deletion. PATCH DTOs must preserve absent fields, explicit null and zero values.

@@ -4,7 +4,7 @@ import (
 	"mixm/backend/internal/model"
 )
 
-// UserInput contains the writable fields for this business contract.
+// UserInput 定义当前业务接口允许写入的请求字段。
 type UserInput struct {
 	Email       Optional[string] `json:"email"`
 	IsActive    Optional[bool]   `json:"is_active"`
@@ -15,4 +15,7 @@ type UserInput struct {
 	Username    Optional[string] `json:"username"`
 }
 
-func (input UserInput) Fields() model.Record { return requestFields(input) }
+// Fields 提取请求中明确提供的字段，保留空值与零值。
+func (input UserInput) Fields() model.Record {
+	return requestFields(input)
+}

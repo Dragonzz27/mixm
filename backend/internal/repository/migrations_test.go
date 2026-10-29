@@ -9,12 +9,15 @@ import (
 	"mixm/backend/internal/testutil"
 )
 
+// TestRemoveKnowledgeTracingMigrationPreservesTests 验证旧知识追踪数据清理不会破坏测评数据。
 func TestRemoveKnowledgeTracingMigrationPreservesTests(t *testing.T) {
 	db := testutil.Database(t)
 	ctx := context.Background()
 
-	// Recreate retired storage and mark its cleanup pending to simulate an upgrade.
-	_, err := db.Exec(ctx, `
+	// 重建已停用的数据结构并将清理迁移标记为待执行，模拟历史版本升级。
+	_, err := db.Exec(
+		ctx,
+		`
 		CREATE TABLE knowledge_mastery (id text PRIMARY KEY, mastery double precision);
 		INSERT INTO knowledge_mastery VALUES ('old-mastery', 0.7);
 		CREATE TABLE simulation_answer_trace (id text PRIMARY KEY, is_correct boolean);
@@ -26,38 +29,50 @@ func TestRemoveKnowledgeTracingMigrationPreservesTests(t *testing.T) {
 		  '{"score":100,"accuracy":100,"knowledge_accuracy":{"Go":100},"knowledge_mastery":{"Go":0.7},"q_matrix":[{}],"q_matrix_by_question":{},"q_matrix_by_tag":{}}'),
 		  ('current', 'student', 'in_progress', '[]', '[]', NULL),
 		  ('plain', 'other-student', 'submitted', '[]', '[]', '{"score":50}');
-	`)
+	`,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if err = repository.Migrate(ctx, db); err != nil {
 		t.Fatal(err)
 	}
+
 	for _, table := range []string{"knowledge_mastery", "simulation_answer_trace"} {
 		row, err := repository.One(ctx, db, "SELECT to_regclass(current_schema() || '.' || $1)::text AS name", table)
 		if err != nil || row["name"] != nil {
 			t.Fatalf("retired table %s remains: %v, %v", table, row, err)
 		}
 	}
+
 	row, err := repository.Get(ctx, db, "simulation_attempt", "submitted")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	result := model.Object(row["result_payload"])
-	if len(result) != 3 || model.Number(result, "score") != 100 || model.Number(result, "accuracy") != 100 || model.Number(model.Object(result["knowledge_accuracy"]), "Go") != 100 {
+	if len(result) != 3 ||
+		model.Number(result, "score") != 100 ||
+		model.Number(result, "accuracy") != 100 ||
+		model.Number(model.Object(result["knowledge_accuracy"]), "Go") != 100 {
 		t.Fatalf("test results changed or retired fields remain: %v", result)
 	}
+
 	if len(model.Objects(row["questions_payload"])) != 1 || len(model.Objects(row["answers_payload"])) != 1 || row["status"] != "submitted" {
 		t.Fatalf("test history changed: %v", row)
 	}
+
 	current, err := repository.Get(ctx, db, "simulation_attempt", "current")
 	if err != nil || current["result_payload"] != nil || current["status"] != "in_progress" {
 		t.Fatalf("unfinished test changed: %v, %v", current, err)
 	}
+
 	plain, err := repository.Get(ctx, db, "simulation_attempt", "plain")
 	if err != nil || model.Number(model.Object(plain["result_payload"]), "score") != 50 {
 		t.Fatalf("ordinary result changed: %v, %v", plain, err)
 	}
+
 	if err = repository.Migrate(ctx, db); err != nil {
 		t.Fatalf("repeated startup migration failed: %v", err)
 	}

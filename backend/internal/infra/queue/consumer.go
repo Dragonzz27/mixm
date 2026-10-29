@@ -12,10 +12,18 @@ import (
 	"mixm/backend/internal/repository"
 )
 
-func Work(ctx context.Context, c config.Config, db *repository.DB, cache *redis.Client, k *cluster.Client) error {
+// Work 消费实例任务，处理确认、失败和连接重试。
+func Work(
+	ctx context.Context,
+	c config.Config,
+	db *repository.DB,
+	cache *redis.Client,
+	k *cluster.Client,
+) error {
 	if k == nil {
 		return fmt.Errorf("worker requires Kubernetes configuration")
 	}
+
 	for ctx.Err() == nil {
 		conn, ch, err := channel(c)
 		if err != nil {
@@ -23,16 +31,20 @@ func Work(ctx context.Context, c config.Config, db *repository.DB, cache *redis.
 			if !retry(ctx) {
 				break
 			}
+
 			continue
 		}
+
 		if err = ch.Qos(1, 0, false); err != nil {
 			ch.Close()
 			conn.Close()
 			if !retry(ctx) {
 				break
 			}
+
 			continue
 		}
+
 		deliveries, err := ch.Consume(c.Queue, "", false, false, false, false, nil)
 		if err != nil {
 			ch.Close()
@@ -40,8 +52,10 @@ func Work(ctx context.Context, c config.Config, db *repository.DB, cache *redis.
 			if !retry(ctx) {
 				break
 			}
+
 			continue
 		}
+
 		func() {
 			for {
 				select {
@@ -54,6 +68,7 @@ func Work(ctx context.Context, c config.Config, db *repository.DB, cache *redis.
 					if err = process(ctx, db, cache, k, string(d.Body)); err != nil {
 						slog.Error("task failed to persist", "error", err)
 						_ = d.Nack(false, true)
+
 						return
 					}
 					if err = d.Ack(false); err != nil {
@@ -68,5 +83,6 @@ func Work(ctx context.Context, c config.Config, db *repository.DB, cache *redis.
 			break
 		}
 	}
+
 	return ctx.Err()
 }

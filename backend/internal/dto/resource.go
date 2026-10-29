@@ -6,7 +6,7 @@ import (
 	"mixm/backend/internal/model"
 )
 
-// ResourceInput contains the writable fields for this business contract.
+// ResourceInput 定义当前业务接口允许写入的请求字段。
 type ResourceInput struct {
 	Answer          Optional[string]                `json:"answer"`
 	Attachments     Optional[json.RawMessage]       `json:"attachments"`
@@ -42,4 +42,7 @@ type ResourceInput struct {
 	VisibleRoles    Optional[[]string]              `json:"visible_roles"`
 }
 
-func (input ResourceInput) Fields() model.Record { return requestFields(input) }
+// Fields 提取请求中明确提供的字段，保留空值与零值。
+func (input ResourceInput) Fields() model.Record {
+	return requestFields(input)
+}

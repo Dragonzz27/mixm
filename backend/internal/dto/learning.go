@@ -6,7 +6,7 @@ import (
 	"mixm/backend/internal/model"
 )
 
-// LearningInput contains the writable fields for this business contract.
+// LearningInput 定义当前业务接口允许写入的请求字段。
 type LearningInput struct {
 	ID               string                            `json:"-"`
 	Answers          Optional[[]SimulationAnswerInput] `json:"answers"`
@@ -26,4 +26,7 @@ type LearningInput struct {
 	TypeCounts       Optional[map[string]int]          `json:"type_counts"`
 }
 
-func (input LearningInput) Fields() model.Record { return requestFields(input) }
+// Fields 提取请求中明确提供的字段，保留空值与零值。
+func (input LearningInput) Fields() model.Record {
+	return requestFields(input)
+}
