@@ -36,7 +36,7 @@
             <span>{{ resource.title }}</span
             ><span class="eyebrow">{{ resource.label }}</span>
           </div>
-          <p class="resource-number">{{ resource.value }}<span>%</span></p>
+          <p class="resource-number">{{ resource.value.toFixed(2) }}<span>%</span></p>
           <n-progress
             type="line"
             :percentage="resource.value"
