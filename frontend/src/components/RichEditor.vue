@@ -36,6 +36,7 @@ import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import Vditor from 'vditor'
+import { VDITOR_ASSET_BASE } from '@/utils/vditorAssets'
 import 'vditor/dist/index.css'
 import { contentApi } from '@/api'
 import { useMessage, NRadioGroup, NRadioButton, NInput, NModal, NButton } from 'naive-ui'
@@ -110,6 +111,7 @@ function initVditor() {
   }
   
   vditorInstance = new Vditor(vditorRef.value, {
+    cdn: VDITOR_ASSET_BASE,
     id: 'vditor-editor',
     cache: {
       enable: false

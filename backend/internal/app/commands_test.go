@@ -12,8 +12,9 @@ import (
 	"mixm/backend/internal/testutil"
 )
 
-// TestSeedAndAdminUseExistingSchema 验证初始化命令幂等，并在现有结构上创建管理员。
-func TestSeedAndAdminUseExistingSchema(t *testing.T) {
+// commandTestDatabase 让初始化命令连接独立测试模式，避免写入业务数据库。
+func commandTestDatabase(t *testing.T) *repository.DB {
+	t.Helper()
 	// 为命令测试创建独立模式，避免写入业务数据。
 	db := testutil.Database(t)
 	ctx := context.Background()
@@ -33,6 +34,13 @@ func TestSeedAndAdminUseExistingSchema(t *testing.T) {
 	database.RawQuery = params.Encode()
 	t.Setenv("DATABASE_URL", database.String())
 	t.Setenv("SECRET_KEY", "test-secret")
+	return db
+}
+
+// TestSeedAndAdminUseExistingSchema 验证初始化命令幂等，并在现有结构上创建管理员。
+func TestSeedAndAdminUseExistingSchema(t *testing.T) {
+	db := commandTestDatabase(t)
+	ctx := context.Background()
 	t.Setenv("ADMIN_EMAIL", "bootstrap@example.com")
 	t.Setenv("ADMIN_USERNAME", "bootstrap")
 	t.Setenv("ADMIN_PASSWORD", "test-password")

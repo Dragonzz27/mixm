@@ -26,7 +26,7 @@ const routes = [
       {
         path: 'contents',
         name: 'ClientContents',
-        meta: { title: '内容列表' },
+        meta: { title: '内容浏览' },
         component: () => import('@/views/client/Contents.vue')
       },
       {

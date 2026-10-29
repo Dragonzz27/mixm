@@ -11,7 +11,7 @@ import (
 	"mixm/backend/internal/repository"
 )
 
-// Seed 初始化默认角色和内容类型，可重复执行。
+// Seed 初始化默认角色、内容类型和开发示例，可重复执行。
 func Seed() error {
 	// 读取配置并应用编号迁移，保证初始化所需的表已存在。
 	c, err := config.Load()
@@ -31,7 +31,7 @@ func Seed() error {
 		return err
 	}
 
-	// 默认角色和内容类型在同一事务中初始化。
+	// 基础配置和示例内容在同一事务中初始化，失败时整体回滚。
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
@@ -90,8 +90,12 @@ func Seed() error {
 		}
 	}
 
+	if err = seedExamples(ctx, tx); err != nil {
+		return err
+	}
+
 	if err = tx.Commit(ctx); err == nil {
-		fmt.Println("角色和内容类型初始化完成")
+		fmt.Println("角色、内容类型和开发示例初始化完成：3 篇教学内容、3 份作业、5 道题目、1 份练习")
 	}
 
 	return err
